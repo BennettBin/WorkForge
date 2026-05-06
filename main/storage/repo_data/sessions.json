@@ -1,0 +1,16 @@
+[
+  {
+    "session_id": "sess_2d0ba81e559b",
+    "user_id": "user_12cb06f46db7",
+    "token": "tok_75418811aa36",
+    "created_at": "2026-05-05T01:48:36.454525Z",
+    "expires_at": "2026-05-12T01:48:36.454525Z"
+  },
+  {
+    "session_id": "sess_bca8cfe4026a",
+    "user_id": "user_12cb06f46db7",
+    "token": "tok_988c5138b1fe",
+    "created_at": "2026-05-06T17:55:19.858277Z",
+    "expires_at": "2026-05-13T17:55:19.858277Z"
+  }
+]

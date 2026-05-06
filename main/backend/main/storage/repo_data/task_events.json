@@ -1,0 +1,569 @@
+[
+  {
+    "event_id": "evt_3dec9c0f8834",
+    "task_id": "task_fa96826096eb",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-05T21:04:52.173331Z"
+  },
+  {
+    "event_id": "evt_91635d636ee3",
+    "task_id": "task_fa96826096eb",
+    "stage": "file_uploaded",
+    "message": "file uploaded: 1-s2.0-S036083522500590X-main.pdf",
+    "created_at": "2026-05-05T21:04:52.689278Z"
+  },
+  {
+    "event_id": "evt_2fcb215fb879",
+    "task_id": "task_fa96826096eb",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\parsed\\task_fa96826096eb\\file_1627eb525459.txt",
+    "created_at": "2026-05-05T21:04:55.805204Z"
+  },
+  {
+    "event_id": "evt_1104c30b8568",
+    "task_id": "task_fa96826096eb",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-05T21:04:55.862538Z"
+  },
+  {
+    "event_id": "evt_32af7fe34ad7",
+    "task_id": "task_fa96826096eb",
+    "stage": "skill_selecting",
+    "message": "selected_skills=",
+    "created_at": "2026-05-05T21:04:55.872005Z"
+  },
+  {
+    "event_id": "evt_dc2e7ceb8f2a",
+    "task_id": "task_fa96826096eb",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-05T21:04:55.875527Z"
+  },
+  {
+    "event_id": "evt_544d732d2b5d",
+    "task_id": "task_fa96826096eb",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-05T21:04:55.880528Z"
+  },
+  {
+    "event_id": "evt_3ac3959c98c7",
+    "task_id": "task_fa96826096eb",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-05T21:04:55.892191Z"
+  },
+  {
+    "event_id": "evt_ca82c10bfa96",
+    "task_id": "task_fa96826096eb",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-05T21:04:55.896723Z"
+  },
+  {
+    "event_id": "evt_4b2a8e56d1d2",
+    "task_id": "task_fa96826096eb",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-05T21:04:55.899872Z"
+  },
+  {
+    "event_id": "evt_3e9cbea3de97",
+    "task_id": "task_fa96826096eb",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-05T21:04:55.969517Z"
+  },
+  {
+    "event_id": "evt_97f6e894ad5a",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-05T21:18:52.512973Z"
+  },
+  {
+    "event_id": "evt_502d914eede6",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "file_uploaded",
+    "message": "file uploaded: 1-s2.0-S036083522500590X-main.pdf",
+    "created_at": "2026-05-05T21:18:52.717177Z"
+  },
+  {
+    "event_id": "evt_1fd5f2f7f9b0",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\parsed\\task_fcc93a6a2db7\\file_3cc0a6f4f976.txt",
+    "created_at": "2026-05-05T21:18:55.414056Z"
+  },
+  {
+    "event_id": "evt_8004518b8bb6",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-05T21:18:55.467396Z"
+  },
+  {
+    "event_id": "evt_18b7ee9a8eaa",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "skill_selecting",
+    "message": "selected_skills=",
+    "created_at": "2026-05-05T21:18:55.477905Z"
+  },
+  {
+    "event_id": "evt_6768e1b153a9",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-05T21:18:55.482493Z"
+  },
+  {
+    "event_id": "evt_6f7425e3652c",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-05T21:18:55.489443Z"
+  },
+  {
+    "event_id": "evt_80fd7e3a3577",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-05T21:18:55.504720Z"
+  },
+  {
+    "event_id": "evt_7cac95a530fe",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-05T21:18:55.508276Z"
+  },
+  {
+    "event_id": "evt_e2f31d07c94d",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-05T21:18:55.511790Z"
+  },
+  {
+    "event_id": "evt_85246d276eff",
+    "task_id": "task_fcc93a6a2db7",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-05T21:18:55.560564Z"
+  },
+  {
+    "event_id": "evt_ed98d67b6877",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-05T21:19:29.632147Z"
+  },
+  {
+    "event_id": "evt_a4cb9b87b8fe",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "file_uploaded",
+    "message": "file uploaded: 1-s2.0-S036083522500590X-main.pdf",
+    "created_at": "2026-05-05T21:19:29.788010Z"
+  },
+  {
+    "event_id": "evt_98f426f29ca7",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\parsed\\task_8fd8b4e58a61\\file_679f5399e093.txt",
+    "created_at": "2026-05-05T21:19:32.508246Z"
+  },
+  {
+    "event_id": "evt_d9cec9dfada0",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-05T21:19:32.567643Z"
+  },
+  {
+    "event_id": "evt_530ad820e30d",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "skill_selecting",
+    "message": "selected_skills=",
+    "created_at": "2026-05-05T21:19:32.582827Z"
+  },
+  {
+    "event_id": "evt_28ec58769571",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-05T21:19:32.589365Z"
+  },
+  {
+    "event_id": "evt_1225bd28c065",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-05T21:19:32.600445Z"
+  },
+  {
+    "event_id": "evt_169143788b42",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-05T21:19:32.618398Z"
+  },
+  {
+    "event_id": "evt_a6ec4f638029",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-05T21:19:32.623955Z"
+  },
+  {
+    "event_id": "evt_7b8c7f05a3e8",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-05T21:19:32.630796Z"
+  },
+  {
+    "event_id": "evt_40a4ee900318",
+    "task_id": "task_8fd8b4e58a61",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-05T21:19:32.689940Z"
+  },
+  {
+    "event_id": "evt_9cf0c75c1648",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-05T21:19:52.028412Z"
+  },
+  {
+    "event_id": "evt_2d228cfced54",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "file_uploaded",
+    "message": "file uploaded: 1-s2.0-S036083522500590X-main.pdf",
+    "created_at": "2026-05-05T21:19:52.161263Z"
+  },
+  {
+    "event_id": "evt_4de0c432017b",
+    "task_id": "task_c37077503ac0",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-05T21:19:53.423300Z"
+  },
+  {
+    "event_id": "evt_54a676b27552",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\parsed\\task_b6f9658a40c8\\file_386eb957b681.txt",
+    "created_at": "2026-05-05T21:19:54.984461Z"
+  },
+  {
+    "event_id": "evt_82abc58804f4",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-05T21:19:55.070560Z"
+  },
+  {
+    "event_id": "evt_654dc95ab7a9",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "skill_selecting",
+    "message": "selected_skills=",
+    "created_at": "2026-05-05T21:19:55.095098Z"
+  },
+  {
+    "event_id": "evt_c6edad4a4601",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-05T21:19:55.100619Z"
+  },
+  {
+    "event_id": "evt_4bda16259833",
+    "task_id": "task_c37077503ac0",
+    "stage": "file_uploaded",
+    "message": "file uploaded: 1-s2.0-S036083522500590X-main.pdf",
+    "created_at": "2026-05-05T21:19:55.106515Z"
+  },
+  {
+    "event_id": "evt_ea270f3480bd",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-05T21:19:55.110028Z"
+  },
+  {
+    "event_id": "evt_a94ea5947c56",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-05T21:19:55.141704Z"
+  },
+  {
+    "event_id": "evt_01311c60b09c",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-05T21:19:55.145959Z"
+  },
+  {
+    "event_id": "evt_9916c3cc30ae",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-05T21:19:55.157000Z"
+  },
+  {
+    "event_id": "evt_3002e8d1196a",
+    "task_id": "task_c37077503ac0",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\parsed\\task_c37077503ac0\\file_cea5dde84862.txt",
+    "created_at": "2026-05-05T21:19:57.838166Z"
+  },
+  {
+    "event_id": "evt_403505013ff6",
+    "task_id": "task_b6f9658a40c8",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-05T21:19:57.863330Z"
+  },
+  {
+    "event_id": "evt_89fafddf6753",
+    "task_id": "task_c37077503ac0",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-05T21:19:57.913627Z"
+  },
+  {
+    "event_id": "evt_2a42ab8a64ba",
+    "task_id": "task_c37077503ac0",
+    "stage": "skill_selecting",
+    "message": "selected_skills=",
+    "created_at": "2026-05-05T21:19:57.934455Z"
+  },
+  {
+    "event_id": "evt_75143d387f78",
+    "task_id": "task_c37077503ac0",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-05T21:19:57.939516Z"
+  },
+  {
+    "event_id": "evt_5cb369361612",
+    "task_id": "task_c37077503ac0",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-05T21:19:57.948546Z"
+  },
+  {
+    "event_id": "evt_60867713cbd1",
+    "task_id": "task_c37077503ac0",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-05T21:19:57.960615Z"
+  },
+  {
+    "event_id": "evt_3bedcfa53af6",
+    "task_id": "task_c37077503ac0",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-05T21:19:57.965383Z"
+  },
+  {
+    "event_id": "evt_fcc1cb38056b",
+    "task_id": "task_c37077503ac0",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-05T21:19:57.968903Z"
+  },
+  {
+    "event_id": "evt_00809f3118f6",
+    "task_id": "task_c37077503ac0",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-05T21:19:58.031070Z"
+  },
+  {
+    "event_id": "evt_895dce13fc5b",
+    "task_id": "task_91144b59e00d",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-05T21:26:06.483685Z"
+  },
+  {
+    "event_id": "evt_a947201a7a3e",
+    "task_id": "task_91144b59e00d",
+    "stage": "file_uploaded",
+    "message": "file uploaded: 1-s2.0-S036083522500590X-main.pdf",
+    "created_at": "2026-05-05T21:26:06.650653Z"
+  },
+  {
+    "event_id": "evt_4e4728f4c64d",
+    "task_id": "task_91144b59e00d",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\parsed\\task_91144b59e00d\\file_5406fca66ec4.txt",
+    "created_at": "2026-05-05T21:26:09.370000Z"
+  },
+  {
+    "event_id": "evt_3db6076cb8e7",
+    "task_id": "task_91144b59e00d",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-05T21:26:09.426239Z"
+  },
+  {
+    "event_id": "evt_a40b714830ab",
+    "task_id": "task_91144b59e00d",
+    "stage": "skill_selecting",
+    "message": "selected_skills=",
+    "created_at": "2026-05-05T21:26:09.439546Z"
+  },
+  {
+    "event_id": "evt_4f5a68006c9a",
+    "task_id": "task_91144b59e00d",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-05T21:26:09.443552Z"
+  },
+  {
+    "event_id": "evt_0537a03d6d2d",
+    "task_id": "task_91144b59e00d",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-05T21:26:09.452539Z"
+  },
+  {
+    "event_id": "evt_6a6459bf7c1d",
+    "task_id": "task_91144b59e00d",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-05T21:26:09.465082Z"
+  },
+  {
+    "event_id": "evt_b6ca85e60127",
+    "task_id": "task_91144b59e00d",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-05T21:26:09.469819Z"
+  },
+  {
+    "event_id": "evt_b510032dca38",
+    "task_id": "task_91144b59e00d",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-05T21:26:09.473816Z"
+  },
+  {
+    "event_id": "evt_6dc3d3149838",
+    "task_id": "task_91144b59e00d",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-05T21:26:09.527131Z"
+  },
+  {
+    "event_id": "evt_332977c6c6ca",
+    "task_id": "task_2df37404216c",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-05T21:31:48.722314Z"
+  },
+  {
+    "event_id": "evt_05d43dc0900f",
+    "task_id": "task_668dab94ac9f",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-05T21:32:11.705536Z"
+  },
+  {
+    "event_id": "evt_891eb6b85f0d",
+    "task_id": "task_668dab94ac9f",
+    "stage": "file_uploaded",
+    "message": "file uploaded: sample.txt",
+    "created_at": "2026-05-05T21:32:11.792564Z"
+  },
+  {
+    "event_id": "evt_f88393fc6b98",
+    "task_id": "task_668dab94ac9f",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\parsed\\task_668dab94ac9f\\file_4d8c97c8f08f.txt",
+    "created_at": "2026-05-05T21:32:11.888286Z"
+  },
+  {
+    "event_id": "evt_86606db24adc",
+    "task_id": "task_668dab94ac9f",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-05T21:32:11.980293Z"
+  },
+  {
+    "event_id": "evt_d1e424b4213a",
+    "task_id": "task_668dab94ac9f",
+    "stage": "skill_selecting",
+    "message": "selected_skills=",
+    "created_at": "2026-05-05T21:32:11.991391Z"
+  },
+  {
+    "event_id": "evt_7d5a75c42f55",
+    "task_id": "task_668dab94ac9f",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-05T21:32:11.997019Z"
+  },
+  {
+    "event_id": "evt_1da50a5fbbda",
+    "task_id": "task_668dab94ac9f",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-05T21:32:12.004997Z"
+  },
+  {
+    "event_id": "evt_326727256963",
+    "task_id": "task_668dab94ac9f",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-05T21:32:12.016461Z"
+  },
+  {
+    "event_id": "evt_ccac9e9bc47d",
+    "task_id": "task_668dab94ac9f",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-05T21:32:12.022028Z"
+  },
+  {
+    "event_id": "evt_870ede3c4193",
+    "task_id": "task_668dab94ac9f",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-05T21:32:12.026667Z"
+  },
+  {
+    "event_id": "evt_67304a44b1dd",
+    "task_id": "task_668dab94ac9f",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-05T21:32:12.072710Z"
+  },
+  {
+    "event_id": "evt_209900b7222f",
+    "task_id": "task_09c49055e97c",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T00:57:00.408203Z"
+  },
+  {
+    "event_id": "evt_e96926f6e71c",
+    "task_id": "task_bf77e733fdc0",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T00:57:48.504735Z"
+  },
+  {
+    "event_id": "evt_b123e4b541cc",
+    "task_id": "task_35358c281f74",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T00:57:58.405851Z"
+  }
+]

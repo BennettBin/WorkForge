@@ -41,3 +41,31 @@ Pull requests should include a summary, linked issue or task, test results, and 
 ## Security & Configuration Tips
 
 Do not commit `.env`, credentials, datasets, generated outputs, checkpoints, or virtual environments. `.gitignore` already excludes these paths; document required variable names without secret values.
+
+## Attentions
+
+Before writing any code, you must read `develop_guide/architecture.md` in its entirety; furthermore, `develop_guide/architecture.md` must be updated upon the completion of any major feature or project milestone, and whenever script/module architecture changes.
+Before writing any code, you must read `develop_guide/product_design.md` in its entirety.
+During development, after every completed implementation step, you must append a new record to `develop_guide/process.md` including completion time and completed content.
+Whenever adding/updating/removing scripts, modules, or major service boundaries, you must update `develop_guide/architecture.md` to reflect current architecture and the purpose of each script/module.
+
+### Skill Runtime Enforcement (Mandatory)
+
+For every new or updated Skill, agents must implement an executable runtime chain, not only a documentation description.
+
+Minimum required contract for each Skill:
+- `Skill file` must include:
+  - clear trigger conditions/keywords
+  - runtime binding target (handler path or executor mapping)
+  - expected input/output schema
+- `Skill registry` must expose the runtime binding metadata so orchestrators can resolve it.
+- `Skill executor/runtime` must map the Skill name to a real callable service/tool implementation.
+- `Task orchestration` must explicitly trigger the Skill when trigger conditions are met.
+- `Auditability` is required: each Skill trigger must leave traceable execution records (for example `SkillCall`).
+- `Fallback` is required: if tool/network execution fails, the workflow must degrade safely without silent failure.
+
+Validation requirement before completion:
+- Add or update automated tests proving:
+  1) trigger conditions can activate the Skill,
+  2) activation executes the bound tool/service path,
+  3) execution results are persisted in trace logs/audit records.

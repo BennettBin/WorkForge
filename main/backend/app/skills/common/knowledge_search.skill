@@ -1,0 +1,71 @@
+---
+name: knowledge_search
+domain: common
+version: 1.0.0
+owner: backend
+status: active
+task_types:
+  - ppt
+stages:
+  - planning
+  - generating
+tags:
+  - search
+  - web
+  - retrieval
+runtime_handler: app.services.knowledge_search.search_service:KnowledgeSearchService.search_and_extract
+trigger_keywords:
+  - 搜索
+  - 检索
+  - 联网
+  - 补充资料
+  - 最新
+  - reference
+  - citation
+  - research
+---
+
+# Knowledge Search Skill
+
+## Purpose
+提供通用知识搜索与网页信息提取能力，供任意 Task Agent 在内容补充、事实扩展和修改时调用。
+
+## When to Use
+- 用户明确要求“搜索相关资料/补充背景知识/给出最新信息”。
+- 当前输入文件内容不足以支撑指定页面主题时。
+- 修订阶段需要快速补充特定页面资料时。
+
+## Inputs
+- 查询语句（query）
+- 可选的领域约束和语言偏好
+- 结果上限（max_results）
+
+## Workflow
+1. 生成查询语句。
+2. 执行公开搜索（MVP 使用无密钥公共检索源）。
+3. 对命中链接提取网页正文摘要。
+4. 返回结构化知识条目用于后续内容生成。
+
+## Runtime Binding
+- Skill Name: `knowledge_search`
+- Runtime Handler: `app.services.knowledge_search.search_service:KnowledgeSearchService.search_and_extract`
+- Trigger Source: Coordinator 对用户需求中的搜索意图识别 + TaskService 在生成阶段显式触发。
+
+## Outputs
+- `title`
+- `url`
+- `snippet`
+- `content`（提取后的正文摘要）
+
+## Quality Checklist
+- 至少返回来源标题与链接。
+- 不返回空内容条目。
+- 网络失败时优雅降级，不阻塞主流程。
+
+## Common Failure Cases
+- 网络不可用或目标站点无法访问。
+- 页面结构复杂导致正文提取不足。
+
+## Revision Strategy
+- 搜索失败时退回文件内向量检索结果。
+- 缩短查询词并增加关键主题词后重试一次。

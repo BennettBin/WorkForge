@@ -1,0 +1,15 @@
+[
+  {
+    "file_id": "file_19e6ef4ebb32",
+    "task_id": "task_22b6f43b5976",
+    "file_name": "sample.txt",
+    "file_type": "txt",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\storage\\uploads\\task_22b6f43b5976\\file_19e6ef4ebb32.txt",
+    "file_size_bytes": 43,
+    "parsed_text_path": "D:\\pycharm\\Projects\\WorkForge\\main\\storage\\parsed\\task_22b6f43b5976\\file_19e6ef4ebb32.txt",
+    "parse_status": "success",
+    "summary": "WorkForge MVP test content.\nPoint A\nPoint B",
+    "uploaded_at": "2026-05-05T21:33:58.848282Z",
+    "expires_at": "2026-05-12T21:33:58.848282Z"
+  }
+]

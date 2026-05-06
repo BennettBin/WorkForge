@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "WorkForge",
+  "version": "0.1.0",
+  "identifier": "com.workforge.app",
+  "build": {
+    "frontendDist": "../frontend/dist",
+    "devUrl": "http://127.0.0.1:8080",
+    "beforeDevCommand": "npm --prefix ../frontend run dev"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "WorkForge",
+        "width": 1280,
+        "height": 800
+      }
+    ]
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all"
+  }
+}

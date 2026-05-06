@@ -1,0 +1,42 @@
+[
+  {
+    "skill_call_id": "skill_7c055ee7407f",
+    "task_id": "task_6eeacf4729e4",
+    "skill_name": "skill_registry_resolve",
+    "input": "{\"task_type\": \"ppt\", \"stage\": \"generation\"}",
+    "output": "{\"count\": 0}",
+    "token_usage": 13,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T02:10:49.384975Z"
+  },
+  {
+    "skill_call_id": "skill_23fbc7d38041",
+    "task_id": "task_6eeacf4729e4",
+    "skill_name": "ppt_generation_bundle",
+    "input": "{\"requested_pages\": 15}",
+    "output": "{\"slides\": 15}",
+    "token_usage": 9,
+    "duration_ms": 2,
+    "created_at": "2026-05-05T02:10:49.709242Z"
+  },
+  {
+    "skill_call_id": "skill_34c3bf81f9aa",
+    "task_id": "task_a33b643db13f",
+    "skill_name": "skill_registry_resolve",
+    "input": "{\"task_type\": \"ppt\", \"stage\": \"generation\"}",
+    "output": "{\"count\": 0}",
+    "token_usage": 13,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T02:10:55.419475Z"
+  },
+  {
+    "skill_call_id": "skill_e9fcd0bd1f8e",
+    "task_id": "task_a33b643db13f",
+    "skill_name": "ppt_generation_bundle",
+    "input": "{\"requested_pages\": 15}",
+    "output": "{\"slides\": 15}",
+    "token_usage": 9,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T02:10:55.457153Z"
+  }
+]

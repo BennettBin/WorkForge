@@ -1,0 +1,1381 @@
+[
+  {
+    "event_id": "evt_624ed64f9758",
+    "task_id": "task_22b6f43b5976",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-05T21:33:58.207208Z"
+  },
+  {
+    "event_id": "evt_61992b3ff589",
+    "task_id": "task_22b6f43b5976",
+    "stage": "file_uploaded",
+    "message": "file uploaded: sample.txt",
+    "created_at": "2026-05-05T21:33:58.851514Z"
+  },
+  {
+    "event_id": "evt_18847959073b",
+    "task_id": "task_22b6f43b5976",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\storage\\parsed\\task_22b6f43b5976\\file_19e6ef4ebb32.txt",
+    "created_at": "2026-05-05T21:33:58.917900Z"
+  },
+  {
+    "event_id": "evt_3a7f4deb85fd",
+    "task_id": "task_22b6f43b5976",
+    "stage": "planning",
+    "message": "vector_index_ready chunks=1",
+    "created_at": "2026-05-05T21:33:58.963700Z"
+  },
+  {
+    "event_id": "evt_4b826b429813",
+    "task_id": "task_22b6f43b5976",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-05T21:33:58.967215Z"
+  },
+  {
+    "event_id": "evt_1a7e9f382659",
+    "task_id": "task_22b6f43b5976",
+    "stage": "planning",
+    "message": "requirement_understood=???????10?PPT?????????",
+    "created_at": "2026-05-05T21:33:58.973831Z"
+  },
+  {
+    "event_id": "evt_2a62a4436c6d",
+    "task_id": "task_22b6f43b5976",
+    "stage": "skill_selecting",
+    "message": "selected_skills=",
+    "created_at": "2026-05-05T21:33:58.978417Z"
+  },
+  {
+    "event_id": "evt_ba75afd25a17",
+    "task_id": "task_22b6f43b5976",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-05T21:33:58.981938Z"
+  },
+  {
+    "event_id": "evt_9668b9ef3d59",
+    "task_id": "task_22b6f43b5976",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-05T21:33:58.987596Z"
+  },
+  {
+    "event_id": "evt_eeb0952c1c2f",
+    "task_id": "task_22b6f43b5976",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-05T21:34:04.077233Z"
+  },
+  {
+    "event_id": "evt_4414d92aa2ae",
+    "task_id": "task_22b6f43b5976",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-05T21:34:04.090095Z"
+  },
+  {
+    "event_id": "evt_b95ef8fb28ed",
+    "task_id": "task_22b6f43b5976",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-05T21:34:04.098892Z"
+  },
+  {
+    "event_id": "evt_1884d8eb7921",
+    "task_id": "task_22b6f43b5976",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-05T21:34:04.215926Z"
+  },
+  {
+    "event_id": "evt_2f4e6ca1222a",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T00:59:41.147373Z"
+  },
+  {
+    "event_id": "evt_7e39f2b5515a",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T00:59:42.437237Z"
+  },
+  {
+    "event_id": "evt_6ff70f1b2d1c",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T00:59:42.448595Z"
+  },
+  {
+    "event_id": "evt_b1e07bf63dcd",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "planning",
+    "message": "requirement_understood=Create PPT without source file, search and organize content",
+    "created_at": "2026-05-06T00:59:42.457890Z"
+  },
+  {
+    "event_id": "evt_304b178173a0",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T00:59:42.478415Z"
+  },
+  {
+    "event_id": "evt_f6271413c3da",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T00:59:42.488811Z"
+  },
+  {
+    "event_id": "evt_383302ab7388",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T00:59:42.510057Z"
+  },
+  {
+    "event_id": "evt_c196f71006ce",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T00:59:48.575901Z"
+  },
+  {
+    "event_id": "evt_8420b3b4d415",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T00:59:48.586307Z"
+  },
+  {
+    "event_id": "evt_ea37bf0ca85f",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T00:59:48.596600Z"
+  },
+  {
+    "event_id": "evt_4968dff2837c",
+    "task_id": "task_0ed2ff6854a3",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T00:59:48.689492Z"
+  },
+  {
+    "event_id": "evt_721eb1252222",
+    "task_id": "task_58d85d884eca",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T01:01:19.763371Z"
+  },
+  {
+    "event_id": "evt_caf547f008c3",
+    "task_id": "task_58d85d884eca",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T01:01:19.846022Z"
+  },
+  {
+    "event_id": "evt_f53a88007605",
+    "task_id": "task_58d85d884eca",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T01:01:19.856984Z"
+  },
+  {
+    "event_id": "evt_9dea6be38288",
+    "task_id": "task_58d85d884eca",
+    "stage": "planning",
+    "message": "requirement_understood=我想要在合适的位置添加一页PPT专门介绍self-attention，你需要搜索内容和图片为我详细解释它的过程和内容",
+    "created_at": "2026-05-06T01:01:19.875800Z"
+  },
+  {
+    "event_id": "evt_ba85924e212a",
+    "task_id": "task_58d85d884eca",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T01:01:19.902635Z"
+  },
+  {
+    "event_id": "evt_04dd326eb4d9",
+    "task_id": "task_58d85d884eca",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T01:01:19.912087Z"
+  },
+  {
+    "event_id": "evt_c02982c69be4",
+    "task_id": "task_58d85d884eca",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T01:01:19.922505Z"
+  },
+  {
+    "event_id": "evt_7cb24846a3bd",
+    "task_id": "task_58d85d884eca",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T01:01:26.748269Z"
+  },
+  {
+    "event_id": "evt_6d1f14a9b5c0",
+    "task_id": "task_58d85d884eca",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T01:01:26.751911Z"
+  },
+  {
+    "event_id": "evt_28fb820e8dea",
+    "task_id": "task_58d85d884eca",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T01:01:26.758626Z"
+  },
+  {
+    "event_id": "evt_3ca5c98bce9c",
+    "task_id": "task_58d85d884eca",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T01:01:26.881437Z"
+  },
+  {
+    "event_id": "evt_beb0a9bd6283",
+    "task_id": "task_58d85d884eca",
+    "stage": "cache_cleared",
+    "message": "vector_cache_removed=False;files=0",
+    "created_at": "2026-05-06T01:02:38.343867Z"
+  },
+  {
+    "event_id": "evt_c81e5498185c",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T01:29:13.824807Z"
+  },
+  {
+    "event_id": "evt_50524de134df",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T01:29:15.069628Z"
+  },
+  {
+    "event_id": "evt_1b11e8f18708",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T01:29:15.078820Z"
+  },
+  {
+    "event_id": "evt_24d5c41f4d2f",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个PPT介绍一下self-attention",
+    "created_at": "2026-05-06T01:29:15.095573Z"
+  },
+  {
+    "event_id": "evt_48ea9feb4338",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T01:29:15.122533Z"
+  },
+  {
+    "event_id": "evt_0129e37db63a",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T01:29:15.133056Z"
+  },
+  {
+    "event_id": "evt_b9b01afe293b",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T01:29:15.155370Z"
+  },
+  {
+    "event_id": "evt_5704987f46f4",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T01:29:21.751392Z"
+  },
+  {
+    "event_id": "evt_0046d56114bb",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T01:29:21.761869Z"
+  },
+  {
+    "event_id": "evt_2d3dc87dae40",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T01:29:21.772214Z"
+  },
+  {
+    "event_id": "evt_7b2c8ce07a03",
+    "task_id": "task_0b2b04519ea3",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T01:29:21.870234Z"
+  },
+  {
+    "event_id": "evt_af1cc4b02b75",
+    "task_id": "task_cc46b43f4199",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T01:50:59.223210Z"
+  },
+  {
+    "event_id": "evt_e99e955119fc",
+    "task_id": "task_cc46b43f4199",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T01:50:59.443172Z"
+  },
+  {
+    "event_id": "evt_7034e5d4d06c",
+    "task_id": "task_cc46b43f4199",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T01:50:59.451753Z"
+  },
+  {
+    "event_id": "evt_eb05da5ac809",
+    "task_id": "task_cc46b43f4199",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个PPT介绍一下self-attention",
+    "created_at": "2026-05-06T01:50:59.469760Z"
+  },
+  {
+    "event_id": "evt_9f5c1b176bbf",
+    "task_id": "task_cc46b43f4199",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T01:50:59.488334Z"
+  },
+  {
+    "event_id": "evt_15c96a78487a",
+    "task_id": "task_cc46b43f4199",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T01:50:59.498156Z"
+  },
+  {
+    "event_id": "evt_1880594b440b",
+    "task_id": "task_cc46b43f4199",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T01:50:59.508808Z"
+  },
+  {
+    "event_id": "evt_18c1fd2e282c",
+    "task_id": "task_cc46b43f4199",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T01:51:05.029076Z"
+  },
+  {
+    "event_id": "evt_338b57b79f3d",
+    "task_id": "task_cc46b43f4199",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T01:51:05.038526Z"
+  },
+  {
+    "event_id": "evt_58a7aee88658",
+    "task_id": "task_cc46b43f4199",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T01:51:05.046814Z"
+  },
+  {
+    "event_id": "evt_5fe3bdd44a30",
+    "task_id": "task_cc46b43f4199",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T01:51:05.129366Z"
+  },
+  {
+    "event_id": "evt_321931a3e04e",
+    "task_id": "task_cc46b43f4199",
+    "stage": "cache_cleared",
+    "message": "vector_cache_removed=False;files=0",
+    "created_at": "2026-05-06T01:59:35.348607Z"
+  },
+  {
+    "event_id": "evt_ede0827e88bc",
+    "task_id": "task_5b75837bfef3",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T02:45:44.037876Z"
+  },
+  {
+    "event_id": "evt_6f5d0fd2e2cc",
+    "task_id": "task_5b75837bfef3",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T02:45:44.195565Z"
+  },
+  {
+    "event_id": "evt_d1face94feb5",
+    "task_id": "task_5b75837bfef3",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T02:45:44.212628Z"
+  },
+  {
+    "event_id": "evt_b3d328ed74b9",
+    "task_id": "task_5b75837bfef3",
+    "stage": "planning",
+    "message": "requirement_understood=做个PPT介绍以下self-attention机制",
+    "created_at": "2026-05-06T02:45:44.237490Z"
+  },
+  {
+    "event_id": "evt_8ce67544185e",
+    "task_id": "task_5b75837bfef3",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T02:45:44.268012Z"
+  },
+  {
+    "event_id": "evt_371b55fcc0d8",
+    "task_id": "task_5b75837bfef3",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T02:45:44.280069Z"
+  },
+  {
+    "event_id": "evt_eceb132aadab",
+    "task_id": "task_5b75837bfef3",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T02:45:44.295630Z"
+  },
+  {
+    "event_id": "evt_3435ec29d07d",
+    "task_id": "task_5b75837bfef3",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T02:45:49.847250Z"
+  },
+  {
+    "event_id": "evt_8909d33309f6",
+    "task_id": "task_5b75837bfef3",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T02:45:49.861547Z"
+  },
+  {
+    "event_id": "evt_65cef6b02bc1",
+    "task_id": "task_5b75837bfef3",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T02:45:49.872336Z"
+  },
+  {
+    "event_id": "evt_d7de5c22083d",
+    "task_id": "task_5b75837bfef3",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T02:45:49.980513Z"
+  },
+  {
+    "event_id": "evt_b38dcabd199b",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T03:28:25.466679Z"
+  },
+  {
+    "event_id": "evt_311a56f1eed6",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T03:28:25.627711Z"
+  },
+  {
+    "event_id": "evt_bb18d5322a68",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T03:28:25.637554Z"
+  },
+  {
+    "event_id": "evt_fa6223dffa9b",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "planning",
+    "message": "requirement_understood=做一个PPT介绍一下Transformer",
+    "created_at": "2026-05-06T03:28:25.653135Z"
+  },
+  {
+    "event_id": "evt_38ba2f11f9e2",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T03:28:25.683723Z"
+  },
+  {
+    "event_id": "evt_e2ba715e6a5f",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T03:28:25.698514Z"
+  },
+  {
+    "event_id": "evt_afe4ad6c382b",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T03:28:25.723029Z"
+  },
+  {
+    "event_id": "evt_4256ec912349",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T03:28:31.444385Z"
+  },
+  {
+    "event_id": "evt_d91c8f7c0f97",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T03:28:31.459876Z"
+  },
+  {
+    "event_id": "evt_ccf0cc1ee63b",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T03:28:31.475579Z"
+  },
+  {
+    "event_id": "evt_07e253315849",
+    "task_id": "task_4c47a0e64a5a",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T03:28:31.597160Z"
+  },
+  {
+    "event_id": "evt_bb6bf9bf834a",
+    "task_id": "task_2924fefc5e88",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T18:33:06.528737Z"
+  },
+  {
+    "event_id": "evt_2b109b6529cf",
+    "task_id": "task_2924fefc5e88",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T18:33:07.018091Z"
+  },
+  {
+    "event_id": "evt_039b3c78b45b",
+    "task_id": "task_2924fefc5e88",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-06T18:33:07.021090Z"
+  },
+  {
+    "event_id": "evt_aaf9dff374cc",
+    "task_id": "task_2924fefc5e88",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T18:33:07.028440Z"
+  },
+  {
+    "event_id": "evt_a3c5460997eb",
+    "task_id": "task_2924fefc5e88",
+    "stage": "planning",
+    "message": "requirement_understood=做个ppt介绍一下transformer\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-06T18:33:07.038380Z"
+  },
+  {
+    "event_id": "evt_007f0d839b78",
+    "task_id": "task_2924fefc5e88",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T18:33:07.053833Z"
+  },
+  {
+    "event_id": "evt_995666d856c2",
+    "task_id": "task_2924fefc5e88",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T18:33:07.059418Z"
+  },
+  {
+    "event_id": "evt_69421d9ee375",
+    "task_id": "task_2924fefc5e88",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T18:33:07.068017Z"
+  },
+  {
+    "event_id": "evt_03b3ee3c80ed",
+    "task_id": "task_2924fefc5e88",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=12s;require_llm=False",
+    "created_at": "2026-05-06T18:33:07.072008Z"
+  },
+  {
+    "event_id": "evt_85c4f53aa800",
+    "task_id": "task_2924fefc5e88",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=12s",
+    "created_at": "2026-05-06T18:33:07.075022Z"
+  },
+  {
+    "event_id": "evt_82ae97f627d0",
+    "task_id": "task_2924fefc5e88",
+    "stage": "generating",
+    "message": "llm_call_failed provider=ollama;model=qwen3:8b;reason=LLM request failed: timed out",
+    "created_at": "2026-05-06T18:33:21.193085Z"
+  },
+  {
+    "event_id": "evt_8a593729df52",
+    "task_id": "task_2924fefc5e88",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T18:33:21.392130Z"
+  },
+  {
+    "event_id": "evt_ffabe32db7de",
+    "task_id": "task_2924fefc5e88",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T18:33:21.399807Z"
+  },
+  {
+    "event_id": "evt_a8bc4647ac86",
+    "task_id": "task_2924fefc5e88",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T18:33:21.405832Z"
+  },
+  {
+    "event_id": "evt_48d28f0fdafa",
+    "task_id": "task_2924fefc5e88",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T18:33:21.459132Z"
+  },
+  {
+    "event_id": "evt_09ad27b35991",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T19:02:10.988854Z"
+  },
+  {
+    "event_id": "evt_98f93cda76ea",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T19:02:11.447367Z"
+  },
+  {
+    "event_id": "evt_6d9ef27bc263",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-06T19:02:11.450366Z"
+  },
+  {
+    "event_id": "evt_2d66956f529d",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T19:02:11.459481Z"
+  },
+  {
+    "event_id": "evt_40325f8b105e",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "planning",
+    "message": "requirement_understood=做个PPT介绍一下transformer\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-06T19:02:11.471117Z"
+  },
+  {
+    "event_id": "evt_b6387dfe265c",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T19:02:11.486226Z"
+  },
+  {
+    "event_id": "evt_fdd1c348be46",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T19:02:11.498208Z"
+  },
+  {
+    "event_id": "evt_0b4efeaa6aed",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T19:02:11.507120Z"
+  },
+  {
+    "event_id": "evt_60dd36c7fc8d",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=12s;require_llm=False",
+    "created_at": "2026-05-06T19:02:11.512746Z"
+  },
+  {
+    "event_id": "evt_7c6565ed9dfa",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=12s",
+    "created_at": "2026-05-06T19:02:11.517260Z"
+  },
+  {
+    "event_id": "evt_1c69bd821876",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "generating",
+    "message": "llm_call_failed provider=ollama;model=qwen3:8b;reason=LLM request failed: timed out",
+    "created_at": "2026-05-06T19:02:25.657980Z"
+  },
+  {
+    "event_id": "evt_5ba188ff8186",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T19:02:26.566141Z"
+  },
+  {
+    "event_id": "evt_302a43213fd2",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T19:02:26.571673Z"
+  },
+  {
+    "event_id": "evt_8856de66bdfd",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T19:02:26.577756Z"
+  },
+  {
+    "event_id": "evt_fd97c4e8777b",
+    "task_id": "task_26c8c176c7a7",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T19:02:26.624770Z"
+  },
+  {
+    "event_id": "evt_f5998b1142ea",
+    "task_id": "task_e487548d21d8",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T19:21:56.635071Z"
+  },
+  {
+    "event_id": "evt_43fcfd289731",
+    "task_id": "task_e487548d21d8",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T19:21:57.003381Z"
+  },
+  {
+    "event_id": "evt_8fcefef0a0e2",
+    "task_id": "task_e487548d21d8",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-06T19:21:57.006400Z"
+  },
+  {
+    "event_id": "evt_51fc4a77779d",
+    "task_id": "task_e487548d21d8",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T19:21:57.012923Z"
+  },
+  {
+    "event_id": "evt_f94d72be8e09",
+    "task_id": "task_e487548d21d8",
+    "stage": "planning",
+    "message": "requirement_understood=座椅个ppt介绍一下transformer\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-06T19:21:57.022697Z"
+  },
+  {
+    "event_id": "evt_4eb2ca2756a6",
+    "task_id": "task_e487548d21d8",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T19:21:57.039664Z"
+  },
+  {
+    "event_id": "evt_a3c3c8844e10",
+    "task_id": "task_e487548d21d8",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T19:21:57.046004Z"
+  },
+  {
+    "event_id": "evt_ba540c37ae05",
+    "task_id": "task_e487548d21d8",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T19:21:57.058065Z"
+  },
+  {
+    "event_id": "evt_9f6649c33881",
+    "task_id": "task_e487548d21d8",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=12s;require_llm=False",
+    "created_at": "2026-05-06T19:21:57.061538Z"
+  },
+  {
+    "event_id": "evt_40e3f194b0a9",
+    "task_id": "task_e487548d21d8",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=12s",
+    "created_at": "2026-05-06T19:21:57.065231Z"
+  },
+  {
+    "event_id": "evt_9d040c2588b5",
+    "task_id": "task_e487548d21d8",
+    "stage": "generating",
+    "message": "llm_call_failed provider=ollama;model=qwen3:8b;reason=LLM request failed: timed out",
+    "created_at": "2026-05-06T19:22:11.190608Z"
+  },
+  {
+    "event_id": "evt_5b1a4f9ab86b",
+    "task_id": "task_e487548d21d8",
+    "stage": "generating",
+    "message": "llm_generation_failed_fallback=LLM runtime disabled after previous failure.",
+    "created_at": "2026-05-06T19:22:12.111313Z"
+  },
+  {
+    "event_id": "evt_e5248c5e0be7",
+    "task_id": "task_e487548d21d8",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T19:22:12.690670Z"
+  },
+  {
+    "event_id": "evt_b7a1dcc0053f",
+    "task_id": "task_e487548d21d8",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T19:22:12.697054Z"
+  },
+  {
+    "event_id": "evt_5e3c00582e30",
+    "task_id": "task_e487548d21d8",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T19:22:12.701878Z"
+  },
+  {
+    "event_id": "evt_3bbdc6aabcc7",
+    "task_id": "task_e487548d21d8",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T19:22:12.749534Z"
+  },
+  {
+    "event_id": "evt_f703690c0f06",
+    "task_id": "task_d7085b2ca704",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T19:38:26.185909Z"
+  },
+  {
+    "event_id": "evt_cdf437dfeb95",
+    "task_id": "task_d7085b2ca704",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T19:38:26.625119Z"
+  },
+  {
+    "event_id": "evt_04fc1ccd0da9",
+    "task_id": "task_d7085b2ca704",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-06T19:38:26.629123Z"
+  },
+  {
+    "event_id": "evt_fe212cf5b802",
+    "task_id": "task_d7085b2ca704",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T19:38:26.635694Z"
+  },
+  {
+    "event_id": "evt_ae24d8ed72a8",
+    "task_id": "task_d7085b2ca704",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做一个ppt介绍一下transformer\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-06T19:38:26.644335Z"
+  },
+  {
+    "event_id": "evt_5328d2de8d02",
+    "task_id": "task_d7085b2ca704",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T19:38:26.659379Z"
+  },
+  {
+    "event_id": "evt_f796a7abcb71",
+    "task_id": "task_d7085b2ca704",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T19:38:26.666391Z"
+  },
+  {
+    "event_id": "evt_8e4b4735c8f0",
+    "task_id": "task_d7085b2ca704",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T19:38:26.674397Z"
+  },
+  {
+    "event_id": "evt_b9697c398aa6",
+    "task_id": "task_d7085b2ca704",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=600s;require_llm=False",
+    "created_at": "2026-05-06T19:38:26.678402Z"
+  },
+  {
+    "event_id": "evt_8324be8ce9a8",
+    "task_id": "task_d7085b2ca704",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-06T19:38:26.681737Z"
+  },
+  {
+    "event_id": "evt_13355908d287",
+    "task_id": "task_d7085b2ca704",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=25170",
+    "created_at": "2026-05-06T19:38:51.856263Z"
+  },
+  {
+    "event_id": "evt_c32e0d82afbc",
+    "task_id": "task_d7085b2ca704",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-06T19:38:52.097177Z"
+  },
+  {
+    "event_id": "evt_505b0aec9eba",
+    "task_id": "task_d7085b2ca704",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=33926",
+    "created_at": "2026-05-06T19:39:26.027313Z"
+  },
+  {
+    "event_id": "evt_fee6c2560ff8",
+    "task_id": "task_d7085b2ca704",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T19:39:26.048742Z"
+  },
+  {
+    "event_id": "evt_120b9e71bb3e",
+    "task_id": "task_d7085b2ca704",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T19:39:26.057101Z"
+  },
+  {
+    "event_id": "evt_59f3d80df4c6",
+    "task_id": "task_d7085b2ca704",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T19:39:26.064108Z"
+  },
+  {
+    "event_id": "evt_47ffa3e23c63",
+    "task_id": "task_d7085b2ca704",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T19:39:26.123342Z"
+  },
+  {
+    "event_id": "evt_0da6252e6bbf",
+    "task_id": "task_d7085b2ca704",
+    "stage": "revision_requested",
+    "message": "page=2",
+    "created_at": "2026-05-06T19:47:55.301301Z"
+  },
+  {
+    "event_id": "evt_e4bd6362a137",
+    "task_id": "task_d7085b2ca704",
+    "stage": "revision_completed",
+    "message": "page=2;version=2",
+    "created_at": "2026-05-06T19:47:55.354791Z"
+  },
+  {
+    "event_id": "evt_325ea78cada0",
+    "task_id": "task_d0ec4055f228",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T20:05:28.084281Z"
+  },
+  {
+    "event_id": "evt_073ebe5eec4e",
+    "task_id": "task_d0ec4055f228",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T20:05:28.584867Z"
+  },
+  {
+    "event_id": "evt_a17049815204",
+    "task_id": "task_d0ec4055f228",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-06T20:05:28.589752Z"
+  },
+  {
+    "event_id": "evt_ed9e26025661",
+    "task_id": "task_d0ec4055f228",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T20:05:28.597431Z"
+  },
+  {
+    "event_id": "evt_3bf69afe6479",
+    "task_id": "task_d0ec4055f228",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做一个ppt介绍一下transformer，你要搜索它的原文，从原文中摘取信息进行介绍，包括关键的公式。\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-06T20:05:28.607580Z"
+  },
+  {
+    "event_id": "evt_fa478a772f49",
+    "task_id": "task_d0ec4055f228",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T20:05:28.623173Z"
+  },
+  {
+    "event_id": "evt_04aa382de2a4",
+    "task_id": "task_d0ec4055f228",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T20:05:28.633021Z"
+  },
+  {
+    "event_id": "evt_18fe597680b7",
+    "task_id": "task_d0ec4055f228",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T20:05:28.643277Z"
+  },
+  {
+    "event_id": "evt_0c54cc95f926",
+    "task_id": "task_d0ec4055f228",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=600s;require_llm=False",
+    "created_at": "2026-05-06T20:05:28.647284Z"
+  },
+  {
+    "event_id": "evt_c2156284fff9",
+    "task_id": "task_d0ec4055f228",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-06T20:05:28.652802Z"
+  },
+  {
+    "event_id": "evt_075668bfacb8",
+    "task_id": "task_d0ec4055f228",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=23350",
+    "created_at": "2026-05-06T20:05:52.009691Z"
+  },
+  {
+    "event_id": "evt_0551fcdacb43",
+    "task_id": "task_d0ec4055f228",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-06T20:05:52.348900Z"
+  },
+  {
+    "event_id": "evt_77c4ed0532f5",
+    "task_id": "task_d0ec4055f228",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=39048",
+    "created_at": "2026-05-06T20:06:31.401422Z"
+  },
+  {
+    "event_id": "evt_9544af2be7d0",
+    "task_id": "task_d0ec4055f228",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T20:06:31.422637Z"
+  },
+  {
+    "event_id": "evt_a0250114f00f",
+    "task_id": "task_d0ec4055f228",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T20:06:31.429685Z"
+  },
+  {
+    "event_id": "evt_be5c23a03b9b",
+    "task_id": "task_d0ec4055f228",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T20:06:31.436271Z"
+  },
+  {
+    "event_id": "evt_2f432580166b",
+    "task_id": "task_d0ec4055f228",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T20:06:31.489741Z"
+  },
+  {
+    "event_id": "evt_838f6798e57f",
+    "task_id": "task_d0ec4055f228",
+    "stage": "revision_requested",
+    "message": "page=3",
+    "created_at": "2026-05-06T20:13:32.491818Z"
+  },
+  {
+    "event_id": "evt_c7428d111b82",
+    "task_id": "task_d0ec4055f228",
+    "stage": "revision_planning",
+    "message": "load_previous_version_slides",
+    "created_at": "2026-05-06T20:13:32.510244Z"
+  },
+  {
+    "event_id": "evt_85928fe3ab01",
+    "task_id": "task_d0ec4055f228",
+    "stage": "revision_planning",
+    "message": "knowledge_search_count=0",
+    "created_at": "2026-05-06T20:13:32.608114Z"
+  },
+  {
+    "event_id": "evt_bab4d200b0c7",
+    "task_id": "task_d0ec4055f228",
+    "stage": "revision_generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=90s",
+    "created_at": "2026-05-06T20:13:32.615855Z"
+  },
+  {
+    "event_id": "evt_f62378f23b6c",
+    "task_id": "task_d0ec4055f228",
+    "stage": "revision_generating",
+    "message": "llm_call_succeeded",
+    "created_at": "2026-05-06T20:14:04.165725Z"
+  },
+  {
+    "event_id": "evt_99ef9c799044",
+    "task_id": "task_d0ec4055f228",
+    "stage": "revision_completed",
+    "message": "page=3;version=2;llm_latency_ms=31604",
+    "created_at": "2026-05-06T20:14:04.224747Z"
+  },
+  {
+    "event_id": "evt_6890b71967ce",
+    "task_id": "task_a95ca4c34701",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-06T20:40:31.211308Z"
+  },
+  {
+    "event_id": "evt_353c810a46b1",
+    "task_id": "task_a95ca4c34701",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-06T20:40:31.582812Z"
+  },
+  {
+    "event_id": "evt_8f94606ec4f9",
+    "task_id": "task_a95ca4c34701",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-06T20:40:31.587325Z"
+  },
+  {
+    "event_id": "evt_7d0e9ae15d7d",
+    "task_id": "task_a95ca4c34701",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-06T20:40:31.595475Z"
+  },
+  {
+    "event_id": "evt_3d015c40efde",
+    "task_id": "task_a95ca4c34701",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做一个ppt介绍一下transformer，对于其中的框架、关键模块和关键公式要进行介绍。\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-06T20:40:31.616562Z"
+  },
+  {
+    "event_id": "evt_f89d19ea98c7",
+    "task_id": "task_a95ca4c34701",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,outline_generation",
+    "created_at": "2026-05-06T20:40:31.654595Z"
+  },
+  {
+    "event_id": "evt_e37312136bc7",
+    "task_id": "task_a95ca4c34701",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-06T20:40:31.672173Z"
+  },
+  {
+    "event_id": "evt_19a87a3d3915",
+    "task_id": "task_a95ca4c34701",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-06T20:40:31.696579Z"
+  },
+  {
+    "event_id": "evt_ece0669d1b72",
+    "task_id": "task_a95ca4c34701",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=600s;require_llm=False",
+    "created_at": "2026-05-06T20:40:31.708346Z"
+  },
+  {
+    "event_id": "evt_863ecac4fe44",
+    "task_id": "task_a95ca4c34701",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-06T20:40:31.715398Z"
+  },
+  {
+    "event_id": "evt_4eec429ca076",
+    "task_id": "task_a95ca4c34701",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=30866",
+    "created_at": "2026-05-06T20:41:02.590932Z"
+  },
+  {
+    "event_id": "evt_fb21e2378b4b",
+    "task_id": "task_a95ca4c34701",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-06T20:41:03.153650Z"
+  },
+  {
+    "event_id": "evt_a1c52973e528",
+    "task_id": "task_a95ca4c34701",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=34223",
+    "created_at": "2026-05-06T20:41:37.383562Z"
+  },
+  {
+    "event_id": "evt_1d0a8cbd5ae8",
+    "task_id": "task_a95ca4c34701",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-06T20:41:37.405613Z"
+  },
+  {
+    "event_id": "evt_ff2b05b148dc",
+    "task_id": "task_a95ca4c34701",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-06T20:41:37.413417Z"
+  },
+  {
+    "event_id": "evt_ee3d1efd7ce1",
+    "task_id": "task_a95ca4c34701",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-06T20:41:37.420494Z"
+  },
+  {
+    "event_id": "evt_5afbc5fa96be",
+    "task_id": "task_a95ca4c34701",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-06T20:41:37.693165Z"
+  },
+  {
+    "event_id": "evt_5582802d6f97",
+    "task_id": "task_a95ca4c34701",
+    "stage": "revision_requested",
+    "message": "page=auto",
+    "created_at": "2026-05-06T20:45:28.642378Z"
+  },
+  {
+    "event_id": "evt_1f2a955fa886",
+    "task_id": "task_a95ca4c34701",
+    "stage": "revision_planning",
+    "message": "page_not_provided; llm_will_identify_target_slides",
+    "created_at": "2026-05-06T20:45:28.653351Z"
+  },
+  {
+    "event_id": "evt_6ec978ea82b0",
+    "task_id": "task_a95ca4c34701",
+    "stage": "revision_planning",
+    "message": "target_pages=3,4,5,6,7,9,10",
+    "created_at": "2026-05-06T20:45:46.529351Z"
+  },
+  {
+    "event_id": "evt_352cf20d4e8c",
+    "task_id": "task_a95ca4c34701",
+    "stage": "revision_generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=90s",
+    "created_at": "2026-05-06T20:45:46.535785Z"
+  },
+  {
+    "event_id": "evt_15aaab7d6899",
+    "task_id": "task_a95ca4c34701",
+    "stage": "revision_completed",
+    "message": "pages=3,4,5,6,7,9,10;version=2;llm_latency_ms=216429",
+    "created_at": "2026-05-06T20:49:23.738519Z"
+  },
+  {
+    "event_id": "evt_d06b5b6845fb",
+    "task_id": "task_a95ca4c34701",
+    "stage": "revision_requested",
+    "message": "page=auto",
+    "created_at": "2026-05-06T20:58:02.154324Z"
+  },
+  {
+    "event_id": "evt_3e400f2413bd",
+    "task_id": "task_a95ca4c34701",
+    "stage": "revision_planning",
+    "message": "page_not_provided; llm_will_identify_target_slides",
+    "created_at": "2026-05-06T20:58:02.172063Z"
+  },
+  {
+    "event_id": "evt_d2dafda14cda",
+    "task_id": "task_a95ca4c34701",
+    "stage": "revision_planning",
+    "message": "target_pages=8",
+    "created_at": "2026-05-06T20:58:18.580101Z"
+  },
+  {
+    "event_id": "evt_fdaff703fcd9",
+    "task_id": "task_a95ca4c34701",
+    "stage": "revision_generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=90s",
+    "created_at": "2026-05-06T20:58:18.600606Z"
+  },
+  {
+    "event_id": "evt_ca5d4bfad4e1",
+    "task_id": "task_a95ca4c34701",
+    "stage": "revision_completed",
+    "message": "pages=8;version=3;llm_latency_ms=25140",
+    "created_at": "2026-05-06T20:58:44.324213Z"
+  },
+  {
+    "event_id": "evt_0f0bf0d43906",
+    "task_id": "task_a95ca4c34701",
+    "stage": "cache_cleared",
+    "message": "vector_cache_removed=False;files=0",
+    "created_at": "2026-05-06T21:09:53.537945Z"
+  }
+]

@@ -1,0 +1,28 @@
+[
+  {
+    "file_id": "file_9a5f9f8422b0",
+    "task_id": "task_6eeacf4729e4",
+    "file_name": "1-s2.0-S036083522500590X-main.pdf",
+    "file_type": "pdf",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\uploads\\task_6eeacf4729e4\\file_9a5f9f8422b0.pdf",
+    "file_size_bytes": 6678354,
+    "parsed_text_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\parsed\\task_6eeacf4729e4\\file_9a5f9f8422b0.txt",
+    "parse_status": "success",
+    "summary": "Contents lists available at ScienceDirect\nComputers & Industrial Engineering\njournal homepage: www.elsevier.com/locate/caie  \nMACiCR: Multi-view analytical framework for cross-generational changes in \ncustomer requirements based on online reviews\nBinbin Chen a,b\n , Shuangyao Zhao a\n ,∗, Qiang Zhang a\n , Jiaming Ding a,c\n , Chunhua Tang a,d\na Department of Information Management and Information Systems, School of Management, Hefei University of Technology, Hefei, 230009, China\nb Joseph M. Katz Gr",
+    "uploaded_at": "2026-05-05T02:10:43.191906Z",
+    "expires_at": "2026-05-12T02:10:43.191906Z"
+  },
+  {
+    "file_id": "file_6c2bc7c3c3b9",
+    "task_id": "task_a33b643db13f",
+    "file_name": "1-s2.0-S036083522500590X-main.pdf",
+    "file_type": "pdf",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\uploads\\task_a33b643db13f\\file_6c2bc7c3c3b9.pdf",
+    "file_size_bytes": 6678354,
+    "parsed_text_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\parsed\\task_a33b643db13f\\file_6c2bc7c3c3b9.txt",
+    "parse_status": "success",
+    "summary": "Contents lists available at ScienceDirect\nComputers & Industrial Engineering\njournal homepage: www.elsevier.com/locate/caie  \nMACiCR: Multi-view analytical framework for cross-generational changes in \ncustomer requirements based on online reviews\nBinbin Chen a,b\n , Shuangyao Zhao a\n ,∗, Qiang Zhang a\n , Jiaming Ding a,c\n , Chunhua Tang a,d\na Department of Information Management and Information Systems, School of Management, Hefei University of Technology, Hefei, 230009, China\nb Joseph M. Katz Gr",
+    "uploaded_at": "2026-05-05T02:10:49.279603Z",
+    "expires_at": "2026-05-12T02:10:49.279603Z"
+  }
+]

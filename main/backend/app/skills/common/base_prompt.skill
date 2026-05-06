@@ -1,0 +1,66 @@
+---
+name: base_prompt
+domain: common
+version: 1.0.0
+owner: backend
+status: active
+task_types:
+  - ppt
+stages:
+  - planning
+  - skill_selecting
+  - generating
+tags:
+  - prompt
+  - guardrails
+  - structure
+---
+
+# Base Prompt Skill
+
+## Purpose
+提供统一的提示词骨架，约束所有下游技能在目标、边界、输出结构与质量口径上保持一致，降低随机漂移和格式不稳定。
+
+## When to Use
+- 任务进入 `planning` 或 `skill_selecting` 阶段，需要构建执行提示词时。
+- 任何需要标准化输出格式的生成步骤（如大纲、分页内容、审查结论）。
+- 用户需求不完整，需要先抽取目标、约束和验收条件时。
+
+## Inputs
+- `task_id`：任务唯一标识。
+- `task_type`：当前任务类型（MVP-1 为 `ppt`）。
+- `user_request`：用户自然语言需求。
+- `file_parse_summary`：解析后摘要（主题、结构、关键事实）。
+- `constraints`：页数、风格、语言、超时、重试等约束。
+
+## Workflow
+1. 提取任务目标与显式约束。
+2. 补齐默认约束（例如默认页数、模板、验收下限）。
+3. 生成统一提示词结构：目标、输入事实、禁止项、输出格式、质量检查项。
+4. 返回给调用方技能作为上游上下文。
+
+## Outputs
+- `normalized_goal`：标准化任务目标。
+- `normalized_constraints`：标准化约束集合。
+- `prompt_frame`：可复用提示词框架文本。
+- `acceptance_checks`：用于下游校验的检查项列表。
+
+## Quality Checklist
+- 目标、范围、约束三者不冲突。
+- 输出格式要求明确且可机读。
+- 不泄露敏感字段（如密钥、系统路径、内部异常栈）。
+- 与 MVP-1 验收口径一致（封面+内容+总结+可打开）。
+
+## Common Failure Cases
+- 用户输入过短导致目标不完整。
+- 解析摘要缺失关键事实，导致后续内容空泛。
+- 约束冲突（例如页数过小但要求覆盖过多章节）。
+
+## Revision Strategy
+- 若目标不清晰：先回退到“目标+约束重整”并提示补充信息。
+- 若约束冲突：保留高优先级约束并记录被降级项。
+- 若输出格式不稳定：强制回到固定模板字段并重试一次。
+
+## Observability
+- 记录调用阶段、耗时、输入摘要长度、输出摘要长度。
+- 将关键决策（约束补齐、冲突处理）写入 `SkillCall.output_summary`。

@@ -1,0 +1,142 @@
+[
+  {
+    "skill_call_id": "skill_0146041a8034",
+    "task_id": "task_fa96826096eb",
+    "skill_name": "skill_registry_resolve",
+    "input": "{\"task_type\": \"ppt\", \"stage\": \"generation\"}",
+    "output": "{\"count\": 0}",
+    "token_usage": 13,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T21:04:55.870501Z"
+  },
+  {
+    "skill_call_id": "skill_8980195f1b4a",
+    "task_id": "task_fa96826096eb",
+    "skill_name": "ppt_generation_bundle",
+    "input": "{\"requested_pages\": 10}",
+    "output": "{\"slides\": 10}",
+    "token_usage": 9,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T21:04:55.884538Z"
+  },
+  {
+    "skill_call_id": "skill_430caeb4fd0e",
+    "task_id": "task_fcc93a6a2db7",
+    "skill_name": "skill_registry_resolve",
+    "input": "{\"task_type\": \"ppt\", \"stage\": \"generation\"}",
+    "output": "{\"count\": 0}",
+    "token_usage": 13,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T21:18:55.476637Z"
+  },
+  {
+    "skill_call_id": "skill_77fb92875902",
+    "task_id": "task_fcc93a6a2db7",
+    "skill_name": "ppt_generation_bundle",
+    "input": "{\"requested_pages\": 10}",
+    "output": "{\"slides\": 10}",
+    "token_usage": 9,
+    "duration_ms": 0,
+    "created_at": "2026-05-05T21:18:55.493445Z"
+  },
+  {
+    "skill_call_id": "skill_c42cf2a010be",
+    "task_id": "task_8fd8b4e58a61",
+    "skill_name": "skill_registry_resolve",
+    "input": "{\"task_type\": \"ppt\", \"stage\": \"generation\"}",
+    "output": "{\"count\": 0}",
+    "token_usage": 13,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T21:19:32.579826Z"
+  },
+  {
+    "skill_call_id": "skill_372cac4d114c",
+    "task_id": "task_8fd8b4e58a61",
+    "skill_name": "ppt_generation_bundle",
+    "input": "{\"requested_pages\": 10}",
+    "output": "{\"slides\": 10}",
+    "token_usage": 9,
+    "duration_ms": 0,
+    "created_at": "2026-05-05T21:19:32.603968Z"
+  },
+  {
+    "skill_call_id": "skill_118b04380de1",
+    "task_id": "task_b6f9658a40c8",
+    "skill_name": "skill_registry_resolve",
+    "input": "{\"task_type\": \"ppt\", \"stage\": \"generation\"}",
+    "output": "{\"count\": 0}",
+    "token_usage": 13,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T21:19:55.092058Z"
+  },
+  {
+    "skill_call_id": "skill_8b241faf0a63",
+    "task_id": "task_b6f9658a40c8",
+    "skill_name": "ppt_generation_bundle",
+    "input": "{\"requested_pages\": 10}",
+    "output": "{\"slides\": 10}",
+    "token_usage": 9,
+    "duration_ms": 0,
+    "created_at": "2026-05-05T21:19:55.113028Z"
+  },
+  {
+    "skill_call_id": "skill_b03e8e3d72c1",
+    "task_id": "task_c37077503ac0",
+    "skill_name": "skill_registry_resolve",
+    "input": "{\"task_type\": \"ppt\", \"stage\": \"generation\"}",
+    "output": "{\"count\": 0}",
+    "token_usage": 13,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T21:19:57.931456Z"
+  },
+  {
+    "skill_call_id": "skill_33b1f872366e",
+    "task_id": "task_c37077503ac0",
+    "skill_name": "ppt_generation_bundle",
+    "input": "{\"requested_pages\": 10}",
+    "output": "{\"slides\": 10}",
+    "token_usage": 9,
+    "duration_ms": 0,
+    "created_at": "2026-05-05T21:19:57.951559Z"
+  },
+  {
+    "skill_call_id": "skill_320dd91c95da",
+    "task_id": "task_91144b59e00d",
+    "skill_name": "skill_registry_resolve",
+    "input": "{\"task_type\": \"ppt\", \"stage\": \"generation\"}",
+    "output": "{\"count\": 0}",
+    "token_usage": 13,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T21:26:09.434274Z"
+  },
+  {
+    "skill_call_id": "skill_564d938202c5",
+    "task_id": "task_91144b59e00d",
+    "skill_name": "ppt_generation_bundle",
+    "input": "{\"requested_pages\": 10}",
+    "output": "{\"slides\": 10}",
+    "token_usage": 9,
+    "duration_ms": 0,
+    "created_at": "2026-05-05T21:26:09.456069Z"
+  },
+  {
+    "skill_call_id": "skill_d641e316963b",
+    "task_id": "task_668dab94ac9f",
+    "skill_name": "skill_registry_resolve",
+    "input": "{\"task_type\": \"ppt\", \"stage\": \"generation\"}",
+    "output": "{\"count\": 0}",
+    "token_usage": 13,
+    "duration_ms": 1,
+    "created_at": "2026-05-05T21:32:11.989325Z"
+  },
+  {
+    "skill_call_id": "skill_386641058fab",
+    "task_id": "task_668dab94ac9f",
+    "skill_name": "ppt_generation_bundle",
+    "input": "{\"requested_pages\": 8}",
+    "output": "{\"slides\": 8}",
+    "token_usage": 8,
+    "duration_ms": 0,
+    "created_at": "2026-05-05T21:32:12.008005Z"
+  }
+]

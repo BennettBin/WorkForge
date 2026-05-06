@@ -1,0 +1,22 @@
+[
+  {
+    "output_id": "output_a4b8e56f58ad",
+    "task_id": "task_6eeacf4729e4",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\outputs\\task_6eeacf4729e4\\v1.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-05T02:10:53.217024Z"
+  },
+  {
+    "output_id": "output_029692bbe9b8",
+    "task_id": "task_a33b643db13f",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\main\\storage\\outputs\\task_a33b643db13f\\v1.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-05T02:10:55.606068Z"
+  }
+]
