@@ -23,26 +23,30 @@ class SkillRegistry:
         for domain_dir in self.skill_root.iterdir():
             if not domain_dir.is_dir():
                 continue
-            for skill_file in domain_dir.iterdir():
-                if skill_file.is_file():
-                    parsed = self._parse_frontmatter(skill_file)
-                    metas.append(
-                        SkillMeta(
-                            name=skill_file.stem,
-                            domain=domain_dir.name,
-                            path=str(skill_file.resolve()),
-                            runtime_handler=parsed.get("runtime_handler"),
-                            trigger_keywords=parsed.get("trigger_keywords"),
-                        )
+            for skill_file in domain_dir.glob("*.md"):
+                if not skill_file.is_file():
+                    continue
+                parsed = self._parse_frontmatter(skill_file)
+                metas.append(
+                    SkillMeta(
+                        name=skill_file.stem,
+                        domain=domain_dir.name,
+                        path=str(skill_file.resolve()),
+                        runtime_handler=parsed.get("runtime_handler"),
+                        trigger_keywords=parsed.get("trigger_keywords"),
                     )
+                )
         return metas
 
     def resolve_for(self, task_type: str, stage: str) -> list[SkillMeta]:
         all_skills = self.list_all()
-        # MVP rule: only include matching domain + common.
+        # Include common skills and task-specific domain skills.
         domains = {"common"}
-        if task_type == "ppt":
+        normalized_task_type = (task_type or "").strip().lower()
+        if normalized_task_type == "ppt":
             domains.add("ppt")
+        elif normalized_task_type in {"report", "wechat_post", "data_analysis", "code_doc", "paper_assistant"}:
+            domains.add(normalized_task_type)
         return [s for s in all_skills if s.domain in domains]
 
     def _parse_frontmatter(self, skill_file: Path) -> dict:

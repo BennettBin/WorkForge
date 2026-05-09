@@ -3,15 +3,17 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import FileResponse
 
+from app.agents.coordinator import CoordinatorAgent
 from app.config import settings
-from app.models import ApiResponse, CreateTaskRequest, ParseTaskRequest, RunTaskRequest
+from app.models import ApiResponse, CreateTaskRequest, InferTaskTypeRequest, ParseTaskRequest, RunTaskRequest
 from app.models.requests import ManualStatusUpdateRequest, RevisionRequest
+from app.services.model_router import ModelRouter
 from app.services.task_manager import build_task_service, TaskService
 
 router = APIRouter(prefix="/v1/tasks", tags=["tasks"])
 PROJECT_MAIN_DIR = Path(__file__).resolve().parents[4]
 LEGACY_STORAGE_ROOTS = [
-    PROJECT_MAIN_DIR / "backend" / "main" / "storage",
+    PROJECT_MAIN_DIR / "backend" / "storage",
     PROJECT_MAIN_DIR / "backend" / "runtime_data" / "storage",
 ]
 
@@ -48,10 +50,32 @@ def _task_service(request: Request) -> TaskService:
     return build_task_service(request.app.state.repositories)
 
 
+def _media_type_for_path(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".pptx":
+        return "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    if suffix == ".md":
+        return "text/markdown; charset=utf-8"
+    if suffix == ".txt":
+        return "text/plain; charset=utf-8"
+    if suffix == ".json":
+        return "application/json"
+    if suffix == ".csv":
+        return "text/csv; charset=utf-8"
+    return "application/octet-stream"
+
+
 @router.post("", response_model=ApiResponse)
 def create_task(payload: CreateTaskRequest, service: TaskService = Depends(_task_service)) -> ApiResponse:
     task = service.create_task(payload)
     return ApiResponse(success=True, data=task.model_dump(mode="json"))
+
+
+@router.post("/infer-type", response_model=ApiResponse)
+def infer_task_type(payload: InferTaskTypeRequest, request: Request) -> ApiResponse:
+    coordinator = CoordinatorAgent(ModelRouter(request.app.state.repositories))
+    task_type = coordinator.infer_task_type(payload.requirement)
+    return ApiResponse(success=True, data={"task_type": task_type})
 
 
 @router.get("/user/{user_id}", response_model=ApiResponse)
@@ -174,7 +198,7 @@ def download_latest_file(task_id: str, service: TaskService = Depends(_task_serv
     path = _resolve_output_path(Path(latest.file_path))
     if not path.exists():
         raise ValueError(f"Output file missing on disk: {path}")
-    return FileResponse(path=str(path), filename=path.name, media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    return FileResponse(path=str(path), filename=path.name, media_type=_media_type_for_path(path))
 
 
 @router.get("/{task_id}/download/{version}/file")
@@ -190,7 +214,7 @@ def download_version_file(task_id: str, version: int, service: TaskService = Dep
     path = _resolve_output_path(Path(target.file_path))
     if not path.exists():
         raise ValueError(f"Output file missing on disk: {path}")
-    return FileResponse(path=str(path), filename=path.name, media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    return FileResponse(path=str(path), filename=path.name, media_type=_media_type_for_path(path))
 
 
 @router.get("/{task_id}/versions", response_model=ApiResponse)

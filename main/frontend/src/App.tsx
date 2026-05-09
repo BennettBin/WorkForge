@@ -14,8 +14,6 @@ const { Header, Content } = Layout;
 const navItems = [
   { key: "/", label: <Link to="/">Home</Link> },
   { key: "/tasks/create", label: <Link to="/tasks/create">Task Create</Link> },
-  { key: "/tasks/running", label: <Link to="/tasks/running">Task Running</Link> },
-  { key: "/result", label: <Link to="/result">Result</Link> },
   { key: "/models", label: <Link to="/models">Model Settings</Link> },
   { key: "/history", label: <Link to="/history">History</Link> }
 ];

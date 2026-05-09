@@ -1,0 +1,28 @@
+[
+  {
+    "file_id": "file_405a93b87d64",
+    "task_id": "task_52b445c99a41",
+    "file_name": "cate_NetProfitMargin2_treated.xlsx",
+    "file_type": "xlsx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\uploads\\task_52b445c99a41\\file_405a93b87d64.xlsx",
+    "file_size_bytes": 61107,
+    "parsed_text_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_52b445c99a41\\file_405a93b87d64.txt",
+    "parse_status": "success",
+    "summary": "Excel sheet parsed\nColumns: ID, first_treat_time, LOGEmployeeNumber, LOGAge, LOGListAge, LOGWordFre, LOGSentenceFre, IndustryConcentration_Income_10, HHI_MianIncome, PropertyRightRatio, EnterpriseValueMultiple, RDExpenseRatio, IndustryConcentration_MainIncome_10, FirmLernerIndex, MainBusinessRatio, IndustryNetProfitGrowthRatio, IndustryLernerIndex, IndustrySustainableGrowthRatio1, IndustryFixedAssetGrowthRatio, IndustryAssetGrowthRatio, IndustryOwnerEquityGrowthRatio, IndustryIncomeGrowthRatio1,",
+    "uploaded_at": "2026-05-08T02:45:45.996151Z",
+    "expires_at": "2026-05-15T02:45:45.996151Z"
+  },
+  {
+    "file_id": "file_8ad64a7389b0",
+    "task_id": "task_9752a55c6513",
+    "file_name": "cate_NetProfitMargin2_treated.xlsx",
+    "file_type": "xlsx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\uploads\\task_9752a55c6513\\file_8ad64a7389b0.xlsx",
+    "file_size_bytes": 61107,
+    "parsed_text_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_9752a55c6513\\file_8ad64a7389b0.txt",
+    "parse_status": "success",
+    "summary": "Excel sheet parsed\nColumns: ID, first_treat_time, LOGEmployeeNumber, LOGAge, LOGListAge, LOGWordFre, LOGSentenceFre, IndustryConcentration_Income_10, HHI_MianIncome, PropertyRightRatio, EnterpriseValueMultiple, RDExpenseRatio, IndustryConcentration_MainIncome_10, FirmLernerIndex, MainBusinessRatio, IndustryNetProfitGrowthRatio, IndustryLernerIndex, IndustrySustainableGrowthRatio1, IndustryFixedAssetGrowthRatio, IndustryAssetGrowthRatio, IndustryOwnerEquityGrowthRatio, IndustryIncomeGrowthRatio1,",
+    "uploaded_at": "2026-05-08T02:56:47.787803Z",
+    "expires_at": "2026-05-15T02:56:47.787803Z"
+  }
+]

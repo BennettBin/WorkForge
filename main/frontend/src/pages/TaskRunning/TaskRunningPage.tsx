@@ -1,5 +1,6 @@
 import { Button, Card, List, Progress, Space, Tag, Tooltip, Typography } from "antd";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getJson } from "../../api/http";
 import { useAppStore } from "../../store/appStore";
 import { ApiEnvelope } from "../../types/api";
@@ -39,7 +40,8 @@ function shortText(text: string, max = 160): string {
 }
 
 export default function TaskRunningPage() {
-  const { task } = useAppStore();
+  const navigate = useNavigate();
+  const { task, setTask } = useAppStore();
   const [status, setStatus] = useState<string>("idle");
   const [events, setEvents] = useState<Array<{ event_id: string; stage: string; message: string; created_at?: string }>>([]);
   const [runs, setRuns] = useState<Array<{ run_id: string; agent_name: string; status: string; output?: string }>>([]);
@@ -54,6 +56,7 @@ export default function TaskRunningPage() {
     }
     const res = await getJson<ApiEnvelope<TaskData>>(`/v1/tasks/${task.activeTaskId}`);
     setStatus(res.data.task.status);
+    setTask({ activeTaskId: task.activeTaskId, activeTaskStatus: res.data.task.status });
     setRequirement(res.data.task.user_requirement || "");
     setEvents(res.data.events || []);
     setRuns(res.data.agent_runs || []);
@@ -138,6 +141,7 @@ export default function TaskRunningPage() {
         agent_runs: Array<{ run_id: string; agent_name: string; status: string; output?: string }>;
       };
       setStatus(payload.status);
+      setTask({ activeTaskId: task.activeTaskId, activeTaskStatus: payload.status });
       if (payload.task?.user_requirement) {
         setRequirement(payload.task.user_requirement);
       }
@@ -162,7 +166,13 @@ export default function TaskRunningPage() {
     return () => {
       ws.close();
     };
-  }, [task.activeTaskId]);
+  }, [task.activeTaskId, setTask]);
+
+  useEffect(() => {
+    if (status === "completed" || status === "revision_completed") {
+      navigate("/result");
+    }
+  }, [status, navigate]);
 
   return (
     <Card>

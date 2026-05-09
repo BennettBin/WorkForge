@@ -397,3 +397,63 @@ Step: Revision optional page + style-template auto apply
 Completed: (1) Revision request now supports optional `page_index`; when omitted, backend asks LLM to infer target slide indexes and can revise multiple slides in one request, then reviews and exports new version. Result page revision form updated accordingly: page optional, larger `instruction` textarea, and no-page guidance text. (2) Added PPT template auto-apply pipeline: exporter supports loading/clearing a matched template file and rendering generated slides on top of template theme/layout; TaskCreate style options expanded; backend fuzzy-matches `task.style` to one template under `main/backend/app/templates/ppt` and applies it for run/revision/rollback exports.
 Verification: backend `python -m pytest main/backend/tests/test_steps_21_30.py -q` passed (3/3, includes new no-page revision multi-slide test); frontend `npm.cmd run build` passed.
 Open Issues: none.
+Time: 2026-05-07 21:20
+Step: Implement steps 31-34 multi-task extensibility baseline
+Completed: Extended core architecture from PPT-only to multi-task execution for `report`, `wechat_post`, `data_analysis`, `code_doc`, and `paper_assistant` while preserving existing PPT pipeline. Added `task_type` into task creation contract and entity model; coordinator supports generic `plan_for_task`; task manager now routes non-PPT requests into a reusable text-task pipeline (planning -> generation -> review -> export) with LLM primary and deterministic fallback; exports non-PPT results as versioned markdown artifacts. Added compatibility handling for non-PPT version compare/rollback and dynamic download media types. Frontend TaskCreate now allows selecting task type.
+Verification: backend `python -m pytest main/backend/tests/test_task_api_flow.py -k "extended_task_types or no_source_file_can_still_generate_by_search" -q` passed (2/2 selected); backend `python -m pytest main/backend/tests/test_steps_21_30.py -q` passed (3/3); frontend `npm.cmd run build` passed.
+Open Issues: full `test_task_api_flow.py` run was not completed in this step due session timeout; targeted assertions for new capability are passing.
+Time: 2026-05-07 21:34
+Step: Add skill runtime chain for new task types
+Completed: Added dedicated skill files and runtime bindings for `report`, `wechat_post`, `data_analysis`, `code_doc`, and `paper_assistant` under `main/backend/app/skills/*`. Extended `SkillRegistry.resolve_for(...)` domain resolution and `SkillExecutor.execute(...)` with concrete handlers (`report_outline`, `report_quality_check`, `wechat_title_ideas`, `wechat_style_polish`, `data_clean_plan`, `data_chart_plan`, `code_readme_structure`, `code_api_doc`, `paper_outline`, `paper_revision_suggestions`). Updated text-task orchestration to explicitly resolve/trigger these skills, feed aggregated `skill_context` into generation prompts, and persist skill call audit records.
+Verification: backend `python -m pytest main/backend/tests/test_skill_runtime_extension.py -q` passed (2/2); backend `python -m pytest main/backend/tests/test_task_api_flow.py -k extended_task_types -q` passed (1/1 selected); py_compile checks passed.
+Open Issues: none.
+Time: 2026-05-07 21:52
+Step: Refactor non-PPT tasks to TaskAgent + SubAgents pattern and complete skill docs
+Completed: Refactored non-PPT task execution from single-function generation into structured multi-agent flow (`TextTaskAgent`) with three sub-agents: planner, writer, reviewer. Planner and reviewer sub-agents now call task-specific skills via runtime executor; writer sub-agent focuses on drafting, and task agent aggregates/reviews outputs before export. Added markdown documentation files for every active skill (`*.md`) covering metadata, core capability, workflow, output requirements, and notes/cautions.
+Verification: backend `python -m pytest main/backend/tests/test_skill_runtime_extension.py -q` passed (2/2); backend `python -m pytest main/backend/tests/test_task_api_flow.py -k extended_task_types -q` passed (1/1 selected); py_compile checks passed.
+Open Issues: none.
+Time: 2026-05-07 22:18
+Step: Migrate to per-task TaskAgent and remove generic text-task scripts
+Completed: Removed generic agent scripts `app/agents/task_agents/text_task_agent.py` and `app/agents/sub_agents/text_task_sub_agents.py`. Added dedicated per-task task agents (`report_task_agent.py`, `wechat_post_task_agent.py`, `data_analysis_task_agent.py`, `code_doc_task_agent.py`, `paper_assistant_task_agent.py`) and matching per-task sub-agent modules under `app/agents/sub_agents/`. Updated task orchestration to dispatch by task type to corresponding task agent and log task-agent/sub-agent runs. Rebuilt `coordinator_agent.py` with explicit `infer_task_type(...)` and used it for `task_type=auto` in task creation. Fixed unintended non-PPT upload blocking regression.
+Verification: `python -m py_compile` for migrated agent/orchestrator modules passed; `python -m pytest main/backend/tests/test_skill_runtime_extension.py -q` passed (2/2); `python -m pytest main/backend/tests/test_task_api_flow.py -k "extended_task_types or no_source_file_can_still_generate_by_search" -q` passed (2/2 selected).
+Open Issues: none.
+Time: 2026-05-07 22:46
+Step: Enforce skill execution across all per-task sub-agent stages
+Completed: Updated `data_analysis`, `code_doc`, and `paper_assistant` sub-agent modules so writer and reviewer stages also execute task-specific skills (not only planner), and wired corresponding task-agent calls to pass `skill_execute_fn` into writer/reviewer. Also aligned `report` and `wechat_post` task-agent writer calls with new writer signatures.
+Verification: `python -m py_compile` for updated task-agent/sub-agent files passed; `python -m pytest tests/test_skill_runtime_extension.py -q` passed (2/2, workdir=`main/backend`); `python -m pytest tests/test_task_api_flow.py -k extended_task_types -q` passed; `python -m pytest tests/test_task_api_flow.py -k no_source_file_can_still_generate_by_search -q` passed.
+Open Issues: `tests/test_task_api_flow.py` combined multi-expression run is slower in this environment and hit timeout when run as one command; split-target runs pass.
+Time: 2026-05-07 23:08
+Step: Unify backend runtime storage root and remove duplicated legacy directory
+Completed: Switched backend default `settings.data_dir` from `main/backend/storage` to `main/backend/runtime_data/storage`; removed legacy reference `main/backend/main/storage` from download-path remapping; deleted duplicated legacy directory `main/backend/main`.
+Verification: `python -m py_compile main/backend/app/config.py main/backend/app/api/routes/tasks.py` passed; source search confirmed no remaining references to `backend/main/storage`.
+Open Issues: none.
+Time: 2026-05-07 23:19
+Step: Migrate skill metadata source from `.skill` to `.md` and remove `.skill` files
+Completed: Merged each skill's frontmatter metadata (`name/domain/version/status/task_types/stages/runtime_handler/trigger_keywords`) into corresponding `.md` file, updated `SkillRegistry` to enumerate only `*.md`, and removed all legacy `*.skill` files under `main/backend/app/skills`.
+Verification: `python -m py_compile main/backend/app/services/skill_registry/registry.py` passed; `python -m pytest tests/test_skill_runtime_extension.py -q` passed (2/2); `python -m pytest tests/test_task_api_flow.py -k extended_task_types -q` passed (1/1 selected).
+Open Issues: none.
+Time: 2026-05-08 00:02
+Step: Reorganize sub-agent modules by task folder and per-agent file
+Completed: Refactored `main/backend/app/agents/sub_agents` from flat files into task-scoped packages: `ppt`, `report`, `wechat_post`, `data_analysis`, `code_doc`, `paper_assistant`. In each task package, each sub-agent now has its own file (`planner_sub_agent.py`, `writer_sub_agent.py`, `reviewer_sub_agent.py`; PPT uses `outline_sub_agent.py`, `content_sub_agent.py`, `review_sub_agent.py`). Updated all task-agent imports, task-service imports, and root `sub_agents/__init__.py` exports accordingly; removed legacy flat sub-agent scripts.
+Verification: `python -m py_compile` passed for updated sub-agent/task-agent/task-service modules; `python -m pytest tests/test_skill_runtime_extension.py -q` passed (2/2); `python -m pytest tests/test_task_api_flow.py -k extended_task_types -q` passed (1/1 selected).
+Open Issues: `tests/test_task_api_flow.py -k no_source_file_can_still_generate_by_search -q` timed out in this environment (no assertion failure captured).
+Time: 2026-05-08 00:28
+Step: Redesign Task Create flow with coordinator-driven type inference and task-specific settings
+Completed: Added backend endpoint `POST /v1/tasks/infer-type` using `CoordinatorAgent.infer_task_type(...)`, changed `CreateTaskRequest.task_type` default to `auto`, and rebuilt frontend `TaskCreatePage` into two-step flow: (1) input requirement -> auto infer task type; (2) Task Setting form rendered by inferred type. `Pages`/`Style` are now shown only for PPT; other task types expose task-specific parameters (report/wechat/data_analysis/code_doc/paper_assistant) and these settings are appended into structured instruction text before task creation.
+Verification: `python -m py_compile` passed for backend request/model/route changes; `python -m pytest tests/test_task_api_flow.py -k create_upload_parse_run_flow -q` passed (1/1 selected); frontend `npm.cmd run build` passed.
+Open Issues: none.
+Time: 2026-05-08 00:41
+Step: Convert navigation to sequential flow create -> running -> result
+Completed: Removed `Task Running` and `Result` from top-level navigation menu so they are no longer parallel entry pages. Updated task creation behavior to navigate to `/tasks/running` immediately after task is created/uploaded/parsed and trigger `/run` in background. Updated TaskRunning page to sync task status in store and auto-navigate to `/result` when status reaches `completed` or `revision_completed`.
+Verification: frontend `npm.cmd run build` passed.
+Open Issues: none.
+Time: 2026-05-08 01:34
+Step: Fix revision pipeline for non-PPT tasks (markdown outputs)
+Completed: Updated `TaskService.revise_page(...)` to branch by task type. Non-PPT tasks now use markdown revision flow instead of requiring `*.slides.json`: load latest text artifact, build revision context (parsed file excerpt + vector retrieval + optional web search), invoke LLM for revised content, and persist next version markdown output. Added graceful fallback when revision LLM fails (append revision note instead of hard-failing).
+Verification: `python -m py_compile` passed for task service and tests; `python -m pytest tests/test_task_api_flow.py -k "non_ppt_revision_uses_markdown_pipeline_instead_of_slide_json or extended_task_types" -q` passed (2 selected); `python -m pytest tests/test_steps_21_30.py -k revision -q` passed (1 selected).
+Open Issues: none.
+Time: 2026-05-08 01:58
+Step: Add Excel support and strengthen data-analysis runtime with chart+Word export tool
+Completed: Extended upload/parse pipeline to accept `xlsx/xls` (`ALLOWED_FILE_TYPES`, `FileType`, parser support). Added Excel parser for text extraction summary and implemented built-in data-analysis toolchain `ExcelCateDistributionTool` to compute `cate` distribution, generate academic bar chart, and export Word report. Exposed runtime skill `data_excel_cate_word_report` in `SkillExecutor` and wired data-analysis export path to call this skill for Excel-source tasks (output artifact becomes `.docx`; fallback to markdown on tool failure).
+Verification: `python -m py_compile` passed for parser/skill-runtime/task-service/tool modules; `python -m pytest tests/test_task_api_flow.py -k "data_analysis_task_accepts_xlsx_and_exports_docx_report or extended_task_types" -q` passed (2 selected).
+Open Issues: none.

@@ -1,0 +1,205 @@
+[
+  {
+    "event_id": "evt_2be35db84958",
+    "task_id": "task_95dbc482c973",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-08T01:05:13.649813Z"
+  },
+  {
+    "event_id": "evt_7373524fa241",
+    "task_id": "task_95dbc482c973",
+    "stage": "planning",
+    "message": "start report planning",
+    "created_at": "2026-05-08T01:05:14.147205Z"
+  },
+  {
+    "event_id": "evt_d424f977cc7b",
+    "task_id": "task_95dbc482c973",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,report_outline,report_quality_check",
+    "created_at": "2026-05-08T01:05:14.169204Z"
+  },
+  {
+    "event_id": "evt_15fdb778dfef",
+    "task_id": "task_95dbc482c973",
+    "stage": "generating",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=180s",
+    "created_at": "2026-05-08T01:05:14.174835Z"
+  },
+  {
+    "event_id": "evt_696e44389259",
+    "task_id": "task_95dbc482c973",
+    "stage": "failed_review",
+    "message": "Missing report section: summary | Missing report section: findings | Missing report section: recommendations",
+    "created_at": "2026-05-08T01:05:43.058696Z"
+  },
+  {
+    "event_id": "evt_c9fc0cd9d122",
+    "task_id": "task_634776d51304",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-08T01:10:13.870557Z"
+  },
+  {
+    "event_id": "evt_8d63d61fae43",
+    "task_id": "task_634776d51304",
+    "stage": "planning",
+    "message": "start wechat_post planning",
+    "created_at": "2026-05-08T01:10:13.997886Z"
+  },
+  {
+    "event_id": "evt_f58cca8e1048",
+    "task_id": "task_634776d51304",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,wechat_style_polish,wechat_title_ideas",
+    "created_at": "2026-05-08T01:10:14.059760Z"
+  },
+  {
+    "event_id": "evt_1728381fed73",
+    "task_id": "task_634776d51304",
+    "stage": "generating",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=180s",
+    "created_at": "2026-05-08T01:10:14.074307Z"
+  },
+  {
+    "event_id": "evt_d9ac4dccefdb",
+    "task_id": "task_634776d51304",
+    "stage": "completed",
+    "message": "output_version=1;task_type=wechat_post",
+    "created_at": "2026-05-08T01:10:43.692603Z"
+  },
+  {
+    "event_id": "evt_2cf1ef185502",
+    "task_id": "task_634776d51304",
+    "stage": "cache_cleared",
+    "message": "vector_cache_removed=False;files=0",
+    "created_at": "2026-05-08T01:19:13.104407Z"
+  },
+  {
+    "event_id": "evt_c4583260747c",
+    "task_id": "task_3ee39a82b376",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-08T01:41:16.103103Z"
+  },
+  {
+    "event_id": "evt_8ef6cad1db81",
+    "task_id": "task_42c64b673d03",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-08T02:41:52.041285Z"
+  },
+  {
+    "event_id": "evt_1267df6ed254",
+    "task_id": "task_52b445c99a41",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-08T02:45:45.897136Z"
+  },
+  {
+    "event_id": "evt_c2363cd487f0",
+    "task_id": "task_52b445c99a41",
+    "stage": "file_uploaded",
+    "message": "file uploaded: cate_NetProfitMargin2_treated.xlsx",
+    "created_at": "2026-05-08T02:45:46.001156Z"
+  },
+  {
+    "event_id": "evt_dd0de9d31f73",
+    "task_id": "task_52b445c99a41",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_52b445c99a41\\file_405a93b87d64.txt",
+    "created_at": "2026-05-08T02:50:24.061822Z"
+  },
+  {
+    "event_id": "evt_df58a2acb25c",
+    "task_id": "task_52b445c99a41",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=105;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-08T02:50:24.063822Z"
+  },
+  {
+    "event_id": "evt_b5496e666d18",
+    "task_id": "task_52b445c99a41",
+    "stage": "planning",
+    "message": "start report planning",
+    "created_at": "2026-05-08T02:50:24.174914Z"
+  },
+  {
+    "event_id": "evt_b2c8a614dff2",
+    "task_id": "task_52b445c99a41",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,report_outline,report_quality_check",
+    "created_at": "2026-05-08T02:50:24.249797Z"
+  },
+  {
+    "event_id": "evt_110f38c55c54",
+    "task_id": "task_52b445c99a41",
+    "stage": "generating",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=180s",
+    "created_at": "2026-05-08T02:50:24.263315Z"
+  },
+  {
+    "event_id": "evt_f566a78fdc36",
+    "task_id": "task_52b445c99a41",
+    "stage": "failed_review",
+    "message": "Missing report section: summary | Missing report section: findings | Missing report section: recommendations",
+    "created_at": "2026-05-08T02:51:05.220014Z"
+  },
+  {
+    "event_id": "evt_d2fddc999c33",
+    "task_id": "task_9752a55c6513",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-08T02:56:47.687475Z"
+  },
+  {
+    "event_id": "evt_618e19d057d1",
+    "task_id": "task_9752a55c6513",
+    "stage": "file_uploaded",
+    "message": "file uploaded: cate_NetProfitMargin2_treated.xlsx",
+    "created_at": "2026-05-08T02:56:47.799546Z"
+  },
+  {
+    "event_id": "evt_c4b9109df4da",
+    "task_id": "task_9752a55c6513",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_9752a55c6513\\file_8ad64a7389b0.txt",
+    "created_at": "2026-05-08T03:01:26.670020Z"
+  },
+  {
+    "event_id": "evt_6796190aed8f",
+    "task_id": "task_9752a55c6513",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=105;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-08T03:01:26.673142Z"
+  },
+  {
+    "event_id": "evt_85cbeedf4b3e",
+    "task_id": "task_9752a55c6513",
+    "stage": "planning",
+    "message": "start report planning",
+    "created_at": "2026-05-08T03:01:26.806080Z"
+  },
+  {
+    "event_id": "evt_5aa1c143ac10",
+    "task_id": "task_9752a55c6513",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,report_outline,report_quality_check",
+    "created_at": "2026-05-08T03:01:26.863794Z"
+  },
+  {
+    "event_id": "evt_8bb44c45c42d",
+    "task_id": "task_9752a55c6513",
+    "stage": "generating",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=180s",
+    "created_at": "2026-05-08T03:01:26.876853Z"
+  },
+  {
+    "event_id": "evt_7f1bdbeb9b14",
+    "task_id": "task_9752a55c6513",
+    "stage": "failed_review",
+    "message": "Missing report section: summary | Missing report section: findings | Missing report section: recommendations",
+    "created_at": "2026-05-08T03:02:03.287715Z"
+  }
+]

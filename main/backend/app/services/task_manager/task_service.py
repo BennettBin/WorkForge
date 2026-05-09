@@ -10,9 +10,15 @@ from typing import Any, Optional
 from fastapi import UploadFile
 
 from app.agents.coordinator import CoordinatorAgent
-from app.agents.sub_agents.content_agent import SlideContentItem
-from app.agents.sub_agents.review_agent import ReviewAgent
-from app.agents.task_agents import PPTTaskAgent
+from app.agents.sub_agents.ppt import ReviewAgent, SlideContentItem
+from app.agents.task_agents import (
+    PPTTaskAgent,
+    CodeDocTaskAgent,
+    DataAnalysisTaskAgent,
+    PaperAssistantTaskAgent,
+    ReportTaskAgent,
+    WechatPostTaskAgent,
+)
 from app.config import settings
 from app.models.entities import AgentRun, FileRecord, OutputFile, SkillCall, Task, TaskEvent
 from app.models.requests import CreateTaskRequest
@@ -30,7 +36,7 @@ from app.services.vector_store import VectorIndexService
 from app.utils.ids import new_id
 
 
-ALLOWED_FILE_TYPES = {"pdf", "docx", "doc", "txt", "ppt", "pptx"}
+ALLOWED_FILE_TYPES = {"pdf", "docx", "doc", "txt", "ppt", "pptx", "xlsx", "xls"}
 
 
 def _utc_now() -> datetime:
@@ -43,9 +49,14 @@ class TaskService:
     storage_root: Path
 
     def create_task(self, req: CreateTaskRequest) -> Task:
+        task_type = req.task_type
+        if task_type == "auto":
+            coordinator = CoordinatorAgent(ModelRouter(self.repos))
+            task_type = coordinator.infer_task_type(req.user_requirement)
         task = Task(
             task_id=new_id("task"),
             user_id=req.user_id,
+            task_type=task_type,
             user_requirement=req.user_requirement,
             status="created",
             requested_pages=req.pages,
@@ -179,6 +190,13 @@ class TaskService:
         task = self.repos.tasks.get_by_id(task_id)
         if task is None:
             raise ValueError("Task not found.")
+        if task.task_type != "ppt":
+            return self._run_text_task(
+                task=task,
+                rerun=rerun,
+                require_llm=require_llm,
+                llm_timeout_seconds=llm_timeout_seconds,
+            )
 
         if rerun:
             self._add_agent_run(task_id, "TaskAgent", "running", "manual rerun requested")
@@ -530,10 +548,24 @@ class TaskService:
         return [v.model_dump(mode="json") for v in versions]
 
     def compare_versions(self, task_id: str, from_version: int, to_version: int) -> dict[str, Any]:
+        task = self.repos.tasks.get_by_id(task_id)
+        if task is None:
+            raise ValueError("Task not found.")
         from_out = self._get_output_by_version(task_id, from_version)
         to_out = self._get_output_by_version(task_id, to_version)
         if from_out is None or to_out is None:
             raise ValueError("Version not found.")
+        if task.task_type != "ppt":
+            from_text = Path(from_out.file_path).read_text(encoding="utf-8") if Path(from_out.file_path).exists() else ""
+            to_text = Path(to_out.file_path).read_text(encoding="utf-8") if Path(to_out.file_path).exists() else ""
+            return {
+                "task_id": task_id,
+                "from_version": from_version,
+                "to_version": to_version,
+                "from_length": len(from_text),
+                "to_length": len(to_text),
+                "changed": from_text != to_text,
+            }
 
         from_slides_path = Path(from_out.file_path).with_suffix(".slides.json")
         to_slides_path = Path(to_out.file_path).with_suffix(".slides.json")
@@ -555,6 +587,27 @@ class TaskService:
         target = self._get_output_by_version(task_id, target_version)
         if target is None:
             raise ValueError("Target version not found.")
+        if task.task_type != "ppt":
+            src_path = Path(target.file_path)
+            if not src_path.exists():
+                raise ValueError("Target version output artifact missing.")
+            latest = self.repos.outputs.get_latest(task_id)
+            next_version = 1 if latest is None else latest.version + 1
+            output_dir = self.storage_root / "outputs" / task_id
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = output_dir / f"v{next_version}{src_path.suffix}"
+            output_path.write_bytes(src_path.read_bytes())
+            output = OutputFile(
+                output_id=new_id("output"),
+                task_id=task_id,
+                version=next_version,
+                file_type=target.file_type,
+                file_path=str(output_path.resolve()),
+            )
+            self.repos.outputs.create(output)
+            self._add_event(task_id, "revision_completed", f"rollback_from={target_version}_to={next_version}")
+            self._snapshot_excel()
+            return {"task_id": task_id, "new_version": next_version, "source_version": target_version}
         target_slides_path = Path(target.file_path).with_suffix(".slides.json")
         slides = self._read_json_array(target_slides_path)
         if not slides:
@@ -593,6 +646,148 @@ class TaskService:
         task = self.repos.tasks.get_by_id(task_id)
         if task is None:
             raise ValueError("Task not found.")
+        if task.task_type != "ppt":
+            output_path = Path(latest.file_path)
+            if not output_path.exists():
+                raise ValueError("Latest output artifact missing.")
+            original_text = output_path.read_text(encoding="utf-8")
+
+            self.repos.tasks.update_status(task_id, "revision_requested")
+            if page_index is not None:
+                self._add_event(task_id, "revision_requested", f"page={page_index};ignored_for_non_ppt")
+            else:
+                self._add_event(task_id, "revision_requested", "non_ppt_revision_requested")
+            self.repos.tasks.update_status(task_id, "revision_planning")
+
+            files = self.repos.files.list_by_task(task_id)
+            parsed_text = ""
+            if files:
+                file_row = files[0]
+                if file_row.parse_status != "success":
+                    file_row = self.parse_task_file(task_id, force=False)
+                if file_row.parsed_text_path:
+                    parsed_path = Path(file_row.parsed_text_path)
+                    if parsed_path.exists():
+                        parsed_text = clean_text_content(parsed_path.read_text(encoding="utf-8"))
+
+            vector_index_service = self._build_vector_index_service(task.user_id)
+            context_rows: list[str] = []
+            if vector_index_service.has_index(task_id):
+                for query in [instruction, task.user_requirement]:
+                    rows = vector_index_service.query(task_id, query, top_k=3)
+                    context_rows.extend([r.strip() for r in rows if str(r).strip()])
+            context_rows = list(dict.fromkeys(context_rows))[:8]
+
+            search_items: list[dict[str, Any]] = []
+            search_query = f"{task.user_requirement}\n{instruction}".strip()
+            started_search = time.perf_counter()
+            try:
+                search_result = SkillExecutor.create_default().execute("knowledge_search", {"query": search_query, "max_results": 3})
+                search_items = search_result.get("items", []) if isinstance(search_result, dict) else []
+                self._add_skill_call(
+                    task_id,
+                    "knowledge_search",
+                    {"query": search_query, "max_results": 3, "stage": "revision", "task_type": task.task_type},
+                    {"count": len(search_items)},
+                    max(1, int((time.perf_counter() - started_search) * 1000)),
+                )
+            except Exception as exc:
+                self._add_event(task_id, "revision_planning", f"knowledge_search_failed={str(exc)[:120]}")
+
+            self._add_event(task_id, "revision_planning", f"non_ppt_revision task_type={task.task_type}")
+            self.repos.tasks.update_status(task_id, "revision_generating")
+
+            default_cfg = self.repos.providers.get_default_for_user(task.user_id)
+            if default_cfg is not None:
+                provider_type = default_cfg.provider_type
+                model_name = default_cfg.model_name
+                base_url = default_cfg.base_url
+                api_key = default_cfg.api_key_encrypted
+                timeout_seconds = default_cfg.timeout_seconds or 90
+            else:
+                ollama_default = OllamaConfig()
+                provider_type = "ollama"
+                model_name = ollama_default.chat_model
+                base_url = ollama_default.base_url
+                api_key = None
+                timeout_seconds = 90
+
+            web_refs = [
+                {"title": item.get("title", ""), "url": item.get("url", ""), "snippet": item.get("snippet", "")}
+                for item in search_items[:3]
+                if isinstance(item, dict)
+            ]
+            llm_prompt = (
+                "You are revising a generated task output document.\n"
+                "Return revised content only (no markdown code block wrappers, no explanations).\n"
+                "Keep style/language consistent with original task and satisfy revision instruction.\n"
+                f"Task type: {task.task_type}\n"
+                f"Original user requirement:\n{task.user_requirement}\n\n"
+                f"Revision instruction:\n{instruction}\n\n"
+                f"Current output content:\n{original_text[:20000]}\n\n"
+                f"Uploaded-file parsed text excerpt:\n{parsed_text[:3000]}\n\n"
+                f"Retrieved vector context:\n{json.dumps(context_rows, ensure_ascii=False)}\n\n"
+                f"Web references:\n{json.dumps(web_refs, ensure_ascii=False)}\n"
+            )
+
+            llm_runtime = LLMTextGenerator()
+            started_llm = time.perf_counter()
+            revised_text = ""
+            try:
+                revised_text = llm_runtime.generate(
+                    provider_type=provider_type,
+                    base_url=base_url,
+                    model_name=model_name,
+                    prompt=llm_prompt,
+                    api_key=api_key,
+                    timeout_seconds=timeout_seconds,
+                )
+                self._add_skill_call(
+                    task_id,
+                    "llm_text_generation",
+                    {
+                        "stage": "revision",
+                        "task_type": task.task_type,
+                        "provider_type": provider_type,
+                        "model_name": model_name,
+                        "prompt_len": len(llm_prompt),
+                        "prompt": llm_prompt[:8000],
+                    },
+                    {"text_len": len(revised_text), "text": revised_text[:12000]},
+                    max(1, int((time.perf_counter() - started_llm) * 1000)),
+                )
+            except Exception as exc:
+                self._add_event(task_id, "revision_generating", f"llm_revision_failed={str(exc)[:160]};fallback_applied")
+                revised_text = (
+                    f"{original_text.rstrip()}\n\n"
+                    f"## Revision Request\n{instruction.strip()}\n\n"
+                    "## Revision Note\nLLM revision failed in this run, appended instruction for manual follow-up.\n"
+                )
+
+            if not revised_text.strip():
+                revised_text = original_text
+
+            self.repos.tasks.update_status(task_id, "revision_reviewing")
+            output_dir = self.storage_root / "outputs" / task_id
+            output_dir.mkdir(parents=True, exist_ok=True)
+            next_version = latest.version + 1
+            suffix = output_path.suffix or ".md"
+            new_output_path = output_dir / f"v{next_version}{suffix}"
+            new_output_path.write_text(revised_text, encoding="utf-8")
+            output = OutputFile(
+                output_id=new_id("output"),
+                task_id=task_id,
+                version=next_version,
+                file_type=latest.file_type,
+                file_path=str(new_output_path.resolve()),
+            )
+            self.repos.outputs.create(output)
+            self.repos.tasks.update_status(task_id, "revision_completed")
+            self.repos.tasks.update_status(task_id, "completed")
+            self._add_event(task_id, "revision_completed", f"task_type={task.task_type};version={next_version}")
+            self._add_agent_run(task_id, "RevisionAgent", "completed", f"task_type={task.task_type};instruction={instruction[:80]}")
+            self._snapshot_excel()
+            return {"task_id": task_id, "revised_page": None, "revised_pages": [], "new_version": next_version}
 
         slides_path = Path(latest.file_path).with_suffix(".slides.json")
         slides = self._read_json_array(slides_path)
@@ -911,6 +1106,225 @@ class TaskService:
     def _normalize_style_key(self, value: str) -> str:
         return "".join((ch.lower() if ch.isalnum() else "_") for ch in (value or "")).strip("_")
 
+    def _run_text_task(
+        self,
+        task: Task,
+        rerun: bool,
+        require_llm: bool,
+        llm_timeout_seconds: Optional[int],
+    ) -> dict[str, Any]:
+        task_id = task.task_id
+        if rerun:
+            self._add_agent_run(task_id, "TaskAgent", "running", "manual rerun requested")
+        files = self.repos.files.list_by_task(task_id)
+        parsed_text = ""
+        if files:
+            file_row = files[0]
+            if file_row.parse_status != "success":
+                file_row = self.parse_task_file(task_id, force=False)
+            if file_row.parsed_text_path:
+                parsed_path = Path(file_row.parsed_text_path)
+                if parsed_path.exists():
+                    parsed_text = clean_text_content(parsed_path.read_text(encoding="utf-8"))
+
+        self.repos.tasks.update_status(task_id, "planning")
+        self._add_event(task_id, "planning", f"start {task.task_type} planning")
+        router = ModelRouter(self.repos)
+        coordinator = CoordinatorAgent(router)
+        plan = coordinator.plan_for_task(task.user_id, task.task_type, task.user_requirement)
+        selected_skills = self._select_skills(task_id, task.task_type, "generation")
+        selected_skill_names = [s["name"] for s in selected_skills]
+        self._add_event(task_id, "skill_selecting", f"selected_skills={','.join(selected_skill_names)}")
+        self._add_agent_run(
+            task_id,
+            "CoordinatorAgent",
+            "completed",
+            f"task_type={task.task_type}; stages={','.join(plan.stages)}; requirement={plan.requirement_summary}",
+        )
+
+        self.repos.tasks.update_status(task_id, "generating")
+        generation_decision = next((d for d in plan.model_decisions if d.stage == "generation"), None)
+        default_cfg = self.repos.providers.get_default_for_user(task.user_id)
+        timeout_seconds = (
+            llm_timeout_seconds
+            if llm_timeout_seconds is not None
+            else (default_cfg.timeout_seconds if (default_cfg and default_cfg.timeout_seconds and default_cfg.timeout_seconds > 0) else 180)
+        )
+        self._add_event(task_id, "generating", f"llm_generation_target={generation_decision.provider_type if generation_decision else 'none'}/{generation_decision.model_name if generation_decision else 'none'};timeout={timeout_seconds}s")
+
+        llm_runtime = LLMTextGenerator()
+        llm_succeeded = False
+        llm_failed_reason: Optional[str] = None
+        skill_executor = SkillExecutor.create_default()
+
+        def skill_execute(skill_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+            started = time.perf_counter()
+            try:
+                output = skill_executor.execute(skill_name, payload)
+                self._add_skill_call(
+                    task_id,
+                    skill_name,
+                    payload,
+                    output,
+                    max(1, int((time.perf_counter() - started) * 1000)),
+                )
+                return output
+            except Exception as exc:
+                self._add_skill_call(
+                    task_id,
+                    f"{skill_name}_failed",
+                    payload,
+                    {"error": str(exc)[:300]},
+                    max(1, int((time.perf_counter() - started) * 1000)),
+                )
+                raise
+
+        def llm_generate(prompt: str) -> str:
+            nonlocal llm_succeeded, llm_failed_reason
+            if generation_decision is None:
+                raise LLMInvokeError("No generation model decision.")
+            started = time.perf_counter()
+            try:
+                content = llm_runtime.generate(
+                    provider_type=generation_decision.provider_type,
+                    base_url=generation_decision.base_url,
+                    model_name=generation_decision.model_name,
+                    prompt=prompt,
+                    api_key=(default_cfg.api_key_encrypted if default_cfg and default_cfg.api_key_encrypted else None),
+                    timeout_seconds=timeout_seconds,
+                )
+                llm_succeeded = True
+                self._add_skill_call(
+                    task_id,
+                    "llm_text_generation",
+                    {"stage": "generation", "task_type": task.task_type, "prompt_len": len(prompt), "prompt": prompt[:8000]},
+                    {"text_len": len(content), "text": content[:12000]},
+                    max(1, int((time.perf_counter() - started) * 1000)),
+                )
+                return content
+            except Exception as exc:
+                llm_failed_reason = str(exc)
+                self._add_event(task_id, "generating", f"llm_call_failed reason={llm_failed_reason[:160]}")
+                raise
+
+        task_agent_map = {
+            "report": ReportTaskAgent,
+            "wechat_post": WechatPostTaskAgent,
+            "data_analysis": DataAnalysisTaskAgent,
+            "code_doc": CodeDocTaskAgent,
+            "paper_assistant": PaperAssistantTaskAgent,
+        }
+        agent_cls = task_agent_map.get(task.task_type)
+        if agent_cls is None:
+            raise ValueError(f"Unsupported non-ppt task_type: {task.task_type}")
+        task_agent = agent_cls()
+        task_agent_name = agent_cls.__name__
+        try:
+            artifacts = task_agent.execute(
+                requirement=task.user_requirement,
+                parsed_text=parsed_text,
+                style=task.style,
+                language=task.language,
+                skill_execute_fn=skill_execute,
+                llm_generate_fn=llm_generate if generation_decision is not None else None,
+            )
+        except Exception as exc:
+            if require_llm:
+                self.repos.tasks.update_status(task_id, "failed_generation")
+                self._add_agent_run(task_id, task_agent_name, "failed", str(exc)[:300])
+                self._snapshot_excel()
+                raise ValueError(f"Generation failed (LLM required): {str(exc)}") from exc
+            self._add_event(task_id, "generating", f"text_task_agent_failed_fallback={str(exc)[:160]}")
+            artifacts = task_agent.execute(
+                requirement=task.user_requirement,
+                parsed_text=parsed_text,
+                style=task.style,
+                language=task.language,
+                skill_execute_fn=skill_execute,
+                llm_generate_fn=None,
+            )
+
+        self._add_agent_run(task_id, task_agent_name, "completed", f"plan={artifacts.plan_summary[:180]};sections={artifacts.section_count}")
+        planner_name = f"{task_agent_name.replace('TaskAgent', '')}PlannerSubAgent"
+        writer_name = f"{task_agent_name.replace('TaskAgent', '')}WriterSubAgent"
+        reviewer_name = f"{task_agent_name.replace('TaskAgent', '')}ReviewerSubAgent"
+        self._add_agent_run(task_id, planner_name, "completed", artifacts.plan_summary[:300])
+        self._add_agent_run(task_id, writer_name, "completed", f"sections={artifacts.section_count}")
+        self.repos.tasks.update_status(task_id, "reviewing")
+        if not artifacts.review_passed:
+            self.repos.tasks.update_status(task_id, "failed_review")
+            self._add_agent_run(task_id, reviewer_name, "failed", " | ".join(artifacts.review_issues))
+            self._add_event(task_id, "failed_review", " | ".join(artifacts.review_issues))
+            self._snapshot_excel()
+            raise ValueError("Quality review failed: " + " | ".join(artifacts.review_issues))
+        self._add_agent_run(task_id, reviewer_name, "completed", "review passed")
+
+        self.repos.tasks.update_status(task_id, "exporting")
+        output_dir = self.storage_root / "outputs" / task_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        latest = self.repos.outputs.get_latest(task_id)
+        next_version = 1 if latest is None else latest.version + 1
+        output_path = output_dir / f"v{next_version}.md"
+        output_file_type = "md"
+
+        # Data-analysis enhancement: for Excel source files, generate chart + Word report artifact.
+        if task.task_type == "data_analysis" and files:
+            source_file = Path(files[0].file_path)
+            if source_file.suffix.lower() in {".xlsx", ".xls"}:
+                try:
+                    docx_path = output_dir / f"v{next_version}.docx"
+                    chart_path = output_dir / f"v{next_version}.cate_distribution.png"
+                    report_info = skill_execute(
+                        "data_excel_cate_word_report",
+                        {
+                            "excel_path": str(source_file.resolve()),
+                            "report_docx_path": str(docx_path.resolve()),
+                            "chart_png_path": str(chart_path.resolve()),
+                            "requirement": task.user_requirement,
+                            "llm_markdown": artifacts.markdown,
+                            "language": task.language,
+                            "stage": "exporting",
+                            "task_type": "data_analysis",
+                        },
+                    )
+                    if str(report_info.get("report_path", "")).strip():
+                        output_path = docx_path
+                        output_file_type = "docx"
+                    else:
+                        self._add_event(task_id, "exporting", "data_excel_word_report_empty_output;fallback_to_markdown")
+                except Exception as exc:
+                    self._add_event(task_id, "exporting", f"data_excel_word_report_failed={str(exc)[:160]};fallback_to_markdown")
+
+        if output_file_type == "md":
+            output_path.write_text(artifacts.markdown, encoding="utf-8")
+        output = OutputFile(
+            output_id=new_id("output"),
+            task_id=task_id,
+            version=next_version,
+            file_type=output_file_type,  # type: ignore[arg-type]
+            file_path=str(output_path.resolve()),
+        )
+        self.repos.outputs.create(output)
+        self.repos.tasks.update_status(task_id, "completed")
+        self._add_event(task_id, "completed", f"output_version={next_version};task_type={task.task_type}")
+        self._snapshot_excel()
+        return {
+            "task_id": task_id,
+            "status": "completed",
+            "task_type": task.task_type,
+            "output_version": next_version,
+            "output_path": str(output_path.resolve()),
+            "llm_debug": {
+                "require_llm": require_llm,
+                "attempted": generation_decision is not None,
+                "succeeded": llm_succeeded,
+                "failed_reason": llm_failed_reason,
+                "timeout_seconds": timeout_seconds,
+                "provider_type": generation_decision.provider_type if generation_decision else None,
+                "model_name": generation_decision.model_name if generation_decision else None,
+            },
+        }
+
     def _add_agent_run(self, task_id: str, agent_name: str, status: str, output: str) -> None:
         run = AgentRun(
             run_id=new_id("run"),
@@ -1028,5 +1442,3 @@ class TaskService:
 
 def build_task_service(repos: RepositoryBundle) -> TaskService:
     return TaskService(repos=repos, storage_root=settings.data_dir)
-
-

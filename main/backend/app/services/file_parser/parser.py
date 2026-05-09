@@ -101,6 +101,42 @@ def _parse_doc(path: Path) -> ParseResult:
     return ParseResult(text=text, parser_name="doc_fallback")
 
 
+def _parse_xlsx(path: Path) -> ParseResult:
+    try:
+        from openpyxl import load_workbook
+
+        wb = load_workbook(str(path), data_only=True, read_only=True)
+        try:
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+        finally:
+            wb.close()
+        if not rows:
+            raise ParseError("Excel file is empty.")
+        header = [str(c).strip() if c is not None else "" for c in rows[0]]
+        lines: list[str] = []
+        lines.append("Excel sheet parsed")
+        lines.append("Columns: " + ", ".join([h for h in header if h]))
+        sample_rows = rows[1:21]
+        for idx, row in enumerate(sample_rows, start=1):
+            pairs = []
+            for c_i, cell in enumerate(row):
+                key = header[c_i] if c_i < len(header) and header[c_i] else f"col_{c_i+1}"
+                val = "" if cell is None else str(cell).strip()
+                if val:
+                    pairs.append(f"{key}={val}")
+            if pairs:
+                lines.append(f"row_{idx}: " + "; ".join(pairs))
+        text = "\n".join(lines).strip()
+        if not text:
+            raise ParseError("Excel file contains no readable rows.")
+        return ParseResult(text=text, parser_name="xlsx")
+    except ParseError:
+        raise
+    except Exception as exc:
+        raise ParseError("Excel file parsing failed (file may be damaged).") from exc
+
+
 _PARSERS: dict[str, Callable[[Path], ParseResult]] = {
     "txt": _parse_txt,
     "docx": _parse_docx,
@@ -108,6 +144,8 @@ _PARSERS: dict[str, Callable[[Path], ParseResult]] = {
     "pptx": _parse_pptx,
     "ppt": _parse_pptx,
     "pdf": _parse_pdf,
+    "xlsx": _parse_xlsx,
+    "xls": _parse_xlsx,
 }
 
 

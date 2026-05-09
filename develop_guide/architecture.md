@@ -237,3 +237,51 @@
   Change Summary: Extended revision and export architecture in two areas: (1) `RevisionRequest.page_index` changed to optional; if missing, revision pipeline performs LLM-based slide targeting and supports multi-slide updates in one request. (2) Export engine now supports style-template application by loading a matched template from `main/backend/app/templates/ppt`, clearing template sample slides, and rendering output slides with template theme/layout defaults.
   Impact Scope: `main/backend/app/models/requests.py`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/app/services/export_engine/pptx_exporter.py`, `main/frontend/src/pages/{ResultPreview,TaskCreate}/`, `main/backend/tests/test_steps_21_30.py`, `develop_guide/process.md`.
   Notes: Template matching is fuzzy by style-name normalization and token overlap; one best template is selected per export (run/revision/rollback).
+- Time: 2026-05-07 21:20
+  Change Summary: Added MVP-6 first/second batch extensibility baseline (steps 31-34): multi-task orchestration now supports `report`, `wechat_post`, `data_analysis`, `code_doc`, `paper_assistant` in addition to `ppt`. Task creation accepts explicit `task_type`; coordinator exposes generic `plan_for_task`; task manager routes non-PPT types into a dedicated reusable text-task execution path with shared status machine, LLM generation, review gating, and versioned export.
+  Impact Scope: `main/backend/app/models/{entities,requests}.py`, `main/backend/app/agents/coordinator/coordinator_agent.py`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/app/api/routes/tasks.py`, `main/frontend/src/pages/TaskCreate/TaskCreatePage.tsx`, `main/backend/tests/test_task_api_flow.py`, `develop_guide/process.md`.
+  Notes: Non-PPT outputs are currently exported as markdown (`.md`) for stable baseline delivery; compare/rollback endpoints now include non-PPT-safe behavior (text length change compare and artifact clone rollback). This keeps architecture open for future specialized exporters and richer skill chains per task type.
+- Time: 2026-05-07 21:34
+  Change Summary: Completed executable skill runtime chain for newly added task types. Added task-domain skill manifests (`report`, `wechat_post`, `data_analysis`, `code_doc`, `paper_assistant`), extended registry domain resolution, added concrete executor handlers, and wired orchestration to explicitly resolve/execute selected skills before LLM generation.
+  Impact Scope: `main/backend/app/skills/{report,wechat_post,data_analysis,code_doc,paper_assistant}/*.skill`, `main/backend/app/services/skill_registry/registry.py`, `main/backend/app/services/skill_runtime/executor.py`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/tests/{test_skill_runtime_extension.py,test_task_api_flow.py}`, `develop_guide/process.md`.
+  Notes: Skill execution now produces auditable `SkillCall` records in task flows and injects structured `skill_context` into prompts, enabling incremental per-skill quality upgrades without changing task orchestration skeleton.
+- Time: 2026-05-07 21:52
+  Change Summary: Upgraded non-PPT orchestration to full TaskAgent/SubAgent architecture parity with PPT flow. Added `TextTaskAgent` orchestrating planner/writer/reviewer sub-agents; each sub-agent executes task-specific skills through runtime bindings, while task agent consolidates review outcomes and output artifacts.
+  Impact Scope: `main/backend/app/agents/task_agents/text_task_agent.py`, `main/backend/app/agents/sub_agents/text_task_sub_agents.py`, `main/backend/app/agents/{task_agents,sub_agents}/__init__.py`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/app/skills/**/*.md`, `develop_guide/process.md`.
+  Notes: Skill documentation is now standardized via per-skill markdown files including metadata, capabilities, workflow, output requirements, and cautions, improving maintainability for iterative skill optimization.
+- Time: 2026-05-07 22:18
+  Change Summary: Replaced generic text-task agent layer with explicit per-task agent modules to match repository architecture policy: coordinator determines task type and orchestrator dispatches to type-specific task agent, each task agent coordinates dedicated sub-agents for planning/writing/review.
+  Impact Scope: Added `main/backend/app/agents/task_agents/{report,wechat_post,data_analysis,code_doc,paper_assistant}_task_agent.py`; added `main/backend/app/agents/sub_agents/{report,wechat_post,data_analysis,code_doc,paper_assistant}_sub_agents.py`; removed `main/backend/app/agents/task_agents/text_task_agent.py` and `main/backend/app/agents/sub_agents/text_task_sub_agents.py`; updated `main/backend/app/agents/{task_agents,sub_agents}/__init__.py`, `main/backend/app/services/task_manager/task_service.py`, and `main/backend/app/agents/coordinator/coordinator_agent.py`.
+  Notes: `CreateTaskRequest.task_type=auto` now routes through coordinator inference (`infer_task_type`) before persistence; non-PPT upload path remains enabled.
+- Time: 2026-05-07 22:46
+  Change Summary: Tightened per-task execution contract so all sub-agent stages (planner/writer/reviewer) can execute bound skills, ensuring parity with PPT-style decomposition and auditable skill runtime usage in each task chain.
+  Impact Scope: `main/backend/app/agents/sub_agents/{data_analysis_sub_agents.py,code_doc_sub_agents.py,paper_assistant_sub_agents.py}` and `main/backend/app/agents/task_agents/{data_analysis_task_agent.py,code_doc_task_agent.py,paper_assistant_task_agent.py,report_task_agent.py,wechat_post_task_agent.py}`.
+  Notes: Writer and reviewer stages now consume `skill_execute_fn` explicitly; orchestrator logs continue to capture runtime trace via existing `SkillCall` and task events.
+- Time: 2026-05-07 23:08
+  Change Summary: Consolidated backend runtime storage to a single root at `main/backend/runtime_data/storage` and removed duplicated legacy folder `main/backend/main`.
+  Impact Scope: `main/backend/app/config.py`, `main/backend/app/api/routes/tasks.py`, filesystem removal of `main/backend/main/`.
+  Notes: Download-path compatibility remap now keeps `main/backend/storage` and `main/backend/runtime_data/storage`; `main/backend/main/storage` mapping was removed with the directory cleanup.
+- Time: 2026-05-07 23:19
+  Change Summary: Skill metadata source has been unified to markdown files. Runtime registry now discovers only `*.md` under each skill domain and reads frontmatter from markdown; legacy `*.skill` files were removed.
+  Impact Scope: `main/backend/app/services/skill_registry/registry.py`, `main/backend/app/skills/**` (metadata merged into `.md`, `.skill` removed).
+  Notes: Skill runtime execution remains unchanged (`SkillExecutor` by skill name). Registry outputs continue to expose `runtime_handler` and `trigger_keywords` from markdown frontmatter.
+- Time: 2026-05-08 00:02
+  Change Summary: Reorganized backend sub-agent code into task-scoped packages and single-agent-per-file layout to improve maintainability.
+  Impact Scope: Added `main/backend/app/agents/sub_agents/{ppt,report,wechat_post,data_analysis,code_doc,paper_assistant}/` packages; updated imports in `main/backend/app/agents/task_agents/*.py`, `main/backend/app/services/task_manager/task_service.py`, and `main/backend/app/agents/sub_agents/__init__.py`; removed legacy flat files `{outline_agent.py,content_agent.py,review_agent.py,report_sub_agents.py,wechat_post_sub_agents.py,data_analysis_sub_agents.py,code_doc_sub_agents.py,paper_assistant_sub_agents.py}`.
+  Notes: Runtime behavior and agent contracts are preserved; only module boundaries/import paths were changed.
+- Time: 2026-05-08 00:28
+  Change Summary: Task creation now uses coordinator-driven task-type inference before settings and execution. Frontend create flow was split into requirement step and task-setting step; backend provides explicit inference API.
+  Impact Scope: `main/backend/app/api/routes/tasks.py` (`POST /v1/tasks/infer-type`), `main/backend/app/models/requests.py` (`InferTaskTypeRequest`, `CreateTaskRequest.task_type` default `auto`), `main/backend/app/models/__init__.py`, `main/frontend/src/pages/TaskCreate/TaskCreatePage.tsx`.
+  Notes: PPT-only parameters (`pages`, `style`) are now UI-scoped to inferred `ppt`; non-PPT tasks collect dedicated options and inject them into structured requirement context for downstream task-agent execution.
+- Time: 2026-05-08 00:41
+  Change Summary: Frontend task flow navigation is now sequential instead of parallel page entry.
+  Impact Scope: `main/frontend/src/App.tsx`, `main/frontend/src/pages/TaskCreate/TaskCreatePage.tsx`, `main/frontend/src/pages/TaskRunning/TaskRunningPage.tsx`.
+  Notes: `Task Running` and `Result` are removed from global menu; runtime route transition is automatic (`create` submits -> `/tasks/running`, status completed -> `/result`).
+- Time: 2026-05-08 01:34
+  Change Summary: Revision architecture now has task-type aware branching. Non-PPT tasks revise latest markdown artifacts directly, while PPT keeps slide-json-driven revision flow.
+  Impact Scope: `main/backend/app/services/task_manager/task_service.py`, `main/backend/tests/test_task_api_flow.py`.
+  Notes: Non-PPT revision no longer depends on `*.slides.json`; this removes cross-type coupling that caused `No slide content found for revision.` on text tasks (for example `wechat_post`).
+- Time: 2026-05-08 01:58
+  Change Summary: Added structured Excel data-analysis runtime chain with executable tool integration.
+  Impact Scope: `main/backend/app/models/entities.py` (`xlsx/xls` file types), `main/backend/app/services/file_parser/parser.py` (Excel parser), `main/backend/app/services/data_analysis_tools/{excel_report_tool.py,__init__.py}`, `main/backend/app/services/skill_runtime/executor.py` (`data_excel_cate_word_report`), `main/backend/app/services/task_manager/task_service.py` (data-analysis export routing), `main/backend/app/skills/data_analysis/data_excel_cate_word_report.md`, `main/backend/tests/test_task_api_flow.py`.
+  Notes: For `data_analysis` tasks with Excel source files, backend now generates distribution chart + Word report (`.docx`) via skill-runtime tool call. If chart/report tool fails, pipeline degrades safely to markdown export.
