@@ -1,0 +1,2 @@
+﻿# common skill domain package.
+

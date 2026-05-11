@@ -1,0 +1,2 @@
+﻿# report skill domain package.
+

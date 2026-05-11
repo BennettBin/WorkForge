@@ -238,5 +238,65 @@
     "created_at": "2026-05-08T03:02:03.283206Z",
     "started_at": null,
     "finished_at": null
+  },
+  {
+    "run_id": "run_22427a615a18",
+    "task_id": "task_52423f8ca9ca",
+    "agent_name": "CoordinatorAgent",
+    "status": "completed",
+    "input": null,
+    "output": "task_type=report; stages=planning,generation,review,export; requirement=我上传了一个excel文件，每行表示一家企业的财务指标。帮我统计指标cate的分布情况，你需要写代码去实现，然后按照学术论文标准画出来对应的条形图，最后在一个word文档中返回给我这个条形图和对这个条形图的分析\n\n[Task Settings]\nTaskType=data_analysis\nLanguage=zh-CN\nAnalysisDepth=standard\nOutputFormat=ins",
+    "error_message": null,
+    "created_at": "2026-05-10T02:45:25.585495Z",
+    "started_at": null,
+    "finished_at": null
+  },
+  {
+    "run_id": "run_9cc126e6bc3b",
+    "task_id": "task_52423f8ca9ca",
+    "agent_name": "ReportTaskAgent",
+    "status": "completed",
+    "input": null,
+    "output": "plan=Report should stay aligned with requirement: 我上传了一个excel文件，每行表示一家企业的财务指标。帮我统计指标cate的分布情况，你需要写代码去实现，然后按照学术论文标准画出来对应的条形图，最后在一个word文档中返回给我这个条形图和对这个条形图的分析\n\n[Task Setting;sections=7",
+    "error_message": null,
+    "created_at": "2026-05-10T02:46:09.482704Z",
+    "started_at": null,
+    "finished_at": null
+  },
+  {
+    "run_id": "run_3de3aee879f8",
+    "task_id": "task_52423f8ca9ca",
+    "agent_name": "ReportPlannerSubAgent",
+    "status": "completed",
+    "input": null,
+    "output": "Report should stay aligned with requirement: 我上传了一个excel文件，每行表示一家企业的财务指标。帮我统计指标cate的分布情况，你需要写代码去实现，然后按照学术论文标准画出来对应的条形图，最后在一个word文档中返回给我这个条形图和对这个条形图的分析\n\n[Task Setting",
+    "error_message": null,
+    "created_at": "2026-05-10T02:46:09.485211Z",
+    "started_at": null,
+    "finished_at": null
+  },
+  {
+    "run_id": "run_b974eea7f838",
+    "task_id": "task_52423f8ca9ca",
+    "agent_name": "ReportWriterSubAgent",
+    "status": "completed",
+    "input": null,
+    "output": "sections=7",
+    "error_message": null,
+    "created_at": "2026-05-10T02:46:09.490332Z",
+    "started_at": null,
+    "finished_at": null
+  },
+  {
+    "run_id": "run_a6d7eacd2aca",
+    "task_id": "task_52423f8ca9ca",
+    "agent_name": "ReportReviewerSubAgent",
+    "status": "completed",
+    "input": null,
+    "output": "review passed",
+    "error_message": null,
+    "created_at": "2026-05-10T02:46:09.509898Z",
+    "started_at": null,
+    "finished_at": null
   }
 ]

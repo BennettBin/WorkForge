@@ -8,8 +8,11 @@ class SkillMeta:
     name: str
     domain: str
     path: str
+    skill_dir: str
     runtime_handler: Optional[str] = None
     trigger_keywords: Optional[list[str]] = None
+    task_types: Optional[list[str]] = None
+    stages: Optional[list[str]] = None
 
 
 class SkillRegistry:
@@ -23,17 +26,24 @@ class SkillRegistry:
         for domain_dir in self.skill_root.iterdir():
             if not domain_dir.is_dir():
                 continue
-            for skill_file in domain_dir.glob("*.md"):
-                if not skill_file.is_file():
+            for skill_dir in domain_dir.iterdir():
+                if not skill_dir.is_dir():
+                    continue
+                skill_file = skill_dir / "SKILL.md"
+                if not skill_file.exists() or not skill_file.is_file():
                     continue
                 parsed = self._parse_frontmatter(skill_file)
+                skill_name = str(parsed.get("name", "")).strip() or skill_dir.name
                 metas.append(
                     SkillMeta(
-                        name=skill_file.stem,
+                        name=skill_name,
                         domain=domain_dir.name,
                         path=str(skill_file.resolve()),
+                        skill_dir=str(skill_dir.resolve()),
                         runtime_handler=parsed.get("runtime_handler"),
                         trigger_keywords=parsed.get("trigger_keywords"),
+                        task_types=parsed.get("task_types"),
+                        stages=parsed.get("stages"),
                     )
                 )
         return metas
@@ -47,7 +57,15 @@ class SkillRegistry:
             domains.add("ppt")
         elif normalized_task_type in {"report", "wechat_post", "data_analysis", "code_doc", "paper_assistant"}:
             domains.add(normalized_task_type)
-        return [s for s in all_skills if s.domain in domains]
+        selected: list[SkillMeta] = []
+        for skill in all_skills:
+            if skill.domain not in domains:
+                continue
+            skill_task_types = [str(x).strip().lower() for x in (skill.task_types or []) if str(x).strip()]
+            if skill_task_types and ("all" not in skill_task_types) and (normalized_task_type not in skill_task_types):
+                continue
+            selected.append(skill)
+        return selected
 
     def _parse_frontmatter(self, skill_file: Path) -> dict:
         try:
@@ -55,6 +73,8 @@ class SkillRegistry:
         except Exception:
             return {}
         lines = text.splitlines()
+        if lines:
+            lines[0] = lines[0].lstrip("\ufeff")
         if not lines or lines[0].strip() != "---":
             return {}
         i = 1

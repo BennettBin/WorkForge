@@ -30,6 +30,7 @@ class ExcelCateDistributionTool:
         requirement: str,
         llm_markdown: str,
         language: str = "zh-CN",
+        target_column: str = "cate",
     ) -> ExcelCateDistributionResult:
         excel_file = Path(excel_path)
         if not excel_file.exists():
@@ -45,9 +46,9 @@ class ExcelCateDistributionTool:
             raise ValueError("Excel sheet is empty.")
 
         header = [str(c).strip() if c is not None else "" for c in rows[0]]
-        cate_idx = self._find_cate_column(header)
+        cate_idx = self._find_target_column(header, target_column)
         if cate_idx is None:
-            raise ValueError("Column `cate` not found in Excel header.")
+            raise ValueError(f"Column `{target_column}` not found in Excel header.")
         cate_col_name = header[cate_idx]
 
         values: list[str] = []
@@ -61,7 +62,7 @@ class ExcelCateDistributionTool:
             if val:
                 values.append(val)
         if not values:
-            raise ValueError("Column `cate` has no non-empty values.")
+            raise ValueError(f"Column `{target_column}` has no non-empty values.")
 
         counter = Counter(values)
         categories, counts = zip(*sorted(counter.items(), key=lambda x: (-x[1], x[0])))
@@ -86,8 +87,16 @@ class ExcelCateDistributionTool:
             report_path=report_path,
         )
 
-    def _find_cate_column(self, header: list[str]) -> int | None:
+    def _find_target_column(self, header: list[str], target_column: str) -> int | None:
         lowered = [h.lower() for h in header]
+        target = (target_column or "").strip().lower()
+        if target:
+            for i, name in enumerate(lowered):
+                if name == target:
+                    return i
+            for i, name in enumerate(lowered):
+                if target in name:
+                    return i
         for i, name in enumerate(lowered):
             if name == "cate":
                 return i

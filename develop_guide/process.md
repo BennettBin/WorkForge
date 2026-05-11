@@ -457,3 +457,23 @@ Step: Add Excel support and strengthen data-analysis runtime with chart+Word exp
 Completed: Extended upload/parse pipeline to accept `xlsx/xls` (`ALLOWED_FILE_TYPES`, `FileType`, parser support). Added Excel parser for text extraction summary and implemented built-in data-analysis toolchain `ExcelCateDistributionTool` to compute `cate` distribution, generate academic bar chart, and export Word report. Exposed runtime skill `data_excel_cate_word_report` in `SkillExecutor` and wired data-analysis export path to call this skill for Excel-source tasks (output artifact becomes `.docx`; fallback to markdown on tool failure).
 Verification: `python -m py_compile` passed for parser/skill-runtime/task-service/tool modules; `python -m pytest tests/test_task_api_flow.py -k "data_analysis_task_accepts_xlsx_and_exports_docx_report or extended_task_types" -q` passed (2 selected).
 Open Issues: none.
+Time: 2026-05-09 09:12
+Step: Enforce no-file forced search across task flows
+Completed: Updated orchestration so tasks without uploaded files must execute `knowledge_search` before generation in both PPT and non-PPT pipelines. Added forced-search context injection into generation input and vector cache append. If forced search returns no usable results, task now fails fast instead of continuing with non-search answers.
+Verification: `python -m py_compile` passed for task service and related tests; `python -m pytest tests/test_task_api_flow.py -k "no_source_file_can_still_generate_by_search or extended_task_types" -q` passed (2 selected).
+Open Issues: none.
+Time: 2026-05-10 16:20
+Step: Co-locate skill scripts with SKILL.md and switch task execution to skills directory runtime
+Completed: Reorganized `main/backend/app/skills` into skill-package layout: each skill now lives in `main/backend/app/skills/<domain>/<skill_name>/` with `SKILL.md` and `runtime.py`. Updated all skill markdown runtime binding metadata to `runtime_handler: runtime.py:run`. Replaced hardcoded runtime dispatch in `SkillExecutor` with dynamic loading from skill-local runtime file. Updated `SkillRegistry` to scan `SKILL.md` from skill folders and expose runtime metadata for orchestration resolution.
+Verification: `PYTHONPATH=. pytest tests/test_skill_runtime_extension.py -q` passed (2/2); `PYTHONPATH=. pytest tests/test_task_api_flow.py -k "extended_task_types_generate_markdown_outputs or data_analysis_task_accepts_xlsx_and_exports_docx_report" -q` passed (2 selected).
+Open Issues: Full `tests/test_task_api_flow.py` suite is long in this environment and timed out when run as a single command.
+Time: 2026-05-10 17:05
+Step: Move sub-agent scripts into skills directory and delete old sub-agent code path
+Completed: Migrated all sub-agent implementation packages (`ppt/report/wechat_post/data_analysis/code_doc/paper_assistant`) from `main/backend/app/agents/sub_agents` to `main/backend/app/skills/<domain>/sub_agents`. Updated task-agent imports and task-manager PPT type imports to new `app.skills.*` paths. Deleted old `main/backend/app/agents/sub_agents` directory after migration.
+Verification: `PYTHONPATH=. python -m py_compile app/services/task_manager/task_service.py app/agents/task_agents/*.py app/skills/ppt/sub_agents/*.py` passed; `PYTHONPATH=. pytest tests/test_skill_runtime_extension.py -q` passed (2/2); `PYTHONPATH=. pytest tests/test_task_api_flow.py -k "create_upload_parse_run_flow or extended_task_types_generate_markdown_outputs or data_analysis_task_accepts_xlsx_and_exports_docx_report" -q` passed (3 selected).
+Open Issues: none.
+Time: 2026-05-10 21:20
+Step: Remove sub_agent model and refactor to per-domain small-skill runtime chains
+Completed: Rebuilt task execution architecture so each domain (`ppt/report/wechat_post/data_analysis/code_doc/paper_assistant`) is now a large skill package that contains multiple small skills (`planner/writer/reviewer`) as `runtime.py + SKILL.md`. Added domain-level guide markdowns (`*_SKILL.md`) documenting available small skills and execution path. Updated all task agents to invoke small skills directly through `skill_execute_fn`, updated PPT flow and revision-review flow in `TaskService` to use skill runtime calls, and removed all remaining `app/skills/*/sub_agents` directories. Also fixed skill-call audit serialization by masking callable payload entries.
+Verification: `PYTHONPATH=. python -m py_compile app/agents/task_agents/*.py app/services/task_manager/task_service.py` passed; `PYTHONPATH=. pytest tests/test_skill_runtime_extension.py -q` passed (2/2); `PYTHONPATH=. pytest tests/test_task_api_flow.py -k "create_upload_parse_run_flow or extended_task_types_generate_markdown_outputs" -q` passed (2 selected).
+Open Issues: none.

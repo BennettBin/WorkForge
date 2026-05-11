@@ -394,6 +394,9 @@ def test_task_api_extended_task_types_generate_markdown_outputs():
                             else "# paper_assistant\n\n## Abstract\nDraft A with motivation and method overview.\n\n## Revision\nSuggestion B for clarity.\nSuggestion C for evidence linkage.\n\n## Findings\nPoint D contribution scope.\n"
                         )
                     ),
+                ), patch(
+                    "app.services.knowledge_search.search_service.KnowledgeSearchService.search_and_extract",
+                    return_value=[{"title": "t", "url": "https://example.com", "snippet": "s", "content": "c"}],
                 ):
                     run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
                     assert run.status_code == 200
@@ -407,11 +410,11 @@ def test_task_api_extended_task_types_generate_markdown_outputs():
                 skill_names = [row["skill_name"] for row in detail.json()["data"]["skill_calls"]]
                 assert "skill_registry_resolve" in skill_names
                 assert any(name in skill_names for name in {
-                    "report_outline",
-                    "wechat_title_ideas",
-                    "data_clean_plan",
-                    "code_readme_structure",
-                    "paper_outline",
+                    "report_planner",
+                    "wechat_post_planner",
+                    "data_analysis_planner",
+                    "code_doc_planner",
+                    "paper_assistant_planner",
                 })
 
 

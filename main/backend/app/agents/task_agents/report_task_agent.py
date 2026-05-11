@@ -3,12 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-from app.agents.sub_agents.report import (
-    ReportPlannerSubAgent,
-    ReportReviewerSubAgent,
-    ReportWriterSubAgent,
-)
-
 
 @dataclass
 class ReportTaskArtifacts:
@@ -20,11 +14,6 @@ class ReportTaskArtifacts:
 
 
 class ReportTaskAgent:
-    def __init__(self):
-        self.planner = ReportPlannerSubAgent()
-        self.writer = ReportWriterSubAgent()
-        self.reviewer = ReportReviewerSubAgent()
-
     def execute(
         self,
         requirement: str,
@@ -34,13 +23,24 @@ class ReportTaskAgent:
         skill_execute_fn: Callable[[str, dict[str, Any]], dict[str, Any]],
         llm_generate_fn: Optional[Callable[[str], str]] = None,
     ) -> ReportTaskArtifacts:
-        plan = self.planner.execute(requirement, parsed_text, language, skill_execute_fn)
-        draft = self.writer.execute(requirement, parsed_text, style, language, plan, skill_execute_fn, llm_generate_fn)
-        review = self.reviewer.execute(draft, skill_execute_fn)
-        return ReportTaskArtifacts(
-            markdown=review.normalized_markdown,
-            review_passed=review.passed,
-            review_issues=review.issues,
-            plan_summary=plan.summary,
-            section_count=draft.section_count,
+        plan = skill_execute_fn("report_planner", {"requirement": requirement, "parsed_text": parsed_text, "language": language})
+        draft = skill_execute_fn(
+            "report_writer",
+            {
+                "requirement": requirement,
+                "parsed_text": parsed_text,
+                "style": style,
+                "language": language,
+                "plan": plan,
+                "llm_generate_fn": llm_generate_fn,
+            },
         )
+        review = skill_execute_fn("report_reviewer", {"draft": draft})
+        return ReportTaskArtifacts(
+            markdown=str(review.get("normalized_markdown", "")).strip() + "\n",
+            review_passed=bool(review.get("passed", False)),
+            review_issues=[str(x) for x in review.get("issues", [])] if isinstance(review.get("issues"), list) else [],
+            plan_summary=str(plan.get("summary", "report plan generated")),
+            section_count=int(draft.get("section_count", 0) or 0),
+        )
+

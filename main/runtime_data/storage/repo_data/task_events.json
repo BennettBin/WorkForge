@@ -201,5 +201,61 @@
     "stage": "failed_review",
     "message": "Missing report section: summary | Missing report section: findings | Missing report section: recommendations",
     "created_at": "2026-05-08T03:02:03.287715Z"
+  },
+  {
+    "event_id": "evt_3a20f6ade456",
+    "task_id": "task_52423f8ca9ca",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-10T02:40:43.106885Z"
+  },
+  {
+    "event_id": "evt_57b361da9410",
+    "task_id": "task_52423f8ca9ca",
+    "stage": "file_uploaded",
+    "message": "file uploaded: cate_NetProfitMargin2_treated.xlsx",
+    "created_at": "2026-05-10T02:40:43.215837Z"
+  },
+  {
+    "event_id": "evt_b7bfabafcd65",
+    "task_id": "task_52423f8ca9ca",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_52423f8ca9ca\\file_e6340364189c.txt",
+    "created_at": "2026-05-10T02:45:25.294924Z"
+  },
+  {
+    "event_id": "evt_54a49cfabda1",
+    "task_id": "task_52423f8ca9ca",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=105;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-10T02:45:25.299453Z"
+  },
+  {
+    "event_id": "evt_698cccd13d85",
+    "task_id": "task_52423f8ca9ca",
+    "stage": "planning",
+    "message": "start report planning",
+    "created_at": "2026-05-10T02:45:25.486450Z"
+  },
+  {
+    "event_id": "evt_95132a397193",
+    "task_id": "task_52423f8ca9ca",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,knowledge_search,report_outline,report_quality_check",
+    "created_at": "2026-05-10T02:45:25.576971Z"
+  },
+  {
+    "event_id": "evt_db785d4ca77c",
+    "task_id": "task_52423f8ca9ca",
+    "stage": "generating",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=180s",
+    "created_at": "2026-05-10T02:45:25.604179Z"
+  },
+  {
+    "event_id": "evt_5b7f32e2710a",
+    "task_id": "task_52423f8ca9ca",
+    "stage": "completed",
+    "message": "output_version=1;task_type=report",
+    "created_at": "2026-05-10T02:46:09.565528Z"
   }
 ]

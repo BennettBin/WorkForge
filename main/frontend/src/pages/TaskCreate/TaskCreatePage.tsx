@@ -21,6 +21,7 @@ type SettingValues = {
   ctaStyle?: string;
   analysisDepth?: string;
   outputFormat?: string;
+  targetColumn?: string;
   docFocus?: string;
   codingLanguage?: string;
   paperStage?: string;
@@ -63,6 +64,7 @@ function buildFinalRequirement(baseRequirement: string, taskType: TaskType, sett
   if (taskType === "data_analysis") {
     lines.push(`AnalysisDepth=${settings.analysisDepth ?? "standard"}`);
     lines.push(`OutputFormat=${settings.outputFormat ?? "insight_report"}`);
+    lines.push(`TargetColumn=${settings.targetColumn ?? "cate"}`);
     lines.push(`Audience=${settings.audience ?? "Business users"}`);
   }
   if (taskType === "code_doc") {
@@ -104,6 +106,7 @@ export default function TaskCreatePage() {
       ctaStyle: "follow_and_comment",
       analysisDepth: "standard",
       outputFormat: "insight_report",
+      targetColumn: "cate",
       docFocus: "readme_and_api",
       codingLanguage: "python",
       paperStage: "drafting",
@@ -235,6 +238,9 @@ export default function TaskCreatePage() {
           </Form.Item>
           <Form.Item label="Output Format" name="outputFormat">
             <Select options={[{ label: "Insight Report", value: "insight_report" }, { label: "Step-by-step", value: "step_by_step" }, { label: "Executive Summary", value: "executive_summary" }]} />
+          </Form.Item>
+          <Form.Item label="Target Column" name="targetColumn" rules={[{ required: true }]}>
+            <Input placeholder="e.g. cate / industry / segment" />
           </Form.Item>
           <Form.Item label="Audience" name="audience"><Input /></Form.Item>
         </>

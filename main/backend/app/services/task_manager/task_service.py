@@ -10,7 +10,6 @@ from typing import Any, Optional
 from fastapi import UploadFile
 
 from app.agents.coordinator import CoordinatorAgent
-from app.agents.sub_agents.ppt import ReviewAgent, SlideContentItem
 from app.agents.task_agents import (
     PPTTaskAgent,
     CodeDocTaskAgent,
@@ -206,10 +205,23 @@ class TaskService:
         no_source_file = len(files) == 0
         parsed_text = ""
         effective_requirement = task.user_requirement
+        vector_index_service = self._build_vector_index_service(task.user_id)
         if no_source_file:
             effective_requirement = f"{task.user_requirement}\n\n{NO_SOURCE_FILE_SYSTEM_INSTRUCTION}"
             self._add_event(task_id, "planning", "no_source_file_detected; agent should search and organize content")
             self._add_event(task_id, "planning", "no_source_file_system_instruction_applied")
+            forced_items, forced_context = self._force_search_context(
+                task_id=task_id,
+                requirement=task.user_requirement,
+                vector_index_service=vector_index_service,
+                max_results=4,
+            )
+            if not forced_items:
+                self.repos.tasks.update_status(task_id, "failed_generation")
+                self._add_event(task_id, "failed_generation", "no_source_file_forced_search_empty")
+                self._snapshot_excel()
+                raise ValueError("No source file uploaded and forced search returned no usable results.")
+            parsed_text = forced_context
         else:
             if files[0].parse_status != "success":
                 self.parse_task_file(task_id, force=False)
@@ -225,7 +237,6 @@ class TaskService:
                 self._snapshot_excel()
                 raise ValueError("Parsed text is empty.")
 
-        vector_index_service = self._build_vector_index_service(task.user_id)
         if (not no_source_file) and (not vector_index_service.has_index(task_id)):
             index_info = vector_index_service.build_index(task_id, parsed_text)
             self._add_event(
@@ -273,7 +284,7 @@ class TaskService:
         ppt_task_agent = PPTTaskAgent()
         skill_executor = SkillExecutor.create_default()
         llm_runtime = LLMTextGenerator()
-        can_use_knowledge_search = ("knowledge_search" in selected_skill_names) and (plan.needs_web_search or no_source_file)
+        can_use_knowledge_search = no_source_file or (("knowledge_search" in selected_skill_names) and plan.needs_web_search)
         generation_decision = next((d for d in plan.model_decisions if d.stage == "generation"), None)
         default_cfg = self.repos.providers.get_default_for_user(task.user_id)
         effective_timeout_seconds = (
@@ -334,6 +345,32 @@ class TaskService:
                     ),
                 )
             return items
+
+        def skill_execute(skill_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+            safe_payload = {
+                k: ("<callable>" if callable(v) else v)
+                for k, v in payload.items()
+            }
+            started = time.perf_counter()
+            try:
+                output = skill_executor.execute(skill_name, payload)
+                self._add_skill_call(
+                    task_id,
+                    skill_name,
+                    safe_payload,
+                    output,
+                    max(1, int((time.perf_counter() - started) * 1000)),
+                )
+                return output
+            except Exception as exc:
+                self._add_skill_call(
+                    task_id,
+                    f"{skill_name}_failed",
+                    safe_payload,
+                    {"error": str(exc)[:300]},
+                    max(1, int((time.perf_counter() - started) * 1000)),
+                )
+                raise
 
         def llm_generate(prompt: str) -> str:
             if llm_state["disabled"]:
@@ -418,6 +455,7 @@ class TaskService:
                 knowledge_search_fn=execute_knowledge_search if can_use_knowledge_search else None,
                 llm_generate_fn=llm_generate,
                 no_source_file=no_source_file,
+                skill_execute_fn=skill_execute,
             )
             duration_outline = int((time.perf_counter() - start_outline) * 1000)
             self._add_skill_call(task_id, "ppt_generation_bundle", {"requested_pages": task.requested_pages}, {"slides": len(artifacts.slides)}, duration_outline)
@@ -441,6 +479,7 @@ class TaskService:
                     knowledge_search_fn=execute_knowledge_search if can_use_knowledge_search else None,
                     llm_generate_fn=None,
                     no_source_file=no_source_file,
+                    skill_execute_fn=skill_execute,
                 )
             except Exception:
                 self.repos.tasks.update_status(task_id, "failed_generation")
@@ -1010,31 +1049,14 @@ class TaskService:
             revised_pages.append(target_idx)
 
         self.repos.tasks.update_status(task_id, "revision_reviewing")
-        review_agent = ReviewAgent()
-        review_input: list[SlideContentItem] = []
-        for i, slide in enumerate(slides, start=1):
-            slide_bullets = slide.get("bullets", [])
-            if not isinstance(slide_bullets, list):
-                slide_bullets = []
-            slide_placeholders = slide.get("image_placeholders", [])
-            if not isinstance(slide_placeholders, list):
-                slide_placeholders = []
-            review_input.append(
-                SlideContentItem(
-                    index=i,
-                    kind=str(slide.get("kind", "content")),
-                    title=str(slide.get("title", "")),
-                    bullets=[str(b) for b in slide_bullets],
-                    notes=str(slide.get("notes", "")),
-                    image_placeholders=[p for p in slide_placeholders if isinstance(p, dict)],
-                )
-            )
-        review_result = review_agent.review(review_input, len(slides))
-        if not review_result.passed:
+        skill_executor = SkillExecutor.create_default()
+        review_result = skill_executor.execute("ppt_quality_reviewer", {"slides": slides, "requested_pages": len(slides)})
+        if not bool(review_result.get("passed", False)):
             self.repos.tasks.update_status(task_id, "failed_review")
-            self._add_event(task_id, "failed_review", " | ".join(review_result.issues[:4]))
+            issues = [str(x) for x in review_result.get("issues", [])] if isinstance(review_result.get("issues"), list) else []
+            self._add_event(task_id, "failed_review", " | ".join(issues[:4]))
             self._snapshot_excel()
-            raise ValueError("Revision review failed: " + " | ".join(review_result.issues))
+            raise ValueError("Revision review failed: " + " | ".join(issues))
 
         output_dir = self.storage_root / "outputs" / task_id
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -1117,7 +1139,9 @@ class TaskService:
         if rerun:
             self._add_agent_run(task_id, "TaskAgent", "running", "manual rerun requested")
         files = self.repos.files.list_by_task(task_id)
+        no_source_file = len(files) == 0
         parsed_text = ""
+        vector_index_service = self._build_vector_index_service(task.user_id)
         if files:
             file_row = files[0]
             if file_row.parse_status != "success":
@@ -1126,6 +1150,20 @@ class TaskService:
                 parsed_path = Path(file_row.parsed_text_path)
                 if parsed_path.exists():
                     parsed_text = clean_text_content(parsed_path.read_text(encoding="utf-8"))
+        else:
+            self._add_event(task_id, "planning", "no_source_file_detected; forced knowledge search enabled")
+            forced_items, forced_context = self._force_search_context(
+                task_id=task_id,
+                requirement=task.user_requirement,
+                vector_index_service=vector_index_service,
+                max_results=4,
+            )
+            if not forced_items:
+                self.repos.tasks.update_status(task_id, "failed_generation")
+                self._add_event(task_id, "failed_generation", "no_source_file_forced_search_empty")
+                self._snapshot_excel()
+                raise ValueError("No source file uploaded and forced search returned no usable results.")
+            parsed_text = forced_context
 
         self.repos.tasks.update_status(task_id, "planning")
         self._add_event(task_id, "planning", f"start {task.task_type} planning")
@@ -1158,13 +1196,17 @@ class TaskService:
         skill_executor = SkillExecutor.create_default()
 
         def skill_execute(skill_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+            safe_payload = {
+                k: ("<callable>" if callable(v) else v)
+                for k, v in payload.items()
+            }
             started = time.perf_counter()
             try:
                 output = skill_executor.execute(skill_name, payload)
                 self._add_skill_call(
                     task_id,
                     skill_name,
-                    payload,
+                    safe_payload,
                     output,
                     max(1, int((time.perf_counter() - started) * 1000)),
                 )
@@ -1173,7 +1215,7 @@ class TaskService:
                 self._add_skill_call(
                     task_id,
                     f"{skill_name}_failed",
-                    payload,
+                    safe_payload,
                     {"error": str(exc)[:300]},
                     max(1, int((time.perf_counter() - started) * 1000)),
                 )
@@ -1283,6 +1325,7 @@ class TaskService:
                             "requirement": task.user_requirement,
                             "llm_markdown": artifacts.markdown,
                             "language": task.language,
+                            "target_column": self._extract_task_setting(task.user_requirement, "TargetColumn") or "cate",
                             "stage": "exporting",
                             "task_type": "data_analysis",
                         },
@@ -1324,6 +1367,66 @@ class TaskService:
                 "model_name": generation_decision.model_name if generation_decision else None,
             },
         }
+
+    def _force_search_context(
+        self,
+        *,
+        task_id: str,
+        requirement: str,
+        vector_index_service: VectorIndexService,
+        max_results: int = 4,
+    ) -> tuple[list[dict[str, Any]], str]:
+        skill_executor = SkillExecutor.create_default()
+        query = requirement.strip()
+        if not query:
+            query = "latest information overview"
+        started = time.perf_counter()
+        try:
+            result = skill_executor.execute("knowledge_search", {"query": query, "max_results": max_results})
+            items = result.get("items", []) if isinstance(result, dict) else []
+        except Exception as exc:
+            self._add_skill_call(
+                task_id,
+                "knowledge_search_failed",
+                {"query": query, "max_results": max_results, "forced": True},
+                {"error": str(exc)[:300]},
+                max(1, int((time.perf_counter() - started) * 1000)),
+            )
+            return [], ""
+
+        self._add_skill_call(
+            task_id,
+            "knowledge_search",
+            {"query": query, "max_results": max_results, "forced": True},
+            {"count": len(items)},
+            max(1, int((time.perf_counter() - started) * 1000)),
+        )
+        if items:
+            try:
+                append_info = vector_index_service.append_documents(task_id, items)
+                self._add_event(
+                    task_id,
+                    "planning",
+                    (
+                        f"vector_cache_appended forced_search chunks={append_info['appended_chunk_count']};"
+                        f"type={append_info.get('vectorizer_type')};model={append_info.get('vectorizer_model')}"
+                    ),
+                )
+            except Exception as exc:
+                self._add_event(task_id, "planning", f"forced_search_vector_append_failed={str(exc)[:160]}")
+
+        context_rows: list[str] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title", "")).strip()
+            snippet = str(item.get("snippet", "")).strip()
+            content = str(item.get("content", "")).strip()
+            row = " | ".join([x for x in [title, snippet or content[:280]] if x])
+            if row:
+                context_rows.append(row)
+        context = "\n".join(context_rows).strip()
+        return items, context
 
     def _add_agent_run(self, task_id: str, agent_name: str, status: str, output: str) -> None:
         run = AgentRun(
@@ -1439,6 +1542,19 @@ class TaskService:
                 changed += 1
         return changed
 
+    def _extract_task_setting(self, requirement_text: str, key: str) -> str | None:
+        content = requirement_text or ""
+        marker = f"{key}="
+        for line in content.splitlines():
+            raw = line.strip()
+            if not raw.startswith(marker):
+                continue
+            value = raw[len(marker) :].strip()
+            if value:
+                return value
+        return None
+
 
 def build_task_service(repos: RepositoryBundle) -> TaskService:
     return TaskService(repos=repos, storage_root=settings.data_dir)
+

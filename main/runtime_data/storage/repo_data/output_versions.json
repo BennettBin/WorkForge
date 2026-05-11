@@ -8,5 +8,15 @@
     "source_run_id": null,
     "checksum": null,
     "created_at": "2026-05-08T01:10:43.682466Z"
+  },
+  {
+    "output_id": "output_16f79e90fe48",
+    "task_id": "task_52423f8ca9ca",
+    "version": 1,
+    "file_type": "md",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\outputs\\task_52423f8ca9ca\\v1.md",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-10T02:46:09.540554Z"
   }
 ]
