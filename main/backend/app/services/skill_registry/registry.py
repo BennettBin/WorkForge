@@ -23,10 +23,30 @@ class SkillRegistry:
         metas: list[SkillMeta] = []
         if not self.skill_root.exists():
             return metas
-        for domain_dir in self.skill_root.iterdir():
-            if not domain_dir.is_dir():
+        for level1 in self.skill_root.iterdir():
+            if not level1.is_dir():
                 continue
-            for skill_dir in domain_dir.iterdir():
+            # Layout A: skills/<skill_name>/SKILL.md
+            direct_skill_file = level1 / "SKILL.md"
+            if direct_skill_file.exists() and direct_skill_file.is_file():
+                parsed = self._parse_frontmatter(direct_skill_file)
+                skill_name = str(parsed.get("name", "")).strip() or level1.name
+                domain = str(parsed.get("domain", "")).strip() or "common"
+                metas.append(
+                    SkillMeta(
+                        name=skill_name,
+                        domain=domain,
+                        path=str(direct_skill_file.resolve()),
+                        skill_dir=str(level1.resolve()),
+                        runtime_handler=parsed.get("runtime_handler"),
+                        trigger_keywords=parsed.get("trigger_keywords"),
+                        task_types=parsed.get("task_types"),
+                        stages=parsed.get("stages"),
+                    )
+                )
+                continue
+            # Layout B: skills/<domain>/<skill_name>/SKILL.md
+            for skill_dir in level1.iterdir():
                 if not skill_dir.is_dir():
                     continue
                 skill_file = skill_dir / "SKILL.md"
@@ -34,10 +54,11 @@ class SkillRegistry:
                     continue
                 parsed = self._parse_frontmatter(skill_file)
                 skill_name = str(parsed.get("name", "")).strip() or skill_dir.name
+                domain = str(parsed.get("domain", "")).strip() or level1.name
                 metas.append(
                     SkillMeta(
                         name=skill_name,
-                        domain=domain_dir.name,
+                        domain=domain,
                         path=str(skill_file.resolve()),
                         skill_dir=str(skill_dir.resolve()),
                         runtime_handler=parsed.get("runtime_handler"),
@@ -68,14 +89,21 @@ class SkillRegistry:
         return selected
 
     def _parse_frontmatter(self, skill_file: Path) -> dict:
+        # Read metadata frontmatter only. Do not load/parse full skill body.
         try:
-            text = skill_file.read_text(encoding="utf-8")
+            with skill_file.open("r", encoding="utf-8") as f:
+                lines: list[str] = []
+                first = f.readline()
+                if not first:
+                    return {}
+                lines.append(first.rstrip("\n"))
+                if lines[0].lstrip("\ufeff").strip() != "---":
+                    return {}
+                for raw in f:
+                    lines.append(raw.rstrip("\n"))
+                    if raw.strip() == "---":
+                        break
         except Exception:
-            return {}
-        lines = text.splitlines()
-        if lines:
-            lines[0] = lines[0].lstrip("\ufeff")
-        if not lines or lines[0].strip() != "---":
             return {}
         i = 1
         data: dict = {}

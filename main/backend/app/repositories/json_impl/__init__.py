@@ -9,6 +9,7 @@ from .repositories import (
     JsonTaskEventRepository,
     JsonTaskRepository,
     JsonUserRepository,
+    JsonUserSettingsRepository,
 )
 
 __all__ = [
@@ -21,5 +22,6 @@ __all__ = [
     "JsonUserRepository",
     "JsonSessionRepository",
     "JsonTaskEventRepository",
+    "JsonUserSettingsRepository",
     "ExcelMirrorStore",
 ]

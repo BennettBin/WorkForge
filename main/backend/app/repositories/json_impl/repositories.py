@@ -13,6 +13,7 @@ from app.models.entities import (
     TaskEvent,
     TaskStatus,
     User,
+    UserSettings,
 )
 from app.repositories.interfaces import (
     AgentRunRepository,
@@ -24,6 +25,7 @@ from app.repositories.interfaces import (
     TaskEventRepository,
     TaskRepository,
     UserRepository,
+    UserSettingsRepository,
 )
 from app.repositories.json_impl.store import JsonCollectionStore
 
@@ -188,6 +190,8 @@ class JsonUserRepository(UserRepository):
         rows = self.store.read_all()
         if any(r["email"].lower() == user.email.lower() for r in rows):
             raise ValueError("Email already registered.")
+        if any(str(r.get("username", "")).lower() == user.username.lower() for r in rows):
+            raise ValueError("Username already registered.")
         rows.append(user.model_dump(mode="json"))
         self.store.write_all(rows)
         return user
@@ -201,6 +205,13 @@ class JsonUserRepository(UserRepository):
     def get_by_email(self, email: str) -> Optional[User]:
         for row in self.store.read_all():
             if row["email"].lower() == email.lower():
+                return User.model_validate(row)
+        return None
+
+    def get_by_username(self, username: str) -> Optional[User]:
+        key = username.lower()
+        for row in self.store.read_all():
+            if str(row.get("username", "")).lower() == key:
                 return User.model_validate(row)
         return None
 
@@ -250,3 +261,29 @@ class JsonTaskEventRepository(TaskEventRepository):
     def list_by_task(self, task_id: str) -> list[TaskEvent]:
         rows = [TaskEvent.model_validate(r) for r in self.store.read_all() if r["task_id"] == task_id]
         return sorted(rows, key=lambda r: r.created_at)
+
+
+class JsonUserSettingsRepository(UserSettingsRepository):
+    def __init__(self, data_dir: Path):
+        self.store = JsonCollectionStore(data_dir / "user_settings.json")
+
+    def get_by_user(self, user_id: str) -> Optional[UserSettings]:
+        for row in self.store.read_all():
+            if row["user_id"] == user_id:
+                return UserSettings.model_validate(row)
+        return None
+
+    def upsert(self, settings: UserSettings) -> UserSettings:
+        rows = self.store.read_all()
+        found = False
+        payload = settings.model_dump(mode="json")
+        for row in rows:
+            if row["user_id"] == settings.user_id:
+                row.update(payload)
+                row["updated_at"] = _utc_now_iso()
+                found = True
+                break
+        if not found:
+            rows.append(payload)
+        self.store.write_all(rows)
+        return settings

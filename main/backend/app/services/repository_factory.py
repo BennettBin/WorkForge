@@ -12,6 +12,7 @@ from app.repositories.json_impl import (
     JsonTaskEventRepository,
     JsonTaskRepository,
     JsonUserRepository,
+    JsonUserSettingsRepository,
 )
 
 
@@ -26,6 +27,7 @@ class RepositoryBundle:
     users: JsonUserRepository
     sessions: JsonSessionRepository
     task_events: JsonTaskEventRepository
+    user_settings: JsonUserSettingsRepository
     excel_mirror: ExcelMirrorStore
 
 
@@ -44,5 +46,6 @@ def build_repository_bundle(base_dir: Path) -> RepositoryBundle:
         users=JsonUserRepository(repo_dir),
         sessions=JsonSessionRepository(repo_dir),
         task_events=JsonTaskEventRepository(repo_dir),
+        user_settings=JsonUserSettingsRepository(repo_dir),
         excel_mirror=ExcelMirrorStore(excel_path),
     )

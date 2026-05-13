@@ -45,8 +45,7 @@
 - `main/backend/app/services/llm_runtime/text_generator.py`：按 Provider 类型执行 Ollama/OpenAI-compatible/Anthropic 请求；`huggingface` provider 通过 vLLM(OpenAI-compatible) 调用本地下载模型。
 - `main/backend/app/services/vector_store/`：向量索引构建与检索。
 - `main/backend/app/services/vector_store/index_service.py`：本地向量索引持久化与相似检索服务。
-- `main/backend/app/services/knowledge_search/`：通用知识检索与网页信息提取。
-- `main/backend/app/services/knowledge_search/search_service.py`：公网检索 + 网页文本提取服务（失败可降级）。
+- `main/backend/app/skills/common/knowledge_search/`：通用知识检索 Skill 包（`SKILL.md` + `runtime.py` + `service.py`），承载公网检索 + 网页文本提取（失败可降级）。
 - `main/backend/app/services/skill_runtime/`：Skill 运行时执行器。
 - `main/backend/app/services/skill_runtime/executor.py`：按 Skill 名称触发真实服务代码（含 `knowledge_search` 执行绑定）。
 - `main/backend/app/services/model_router/`：模型选择与路由策略。
@@ -297,3 +296,133 @@
   Change Summary: Removed `sub_agent` execution model and refactored task orchestration to small-skill runtime chain. Each domain now exposes planner/writer/reviewer as independent small skills under `main/backend/app/skills/<domain>/<small_skill>/` with `runtime.py + SKILL.md`, and each domain has a package-level guide markdown describing composition and execution path.
   Impact Scope: `main/backend/app/skills/{ppt,report,wechat_post,data_analysis,code_doc,paper_assistant}/*`, `main/backend/app/agents/task_agents/*.py`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/tests/test_task_api_flow.py`.
   Notes: `PPTTaskAgent` and all non-PPT task agents now call `SkillExecutor` through `skill_execute_fn` only; old `sub_agents` directories under `app/skills/*/sub_agents` have been removed.
+- Time: 2026-05-11 02:25
+  Change Summary: Added PPT template extraction skill chain and template selection integration. New skill `ppt_template_extractor` can parse uploaded PPT/PPTX template attributes (layout count, ratio, average title/body font size, media/background assets), persist template package and metadata to `main/backend/app/templates/ppt/<template_name>/`, and return agent-readable metadata paths. Added backend template listing API and frontend PPT-style selector support for extracted templates.
+  Impact Scope: `main/backend/app/skills/ppt/ppt_template_extractor/*`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/app/api/routes/tasks.py`, `main/frontend/src/pages/TaskCreate/TaskCreatePage.tsx`, `main/backend/tests/test_task_api_flow.py`.
+  Notes: When requirement intent is template extraction, router->PPT task flow short-circuits to extraction path and marks task completed without slide generation.
+- Time: 2026-05-11 02:50
+  Change Summary: Reorganized PPT skill architecture into exactly two top-level skills under `main/backend/app/skills`: `ppt_generation` and `ppt_template_generation`. Removed old `main/backend/app/skills/ppt/*` skill fragments and moved generation/review logic into single-file runtime for `ppt_generation`, while template extraction is handled by `ppt_template_generation`.
+  Impact Scope: `main/backend/app/skills/{ppt_generation,ppt_template_generation}/*`, deletion of `main/backend/app/skills/ppt/`, `main/backend/app/agents/task_agents/ppt_task_agent.py`, `main/backend/app/agents/coordinator/coordinator_agent.py`, `main/backend/app/services/{skill_registry/registry.py,task_manager/task_service.py}`.
+  Notes: Router now explicitly determines PPT intent via `CoordinatorAgent.infer_ppt_skill(...)` and dispatches to `ppt_generation` or `ppt_template_generation` accordingly.
+- Time: 2026-05-10 23:35
+  Change Summary: Added global skill `find_skill` and enforced “find first” execution contract in task agents. All task agents now call `find_skill` as first action, then execute matched skills when available; otherwise they fall back to direct/default execution path. PPT template-generation path also invokes `find_skill` before executing template extraction.
+  Impact Scope: `main/backend/app/skills/find_skill/{SKILL.md,runtime.py}`, `main/backend/app/agents/task_agents/*.py`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/tests/{test_skill_runtime_extension.py,test_task_api_flow.py}`.
+  Notes: Skill-call audit now includes `find_skill` records in task execution traces, satisfying skill-runtime enforcement and auditability requirements.
+- Time: 2026-05-11 11:30
+  Change Summary: Upgraded coordinator task-type routing to hybrid inference (`keyword -> LLM -> generic fallback`) and removed forced default-to-PPT behavior on unmatched requirements.
+  Impact Scope: `main/backend/app/agents/coordinator/coordinator_agent.py`, `main/backend/app/models/requests.py`, `main/backend/app/api/routes/tasks.py`.
+  Notes: `POST /v1/tasks/infer-type` now accepts optional `user_id`, enabling model-backed fallback when available.
+- Time: 2026-05-11 11:30
+  Change Summary: Added `GenericTaskAgent` and connected unknown non-PPT task execution to this agent, preventing unsupported-task hard failures.
+  Impact Scope: `main/backend/app/agents/task_agents/{generic_task_agent.py,__init__.py}`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/app/models/entities.py`, `main/backend/tests/test_task_api_flow.py`.
+  Notes: Unknown tasks now continue through normal lifecycle with auditable events/output (`.md`) instead of raising `Unsupported non-ppt task_type`.
+- Time: 2026-05-11 12:05
+  Change Summary: Migrated knowledge-search and data-analysis tool implementations from `app/services` into skill-local modules, so runtime logic is colocated with skill packages.
+  Impact Scope: Added `main/backend/app/skills/common/knowledge_search/service.py` and `main/backend/app/skills/data_analysis/data_excel_cate_word_report/tool.py`; updated corresponding `runtime.py` imports; removed `main/backend/app/services/knowledge_search/` and `main/backend/app/services/data_analysis_tools/`; updated tests using knowledge-search patch target.
+  Notes: Skill execution entry (`SkillExecutor`) remains unchanged; behavior is preserved while ownership moves fully under `app/skills`.
+- Time: 2026-05-11 13:05
+  Change Summary: Updated coordinator routing to always invoke LLM for task-type confirmation after keyword pass, with keyword result injected into LLM prompt as explicit hint.
+  Impact Scope: `main/backend/app/agents/coordinator/coordinator_agent.py`, `main/backend/app/api/routes/tasks.py`, `main/frontend/src/pages/TaskCreate/TaskCreatePage.tsx`.
+  Notes: Inference path is now `keyword_match -> LLM_decision`; when LLM unavailable/invalid, fallback keeps keyword result, otherwise `generic_task`.
+- Time: 2026-05-11 13:05
+  Change Summary: Added generic-task capability setup flow: if generic agent detects a new capability request, task enters capability-setup branch and frontend redirects to dedicated setup page. Backend supports capability bootstrap (skill + task-agent scaffold + runtime smoke-check) and rerun by selected capability.
+  Impact Scope: `main/backend/app/agents/task_agents/generic_task_agent.py`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/app/models/requests.py`, `main/backend/app/api/routes/tasks.py`, `main/frontend/src/pages/CapabilitySetup/CapabilitySetupPage.tsx`, `main/frontend/src/pages/TaskRunning/TaskRunningPage.tsx`, `main/frontend/src/App.tsx`.
+  Notes: Capability bootstrap currently creates executable skeletons under `app/skills/custom/<skill_name>/` and `app/agents/task_agents/<capability>_task_agent.py`, then validates runtime callable through `SkillExecutor.execute(...)`.
+- Time: 2026-05-11 14:20
+  Change Summary: Added auxiliary template-generation flow as a dedicated task type (`template_generation`) routed by `CoordinatorAgent` and executed by `TemplateGenerationTaskAgent -> template_generation Skill`.
+  Impact Scope: `main/backend/app/agents/coordinator/coordinator_agent.py`, `main/backend/app/agents/task_agents/template_generation_task_agent.py`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/app/skills/common/template_generation/{SKILL.md,runtime.py}`, `main/backend/app/models/{entities.py,requests.py}`.
+  Notes: Skill writes reusable template artifact + metadata under `main/backend/app/templates/<template_type>/<template_name>/`.
+- Time: 2026-05-11 14:20
+  Change Summary: Added multi-type template listing API and frontend template selection integration.
+  Impact Scope: `main/backend/app/api/routes/tasks.py` (`GET /v1/tasks/templates/{template_type}`), `main/backend/app/services/task_manager/task_service.py` (`list_templates`), `main/frontend/src/pages/TaskCreate/TaskCreatePage.tsx`.
+  Notes: TaskCreate now supports selecting templates for `ppt/report/wechat_post`; added template-generation settings (`TemplateTarget`, `TemplateName`) into requirement context.
+- Time: 2026-05-11 14:20
+  Change Summary: Added 5 floating auxiliary-function buttons on Home page, including template-generation entry.
+  Impact Scope: `main/frontend/src/pages/Home/HomePage.tsx`.
+  Notes: Template-generation button routes to `/tasks/create?aux=template_generation`.
+
+- Time: 2026-05-11 17:15
+  Change Summary: Added template-settings inference chain for template generation flow. New backend endpoint POST /v1/tasks/template-generation/infer-settings calls coordinator LLM extraction (	emplateType/templateName/language/templateIntent/targetAudience) with strict schema and empty-field fallback. Frontend now invokes this endpoint on Template Generation input submit and auto-prefills Template Settings form via shared app-store draft.
+  Impact Scope: main/backend/app/agents/coordinator/coordinator_agent.py, main/backend/app/api/routes/tasks.py, main/backend/app/models/{requests.py,__init__.py}, main/frontend/src/pages/TemplateGeneration/{TemplateGenerationPage.tsx,TemplateGenerationSettingsPage.tsx}, main/frontend/src/store/appStore.tsx, develop_guide/process.md.
+  Notes: Missing extracted fields remain required and must be completed by user in settings form.
+
+
+- Time: 2026-05-11 17:28
+  Change Summary: Added template-preview capability for template-generation tasks. Backend now exposes template artifact summary and secure file download endpoints (/v1/tasks/{task_id}/template-preview and /v1/tasks/{task_id}/template-preview/file) covering template file, 	emplate.meta.json, 	emplate.params.json, 
+ender_from_template.py, and assets under template ssets/. Frontend adds dedicated Template Preview page and completion routing from Task Running to /template-preview for template-generation tasks.
+  Impact Scope: main/backend/app/api/routes/tasks.py, main/frontend/src/pages/{TaskRunning/TaskRunningPage.tsx,TemplatePreview/TemplatePreviewPage.tsx}, main/frontend/src/App.tsx, develop_guide/process.md.
+  Notes: Download endpoint validates template file paths remain under pp/templates root to avoid path traversal.
+
+
+- Time: 2026-05-11 17:37
+  Change Summary: Added 	emplate_preview_formatter skill in pp/skills/common to convert template metadata/assets into human-readable preview text via LLM. GET /v1/tasks/{task_id}/template-preview now always triggers this skill and returns structured textual preview items for UI (preview_title, preview_summary, items[] with tooltip explanation text).
+  Impact Scope: main/backend/app/skills/common/template_preview_formatter/{SKILL.md,runtime.py}, main/backend/app/api/routes/tasks.py, main/frontend/src/pages/TemplatePreview/TemplatePreviewPage.tsx, develop_guide/process.md.
+  Notes: Skill contains fallback path when provider/model is unavailable or LLM output is invalid, ensuring preview page remains available.
+
+
+- Time: 2026-05-11 17:48
+  Change Summary: Updated 	emplate_preview_formatter execution model to metadata-first pipeline: parse 	emplate.meta.json -> flatten into key:value rows -> call LLM per row to generate tooltip explanation. Preview page now consumes itemized rows instead of raw JSON blocks. Added route-level fallback in /v1/tasks/{task_id}/template-preview to guarantee non-empty key:value rows even when skill execution fails.
+  Impact Scope: main/backend/app/skills/common/template_preview_formatter/runtime.py, main/backend/app/api/routes/tasks.py, develop_guide/process.md.
+  Notes: preview_summary now includes explanation success counters (LLM explanations: ok/attempted) for troubleshooting preview-call success.
+
+
+- Time: 2026-05-11 21:15
+  Change Summary: Refactored ind_skill runtime into metadata-first skill selection pipeline. Selection now uses only skill metadata frontmatter, then performs preferred-skill filtering, requirement keyword fuzzy matching, and optional LLM semantic matching (with injected runtime model config) to choose necessary skills while reducing misses. stage is removed from find-skill call contract and 	ask_type default is now generic_task.
+  Impact Scope: main/backend/app/skills/find_skill/{SKILL.md,runtime.py}, main/backend/app/services/skill_registry/registry.py, main/backend/app/services/task_manager/task_service.py, main/backend/app/agents/task_agents/{ppt,report,wechat_post,data_analysis,code_doc,paper_assistant,template_generation}_task_agent.py, develop_guide/process.md.
+  Notes: Registry frontmatter parser now stops after metadata closing delimiter (---), ensuring skill-body content is not loaded during find-skill metadata scan.
+
+- Time: 2026-05-11 21:22
+  Change Summary: Unified `paper_assistant` domain into a single executable skill package. `main/backend/app/skills/paper_assistant/` now contains only `SKILL.md` + `runtime.py` (plus runtime cache), and task orchestration no longer depends on planner/writer/reviewer sub-skill folders. `PaperAssistantTaskAgent` now executes one skill (`paper_assistant`) returning final markdown/review signals.
+  Impact Scope: `main/backend/app/skills/paper_assistant/{SKILL.md,runtime.py}`, `main/backend/app/agents/task_agents/paper_assistant_task_agent.py`, deletion of legacy files under `main/backend/app/skills/paper_assistant/*`, `main/backend/tests/test_skill_runtime_extension.py`, `develop_guide/process.md`.
+  Notes: This aligns skill folder structure with the single-skill runtime requirement for paper assistant.
+- Time: 2026-05-11 22:11
+  Change Summary: Standardized three task domains (`report`, `code_doc`, `wechat_post`) to single-skill runtime layout. Each domain now contains only `SKILL.md` + `runtime.py`, and orchestration no longer depends on per-domain planner/writer/reviewer sub-skills or auxiliary micro-skills. Corresponding task agents now execute one unified domain skill (`report` / `code_doc` / `wechat_post`).
+  Impact Scope: `main/backend/app/skills/{report,code_doc,wechat_post}/{SKILL.md,runtime.py}`, `main/backend/app/agents/task_agents/{report_task_agent.py,code_doc_task_agent.py,wechat_post_task_agent.py}`, removal of legacy files under those three skill directories, `main/backend/tests/{test_skill_runtime_extension.py,test_task_api_flow.py}`, `develop_guide/process.md`.
+  Notes: Directory-level cleanup includes removal of old package files and cache directories to satisfy the two-file-per-domain structure requirement.
+- Time: 2026-05-11 22:17
+  Change Summary: Standardized `data_analysis` to single-skill runtime layout. `main/backend/app/skills/data_analysis/` now contains only `SKILL.md` + `runtime.py`; planner/writer/reviewer and auxiliary tool subfolders were removed. Unified runtime handles both markdown analysis generation and Excel cate-distribution DOCX export path. `DataAnalysisTaskAgent` and task-service export routing now invoke unified `data_analysis` skill.
+  Impact Scope: `main/backend/app/skills/data_analysis/{SKILL.md,runtime.py}`, `main/backend/app/agents/task_agents/data_analysis_task_agent.py`, `main/backend/app/services/task_manager/task_service.py`, `main/backend/tests/{test_skill_runtime_extension.py,test_task_api_flow.py}`, `develop_guide/process.md`.
+  Notes: Excel export behavior is preserved through unified runtime branch activated by `excel_path/report_docx_path/chart_png_path` payload keys.
+- Time: 2026-05-11 22:35
+  Change Summary: Flattened common-domain skill packages to top-level `app/skills` layout. `base_prompt`, `knowledge_search`, `template_generation`, and `template_preview_formatter` were moved from `app/skills/common/` to `app/skills/`, and legacy `common` directory was removed.
+  Impact Scope: filesystem move of skill directories under `main/backend/app/skills/`; `main/backend/tests/test_task_api_flow.py` patch target updates; `main/backend/app/api/routes/tasks.py` typing fix (`Optional[str]`); `main/backend/app/services/task_manager/task_service.py` generic-only kwargs pass fix in `_run_text_task`; `develop_guide/process.md`.
+  Notes: SkillRegistry already supports top-level layout (`skills/<skill>/SKILL.md`), so runtime discovery remains compatible after flattening.
+- Time: 2026-05-11 23:02
+  Change Summary: Updated generation-domain skill metadata naming to explicit generation identities for stronger metadata-based discovery by `find_skill`: `report_generation`, `code_doc_generation`, `wechat_post_generation`, `paper_assistant_generation`.
+  Impact Scope: `main/backend/app/skills/{report,code_doc,wechat_post,paper_assistant}/SKILL.md`, `main/backend/app/agents/task_agents/{report_task_agent.py,code_doc_task_agent.py,wechat_post_task_agent.py,paper_assistant_task_agent.py}`, `main/backend/tests/{test_skill_runtime_extension.py,test_task_api_flow.py}`, `develop_guide/process.md`.
+  Notes: Runtime handler paths and directories are unchanged; only skill frontmatter names/descriptions/keywords and task-agent preferred routing names were updated.
+
+- Time: 2026-05-13 13:40
+  Change Summary: Switched global system-default model routing from Ollama to single-node vLLM (OpenAI-compatible). Added dedicated vLLM default config object and wired `ModelRouter` system fallback to `provider_type=vllm` with default endpoint/model.
+  Impact Scope: `main/backend/app/services/llm_provider/{provider_defaults.py,__init__.py}`, `main/backend/app/services/model_router/router.py`, `main/backend/tests/test_model_router.py`.
+  Notes: User-level default provider remains highest priority; only no-user-config fallback behavior changed.
+
+- Time: 2026-05-13 14:05
+  Change Summary: Added backend active-user tracking runtime for 10-minute activity window and exposed system-wide active user query API. Initialized tracker in FastAPI lifespan, added authenticated-request activity touch middleware, and added authenticated endpoint `GET /v1/system/active-users`.
+  Impact Scope: `main/backend/app/services/active_users/{active_user_tracker.py,__init__.py}`, `main/backend/app/api/routes/{system.py,__init__.py}`, `main/backend/app/api/app.py`, `main/backend/tests/test_active_user_tracker.py`.
+  Notes: Current implementation is in-memory and single-instance friendly by design (matches no horizontal scaling requirement). Count is unique users with at least one authenticated request in the last 600 seconds.
+
+- Time: 2026-05-13 14:20
+  Change Summary: Added real-time active-user WebSocket push and frontend live display integration. Backend now exposes `/ws/system/active-users` with token-based auth and 3-second push interval; frontend subscribes with auto-reconnect and renders `Active Users (10m)` on Task Running page.
+  Impact Scope: `main/backend/app/api/routes/ws_tasks.py`, `main/frontend/src/api/http.ts`, `main/frontend/src/pages/TaskRunning/TaskRunningPage.tsx`.
+  Notes: WebSocket auth uses query token (`?token=`) for browser compatibility; unauthorized/invalid token closes connection with policy violation.
+
+- Time: 2026-05-13 14:35
+  Change Summary: Implemented dedicated registration flow with username/password and login-page registration entry. Backend auth now supports login by `account` (username or email), registration by username/password with internal email generation, and username uniqueness validation at service/repository layers.
+  Impact Scope: `main/backend/app/models/requests.py`, `main/backend/app/repositories/interfaces/user_repository.py`, `main/backend/app/repositories/json_impl/repositories.py`, `main/backend/app/services/auth_service.py`, `main/backend/app/api/app.py`, `main/frontend/src/pages/Auth/{AuthPage.tsx,RegisterPage.tsx}`, `main/frontend/src/App.tsx`, `main/backend/tests/{test_provider_matrix.py,test_steps_21_30.py}`.
+  Notes: `/Register` frontend route is now served by backend static-entry mapping; registration success flow returns user to `/Login`.
+
+- Time: 2026-05-13 15:05
+  Change Summary: Enforced owner-scoped data isolation for task/content APIs and task WebSocket subscription. All task-facing routes now require authenticated user context and verify task ownership before read/update/run/download/revision/template preview operations; task list endpoint now enforces user-id match; task create/infer endpoints validate user identity consistency.
+  Impact Scope: `main/backend/app/api/routes/tasks.py`, `main/backend/app/api/routes/ws_tasks.py`, `main/frontend/src/pages/TaskRunning/TaskRunningPage.tsx`, `main/backend/tests/{test_user_data_isolation.py,test_steps_21_30.py}`.
+  Notes: Cross-user access intentionally returns generic task-not-found style validation errors to avoid resource enumeration leakage.
+
+- Time: 2026-05-13 15:20
+  Change Summary: Completed final regression and acceptance test baseline for vLLM default routing, active-user runtime/API/WS, registration-login flow, and user data isolation. Added dedicated integration tests for register->login and active-user API/WS push path.
+  Impact Scope: `main/backend/tests/test_auth_and_active_users_api_ws.py` and executed suites: `test_model_router.py`, `test_active_user_tracker.py`, `test_auth_and_active_users_api_ws.py`, `test_user_data_isolation.py`, `test_provider_matrix.py`, `test_steps_21_30.py`.
+  Notes: Architecture/runtime boundaries remain unchanged in this step; this entry records the verified acceptance baseline for the implemented modules.
+
+- Time: 2026-05-13 21:45
+  Change Summary: Added multi-task runtime architecture for per-user parallel execution and task re-entry. Backend now includes user settings persistence (`max_parallel_tasks` 1..10), running-task list API (`GET /v1/tasks/running/me`), and hard parallel-limit enforcement in task create/run paths. Frontend now includes global running-task floating panel, route-param task monitor (`/tasks/running/:taskId`), and in-page running-task switch selector, with store upgraded from single active task to running-task registry.
+  Impact Scope: `main/backend/app/{models,repositories,api/routes,services/task_manager,services/repository_factory}`, `main/frontend/src/{store,components,App.tsx,pages/TaskCreate,pages/TaskRunning,pages/ModelSettings,pages/TemplateGeneration/TemplateGenerationSettingsPage,pages/History}`.
+  Notes: Existing `activeTaskId` compatibility is retained while new `runningTasks/selectedRunningTaskId` becomes primary multi-task context.

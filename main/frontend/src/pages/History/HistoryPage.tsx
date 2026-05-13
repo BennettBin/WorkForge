@@ -11,7 +11,7 @@ type TaskItem = {
 };
 
 export default function HistoryPage() {
-  const { auth, setTask } = useAppStore();
+  const { auth, setTask, upsertRunningTask, setSelectedRunningTaskId } = useAppStore();
   const [items, setItems] = useState<TaskItem[]>([]);
 
   async function load() {
@@ -31,7 +31,14 @@ export default function HistoryPage() {
         renderItem={(t) => (
           <List.Item
             actions={[
-              <Button key="use" onClick={() => setTask({ activeTaskId: t.task_id, activeTaskStatus: t.status })}>
+              <Button
+                key="use"
+                onClick={() => {
+                  setTask((prev) => ({ ...prev, activeTaskId: t.task_id, activeTaskStatus: t.status }));
+                  upsertRunningTask({ taskId: t.task_id, status: t.status, title: t.task_id });
+                  setSelectedRunningTaskId(t.task_id);
+                }}
+              >
                 Use
               </Button>
             ]}

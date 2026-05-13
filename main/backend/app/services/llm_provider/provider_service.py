@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import json
 from urllib import error, request
+from typing import Optional
 
 from app.models.entities import LLMProviderConfig
 from app.models.requests import ProviderTestRequest, ProviderUpsertRequest
@@ -56,6 +57,9 @@ class ProviderService:
 
     def list_by_user(self, user_id: str) -> list[LLMProviderConfig]:
         return self.repos.providers.list_by_user(user_id)
+
+    def get_default_for_user(self, user_id: str) -> Optional[LLMProviderConfig]:
+        return self.repos.providers.get_default_for_user(user_id)
 
     def test_connection(self, payload: ProviderTestRequest) -> dict:
         model_name = payload.model_name

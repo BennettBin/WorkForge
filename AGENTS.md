@@ -69,3 +69,22 @@ Validation requirement before completion:
   1) trigger conditions can activate the Skill,
   2) activation executes the bound tool/service path,
   3) execution results are persisted in trace logs/audit records.
+
+### Skill Template Standard (Mandatory)
+
+For any future new/updated Skill documentation, authors must follow this exact template style:
+
+- Template source: `C:\Users\Binb_\Desktop\SKILL.md`
+- Required structure:
+  1) YAML frontmatter (`---`) with at least:
+     - `name`
+     - `description`
+  2) Main title (`# ...`)
+  3) Usage conditions section (for example: "When to Use This Skill")
+  4) Execution/operation steps section
+  5) Practical examples (commands or workflow examples)
+  6) Fallback guidance when no match/result is found
+
+Enforcement:
+- Any Skill doc not matching the above template structure is considered non-compliant and must be revised before merge.
+- Runtime-chain enforcement rules in this file remain mandatory in parallel (template compliance does not replace runtime binding/testing requirements).

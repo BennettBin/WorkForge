@@ -1,12 +1,13 @@
-import { Button, Card, List, Progress, Space, Tag, Tooltip, Typography } from "antd";
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { getJson } from "../../api/http";
+import { Button, Card, List, Progress, Select, Space, Tag, Tooltip, Typography } from "antd";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+
+import { getJson, getWsBaseUrl } from "../../api/http";
 import { useAppStore } from "../../store/appStore";
 import { ApiEnvelope } from "../../types/api";
 
 type TaskData = {
-  task: { task_id: string; status: string; user_requirement: string };
+  task: { task_id: string; status: string; user_requirement: string; task_type?: string };
   agent_runs: Array<{ run_id: string; agent_name: string; status: string; output?: string }>;
   events: Array<{ event_id: string; stage: string; message: string; created_at?: string }>;
   skill_calls: Array<{ skill_call_id: string; skill_name: string; input?: string; output?: string; created_at?: string }>;
@@ -22,9 +23,7 @@ type ChatItem = {
 };
 
 function parseJsonSafe(text?: string): Record<string, unknown> {
-  if (!text) {
-    return {};
-  }
+  if (!text) return {};
   try {
     return JSON.parse(text) as Record<string, unknown>;
   } catch {
@@ -33,34 +32,65 @@ function parseJsonSafe(text?: string): Record<string, unknown> {
 }
 
 function shortText(text: string, max = 160): string {
-  if (text.length <= max) {
-    return text;
-  }
+  if (text.length <= max) return text;
   return `${text.slice(0, max)}...`;
 }
 
 export default function TaskRunningPage() {
   const navigate = useNavigate();
-  const { task, setTask } = useAppStore();
+  const { taskId: routeTaskId } = useParams<{ taskId?: string }>();
+  const {
+    task,
+    setTask,
+    upsertRunningTask,
+    removeRunningTask,
+    setSelectedRunningTaskId,
+  } = useAppStore();
+
   const [status, setStatus] = useState<string>("idle");
   const [events, setEvents] = useState<Array<{ event_id: string; stage: string; message: string; created_at?: string }>>([]);
   const [runs, setRuns] = useState<Array<{ run_id: string; agent_name: string; status: string; output?: string }>>([]);
   const [skillCalls, setSkillCalls] = useState<Array<{ skill_call_id: string; skill_name: string; input?: string; output?: string; created_at?: string }>>([]);
+  const [activeUsers, setActiveUsers] = useState<number>(0);
   const [requirement, setRequirement] = useState<string>("");
+  const [taskType, setTaskType] = useState<string>("");
   const wsRef = useRef<WebSocket | null>(null);
+  const activeUsersWsRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const reconnectAttemptRef = useRef<number>(0);
   const logPanelRef = useRef<HTMLDivElement | null>(null);
 
-  async function refresh() {
-    if (!task.activeTaskId) {
-      return;
+  const currentTaskId = useMemo(
+    () => routeTaskId || task.selectedRunningTaskId || task.activeTaskId || null,
+    [routeTaskId, task.selectedRunningTaskId, task.activeTaskId]
+  );
+  const taskOptions = useMemo(() => {
+    const base = task.runningTasks.map((x) => ({
+      value: x.taskId,
+      label: `${x.taskId} / ${x.taskType || "unknown"} / ${x.status}`,
+    }));
+    if (currentTaskId && !base.some((x) => x.value === currentTaskId)) {
+      base.unshift({ value: currentTaskId, label: `${currentTaskId} / ${taskType || "unknown"} / ${status}` });
     }
-    const res = await getJson<ApiEnvelope<TaskData>>(`/v1/tasks/${task.activeTaskId}`);
+    return base;
+  }, [task.runningTasks, currentTaskId, taskType, status]);
+
+  async function refresh(targetTaskId: string) {
+    const res = await getJson<ApiEnvelope<TaskData>>(`/v1/tasks/${targetTaskId}`);
     setStatus(res.data.task.status);
-    setTask({ activeTaskId: task.activeTaskId, activeTaskStatus: res.data.task.status });
+    setTask((prev) => ({ ...prev, activeTaskId: targetTaskId, activeTaskStatus: res.data.task.status }));
+    setSelectedRunningTaskId(targetTaskId);
     setRequirement(res.data.task.user_requirement || "");
+    setTaskType(res.data.task.task_type || "");
     setEvents(res.data.events || []);
     setRuns(res.data.agent_runs || []);
     setSkillCalls(res.data.skill_calls || []);
+    upsertRunningTask({
+      taskId: targetTaskId,
+      status: res.data.task.status,
+      taskType: res.data.task.task_type || "",
+      title: res.data.task.user_requirement || "",
+    });
   }
 
   const chatItems: ChatItem[] = [];
@@ -68,7 +98,7 @@ export default function TaskRunningPage() {
     chatItems.push({
       id: "user_requirement",
       role: "user",
-      title: "用户需求",
+      title: "User Requirement",
       content: requirement.trim(),
       sortKey: 0,
     });
@@ -77,7 +107,7 @@ export default function TaskRunningPage() {
     chatItems.push({
       id: `evt_${evt.event_id}`,
       role: "system",
-      title: `系统事件 · ${evt.stage}`,
+      title: `System Event / ${evt.stage}`,
       content: evt.message || "",
       createdAt: evt.created_at,
       sortKey: evt.created_at ? Date.parse(evt.created_at) || 0 : 0,
@@ -90,15 +120,13 @@ export default function TaskRunningPage() {
       const provider = String(inObj.provider_type || "");
       const model = String(inObj.model_name || "");
       const prompt = String(inObj.prompt || "");
-      const text = call.skill_name === "llm_text_generation"
-        ? String(outObj.text || "")
-        : String(outObj.error || "");
+      const text = call.skill_name === "llm_text_generation" ? String(outObj.text || "") : String(outObj.error || "");
       const suffix = provider || model ? ` (${provider}/${model})` : "";
       if (prompt) {
         chatItems.push({
           id: `llm_in_${call.skill_call_id}`,
           role: "llm",
-          title: `大模型输入${suffix}`,
+          title: `LLM Input${suffix}`,
           content: prompt,
           createdAt: call.created_at,
           sortKey: call.created_at ? Date.parse(call.created_at) || 0 : 0,
@@ -108,7 +136,7 @@ export default function TaskRunningPage() {
         chatItems.push({
           id: `llm_out_${call.skill_call_id}`,
           role: "llm",
-          title: call.skill_name === "llm_text_generation" ? `大模型输出${suffix}` : `大模型错误${suffix}`,
+          title: call.skill_name === "llm_text_generation" ? `LLM Output${suffix}` : `LLM Error${suffix}`,
           content: text,
           createdAt: call.created_at,
           sortKey: call.created_at ? Date.parse(call.created_at) || 0 : 0,
@@ -120,84 +148,156 @@ export default function TaskRunningPage() {
 
   useEffect(() => {
     const panel = logPanelRef.current;
-    if (panel) {
-      panel.scrollTop = panel.scrollHeight;
-    }
+    if (panel) panel.scrollTop = panel.scrollHeight;
   }, [chatItems.length]);
 
   useEffect(() => {
-    refresh().catch(() => undefined);
-    if (!task.activeTaskId) {
-      return;
+    if (!currentTaskId) return;
+    refresh(currentTaskId).catch(() => undefined);
+  }, [currentTaskId]);
+
+  useEffect(() => {
+    if (!currentTaskId) return;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
-    const ws = new WebSocket(`ws://127.0.0.1:8080/ws/tasks/${task.activeTaskId}`);
+    const token = localStorage.getItem("wf_token") || "";
+    const ws = new WebSocket(`${getWsBaseUrl()}/ws/tasks/${currentTaskId}?token=${encodeURIComponent(token)}`);
     wsRef.current = ws;
     ws.onmessage = (ev) => {
       const payload = JSON.parse(ev.data) as {
         status: string;
-        task?: { user_requirement?: string };
+        task?: { user_requirement?: string; task_type?: string };
         new_events: Array<{ event_id: string; stage: string; message: string; created_at?: string }>;
         new_skill_calls: Array<{ skill_call_id: string; skill_name: string; input?: string; output?: string; created_at?: string }>;
         agent_runs: Array<{ run_id: string; agent_name: string; status: string; output?: string }>;
       };
       setStatus(payload.status);
-      setTask({ activeTaskId: task.activeTaskId, activeTaskStatus: payload.status });
-      if (payload.task?.user_requirement) {
-        setRequirement(payload.task.user_requirement);
-      }
+      setTask((prev) => ({ ...prev, activeTaskId: currentTaskId, activeTaskStatus: payload.status }));
+      setSelectedRunningTaskId(currentTaskId);
+      upsertRunningTask({
+        taskId: currentTaskId,
+        status: payload.status,
+        taskType: payload.task?.task_type || taskType,
+        title: payload.task?.user_requirement || requirement,
+      });
+      if (payload.task?.user_requirement) setRequirement(payload.task.user_requirement);
+      if (payload.task?.task_type) setTaskType(payload.task.task_type);
       setEvents((prev) => {
         const map = new Map(prev.map((x) => [x.event_id, x]));
-        for (const evt of payload.new_events || []) {
-          map.set(evt.event_id, evt);
-        }
+        for (const evt of payload.new_events || []) map.set(evt.event_id, evt);
         return Array.from(map.values());
       });
       setSkillCalls((prev) => {
         const map = new Map(prev.map((x) => [x.skill_call_id, x]));
-        for (const call of payload.new_skill_calls || []) {
-          map.set(call.skill_call_id, call);
-        }
+        for (const call of payload.new_skill_calls || []) map.set(call.skill_call_id, call);
         return Array.from(map.values());
       });
-      if (payload.agent_runs) {
-        setRuns(payload.agent_runs);
-      }
+      if (payload.agent_runs) setRuns(payload.agent_runs);
     };
     return () => {
       ws.close();
     };
-  }, [task.activeTaskId, setTask]);
+  }, [currentTaskId]);
 
   useEffect(() => {
-    if (status === "completed" || status === "revision_completed") {
-      navigate("/result");
+    let stopped = false;
+    const token = localStorage.getItem("wf_token");
+    if (!token) {
+      setActiveUsers(0);
+      return;
     }
-  }, [status, navigate]);
+    const connect = () => {
+      if (stopped) return;
+      const ws = new WebSocket(`${getWsBaseUrl()}/ws/system/active-users?token=${encodeURIComponent(token)}`);
+      activeUsersWsRef.current = ws;
+      ws.onopen = () => {
+        reconnectAttemptRef.current = 0;
+      };
+      ws.onmessage = (ev) => {
+        const payload = JSON.parse(ev.data) as { active_users?: number };
+        setActiveUsers(Number(payload.active_users || 0));
+      };
+      ws.onclose = () => {
+        if (stopped) return;
+        const attempt = reconnectAttemptRef.current + 1;
+        reconnectAttemptRef.current = attempt;
+        const delay = Math.min(10000, attempt <= 1 ? 2000 : attempt <= 3 ? 5000 : 10000);
+        reconnectTimerRef.current = window.setTimeout(connect, delay);
+      };
+      ws.onerror = () => ws.close();
+    };
+    connect();
+    return () => {
+      stopped = true;
+      if (reconnectTimerRef.current !== null) window.clearTimeout(reconnectTimerRef.current);
+      if (activeUsersWsRef.current) activeUsersWsRef.current.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentTaskId) return;
+    if (status === "completed" || status === "revision_completed") {
+      removeRunningTask(currentTaskId);
+      navigate(taskType === "template_generation" ? "/template-preview" : "/result");
+    }
+  }, [status, navigate, taskType, currentTaskId, removeRunningTask]);
+
+  useEffect(() => {
+    if (!currentTaskId) return;
+    if (status !== "requires_user_completion") return;
+    if (taskType !== "template_generation" && taskType !== "ppt") return;
+    navigate(`/template-generation/recovery?taskId=${encodeURIComponent(currentTaskId)}`);
+  }, [status, taskType, currentTaskId, navigate]);
+
+  useEffect(() => {
+    const marker = events.find((e) => (e.message || "").startsWith("capability_setup_required:"));
+    if (!marker || !currentTaskId) return;
+    const capability = encodeURIComponent((marker.message || "").split(":", 2)[1] || "");
+    navigate(`/capabilities/setup?taskId=${encodeURIComponent(currentTaskId)}&capability=${capability}`);
+  }, [events, navigate, currentTaskId]);
+
+  if (!currentTaskId) {
+    return (
+      <Card>
+        <Typography.Title level={4}>Task Running</Typography.Title>
+        <Typography.Paragraph>No active running task selected.</Typography.Paragraph>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <Typography.Title level={4}>Task Running</Typography.Title>
       <Space direction="vertical" style={{ width: "100%" }}>
-        <Tag color="blue">Task: {task.activeTaskId ?? "none"}</Tag>
-        <Tag color="purple">Status: {status}</Tag>
+        <Space>
+          <Tag color="blue">Task: {currentTaskId}</Tag>
+          <Tag color="purple">Status: {status}</Tag>
+          <Tag color="geekblue">Active Users (10m): {activeUsers}</Tag>
+        </Space>
+        <Select
+          style={{ width: 420 }}
+          value={currentTaskId}
+          options={taskOptions}
+          onChange={(value) => {
+            setSelectedRunningTaskId(value);
+            navigate(`/tasks/running/${encodeURIComponent(value)}`);
+          }}
+        />
         <Progress percent={status === "completed" ? 100 : status === "idle" ? 0 : 60} />
-        <Button onClick={() => refresh()}>Refresh</Button>
+        <Button onClick={() => refresh(currentTaskId)}>Refresh</Button>
       </Space>
+
       <Typography.Title level={5}>Live Conversation</Typography.Title>
       <div
         ref={logPanelRef}
-        style={{
-          maxHeight: 320,
-          overflowY: "auto",
-          border: "1px solid #f0f0f0",
-          borderRadius: 8,
-          padding: 8
-        }}
+        style={{ maxHeight: 320, overflowY: "auto", border: "1px solid #f0f0f0", borderRadius: 8, padding: 8 }}
       >
         <List
           size="small"
           dataSource={chatItems}
-          locale={{ emptyText: "暂无对话记录" }}
+          locale={{ emptyText: "No conversation records yet" }}
           renderItem={(item) => (
             <List.Item>
               <Space align="start">
@@ -209,9 +309,7 @@ export default function TaskRunningPage() {
                     <strong>{item.title}</strong>
                     {item.createdAt ? <span style={{ marginLeft: 8, color: "#888" }}>{item.createdAt}</span> : null}
                   </div>
-                  <Tooltip
-                    title={<div style={{ maxWidth: 680, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{item.content}</div>}
-                  >
+                  <Tooltip title={<div style={{ maxWidth: 680, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{item.content}</div>}>
                     <Typography.Text>{shortText(item.content, 180)}</Typography.Text>
                   </Tooltip>
                 </div>
@@ -220,6 +318,7 @@ export default function TaskRunningPage() {
           )}
         />
       </div>
+
       <Typography.Title level={5}>Events</Typography.Title>
       <List
         dataSource={events}

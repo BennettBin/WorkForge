@@ -18,6 +18,16 @@ def _build_error(code: str, message: str, detail=None) -> ApiResponse:
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(ValueError)
     async def value_error_handler(_: Request, exc: ValueError):
+        message = str(exc)
+        if message in {
+            "Session not found.",
+            "Session expired.",
+            "Missing token.",
+            "Missing Authorization header.",
+            "Authorization must be Bearer token.",
+        }:
+            payload = _build_error("UNAUTHORIZED", message)
+            return JSONResponse(status_code=401, content=payload.model_dump(mode="json"))
         payload = _build_error("BAD_REQUEST", str(exc))
         return JSONResponse(status_code=400, content=payload.model_dump(mode="json"))
 

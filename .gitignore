@@ -32,7 +32,11 @@ dist/
 .ipynb_checkpoints/
 
 # Project outputs
-outputs/
+/main/storageoutputs/
 data/
 models/
 checkpoints/
+/main/storageparsed/
+/main/storageuploads/
+/main/storagevectors/
+/main/backend/app/templates/

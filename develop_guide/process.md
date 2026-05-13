@@ -302,6 +302,254 @@ Step: PPTX output retrieval hardening
 Completed: Added direct PPTX file download endpoints (`/v1/tasks/{task_id}/download/latest/file`, `/v1/tasks/{task_id}/download/{version}/file`), added `download_url` to metadata responses, added legacy storage path compatibility resolution for output paths, updated ResultPreview page to support one-click download, and fixed SkillRegistry path resolution to absolute app path.
 Verification: `PYTHONPATH=. pytest tests/test_task_api_flow.py -q` passed (3/3); frontend `npm run build` passed; live API smoke for `download/latest/file` returned `200` with PPTX content type.
 Open Issues: none.
+
+Time: 2026-05-13 22:25
+Step: Fix zombie running-task remnants after backend/OLLAMA connection interruption
+Completed: Added startup recovery for interrupted running tasks. New runtime helper `recover_interrupted_running_tasks(...)` scans persisted tasks on backend startup and converts any running-like status left from prior interrupted sessions to `failed_generation`, then writes audit events (`interrupted_task_auto_closed_on_backend_restart`). Hooked this recovery into FastAPI lifespan before normal service start, so stale tasks are removed from running sidebar immediately after restart.
+Verification: `python -m py_compile` passed for `task_service.py`, `task_manager/__init__.py`, `api/app.py`, and new test. `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_recover_interrupted_tasks.py main/backend/tests/test_user_settings_and_parallel.py -q` passed (3/3).
+Open Issues: none.
+
+Time: 2026-05-13 22:12
+Step: Fix delayed navigation after task creation and ensure immediate running-task presence
+Completed: Fixed delayed jump root cause in task creation flow. `TaskCreatePage` previously sent `task_type="auto"` even after local inference, causing backend to re-run inference before responding; now it sends the already inferred concrete `task_type`, reducing create latency and enabling immediate route transition. Also aligned template-generation settings flow to navigate to running page immediately after task creation (run request remains async), matching expected UX.
+Verification: Frontend build passed (`npm.cmd run build`). Regression suite `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_steps_21_30.py -q` passed (3/3).
+Open Issues: none.
+
+Time: 2026-05-13 21:55
+Step: Fix Result Preview download authorization failure and multi-completed-task visibility
+Completed: Resolved two Result Preview issues. (1) Download auth fix: replaced unauthenticated `window.open(...)` download behavior with authenticated blob download helper `downloadFile(...)` in `main/frontend/src/api/http.ts`, and wired Result Preview latest/version download buttons to use this helper so Authorization header is always included. (2) Multi-task results visibility: `ResultPreviewPage` now loads all completed tasks for current user from `/v1/tasks/user/{user_id}`, provides a completed-task selector, and allows switching result context per task in the same page (versions/compare/revision/rollback/cache-clear now target selected task).
+Verification: Frontend `npm.cmd run build` passed. Regression `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_steps_21_30.py -q` passed (3/3).
+Open Issues: none.
+
+Time: 2026-05-13 21:20
+Step: Fix stale running-task remnants after restart and Windows JSON atomic-write access error
+Completed: Implemented two reliability fixes. (1) Running-task cleanup: `TaskService.list_running_tasks_by_user` now auto-closes stale tasks stuck in running states for over 30 minutes (`failed_generation` + event `stale_running_task_auto_closed`), so killed/abandoned tasks are removed from running sidebar. Added separate concurrency-count status set so display statuses (`created/file_uploaded/file_parsed`) can appear in sidebar without incorrectly consuming execution-capacity quota. (2) Windows file-write hardening: `JsonCollectionStore._atomic_write` now uses unique temp files per process/thread, flush+fsync, and retrying `os.replace` to mitigate transient lock failures (`WinError 5 Access denied`) when replacing `*.json` from temp file; corrupt-file quarantine path also uses `os.replace`.
+Verification: `python -m py_compile main/backend/app/repositories/json_impl/store.py main/backend/app/services/task_manager/task_service.py` passed. `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_user_settings_and_parallel.py main/backend/tests/test_steps_21_30.py -q` passed (5/5).
+Open Issues: none.
+
+Time: 2026-05-13 20:40
+Step: Fix missing running-task entry visibility and ModelSettings init 404 fallback
+Completed: Fixed two issues. (1) Expanded backend running-status set in `TaskService.RUNNING_STATUSES` to include early lifecycle states (`created`, `file_uploaded`, `file_parsed`) so `/v1/tasks/running/me` returns tasks immediately after creation/upload/parse, enabling floating running-task entry visibility before generation stage. (2) Added frontend backward-compatible fallback in `ModelSettingsPage.loadUserSettings()` to treat `HTTP 404` on `/v1/users/settings/me` as legacy-backend case and default to `max_parallel_tasks=10` instead of showing blocking error.
+Verification: `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_user_settings_and_parallel.py -q` passed (2/2); `npm.cmd run build` passed in frontend.
+Open Issues: none.
+
+Time: 2026-05-13 21:05
+Step: Execute multi-task plan v2 STEP1 (user parallel-limit settings backend)
+Completed: Added user-scoped parallel-limit persistence model/repository and service integration. New `UserSettings` entity (`max_parallel_tasks` 1..10, default 10), repository interface/JSON implementation (`user_settings.json`), and repository bundle wiring completed.
+Verification: Backend py_compile passed for model/repository/factory changes.
+Open Issues: none.
+
+Time: 2026-05-13 21:08
+Step: Execute multi-task plan v2 STEP2 (running tasks list API)
+Completed: Added authenticated endpoint `GET /v1/tasks/running/me` in task routes. Endpoint returns owner-scoped running-status tasks with fields: `task_id/status/task_type/user_requirement/updated_at`.
+Verification: API route compiles and included in existing app router.
+Open Issues: none.
+
+Time: 2026-05-13 21:12
+Step: Execute multi-task plan v2 STEP3 (backend parallel-limit enforcement)
+Completed: Added backend hard guard in task service (`_ensure_parallel_capacity`) and running-status helper set. Enforcement now runs before task creation and task run; exceeding limit returns business error `Running task limit reached (current/limit)`.
+Verification: Added/ran tests for limit block behavior (`test_user_settings_and_parallel.py`) and confirmed pass.
+Open Issues: none.
+
+Time: 2026-05-13 21:18
+Step: Execute multi-task plan v2 STEP4 (frontend multi-task store upgrade)
+Completed: Upgraded app task store from single-slot to multi-task capable state by adding `runningTasks`, `selectedRunningTaskId`, and helper actions (`upsert/remove/select/hydrate`). Kept backward compatibility (`activeTaskId/activeTaskStatus`) for existing pages.
+Verification: TypeScript build passed.
+Open Issues: none.
+
+Time: 2026-05-13 21:22
+Step: Execute multi-task plan v2 STEP5 (right-side collapsible floating running-task panel)
+Completed: Added global component `RunningTasksFloatingPanel` mounted in authenticated `App` layout. Panel polls `/v1/tasks/running/me`, shows multiple running tasks in a right-side drawer, and supports per-task jump to `/tasks/running/:taskId`.
+Verification: UI build passed and route navigation wiring completed.
+Open Issues: none.
+
+Time: 2026-05-13 21:28
+Step: Execute multi-task plan v2 STEP6 (TaskCreate registration + jump per task)
+Completed: Updated task creation flow to register running task in store, set selected running task, and navigate directly to `/tasks/running/:taskId`. Run completion updates running-task status in store without overwriting other tasks.
+Verification: TypeScript build passed.
+Open Issues: none.
+
+Time: 2026-05-13 21:35
+Step: Execute multi-task plan v2 STEP7 (TaskRunning route param + same-page switch dropdown)
+Completed: Refactored `TaskRunningPage` to route-param driven monitor (`/tasks/running/:taskId`), added running-task dropdown switcher, and implemented ws rebind on task switch with cleanup. Completion path now removes current task from running registry.
+Verification: TypeScript build passed and ws/subscription logic compiles.
+Open Issues: none.
+
+Time: 2026-05-13 21:42
+Step: Execute multi-task plan v2 STEP8 (ModelSettings parallel-limit configuration)
+Completed: Added user-facing parallel-limit config UI in Model Settings (`InputNumber` 1..10) and backend API integration (`GET/PUT /v1/users/settings/me`). Saved value is persisted and reloadable.
+Verification: Frontend build passed; backend tests passed for settings default/update and limit enforcement.
+Open Issues: none.
+
+Time: 2026-05-13 20:32
+Step: Execute multi-task plan v2 STEP0 (baseline scan and impact boundary confirmation)
+Completed: Completed baseline scan for single-task state, route, creation flow, websocket subscription, and backend task APIs/service boundaries. Findings: (1) frontend global task state is single-slot only (`task.activeTaskId/activeTaskStatus`) in `main/frontend/src/store/appStore.tsx`; (2) running route is single fixed path `/tasks/running` without task-id parameter in `main/frontend/src/App.tsx`; (3) `TaskCreatePage` writes only one active task and always navigates to generic running route, so creating another task overwrites current context; (4) `TaskRunningPage` subscribes ws using only `task.activeTaskId` and lacks in-page task switch selector; (5) no global running-task floating panel exists (current FloatButton group is auxiliary-feature shortcuts only); (6) backend task APIs in `main/backend/app/api/routes/tasks.py` and service `main/backend/app/services/task_manager/task_service.py` are owner-scoped but currently provide no `running/me` list endpoint and no per-user parallel-limit setting/enforcement.
+Verification: Reviewed required STEP0 files: `appStore.tsx`, `App.tsx`, `TaskCreatePage.tsx`, `TaskRunningPage.tsx`, `tasks.py`, `task_service.py`; baseline confirms frontend/backend are currently designed around a single active task context.
+Output: Single-task baseline and refactor boundary are now recorded for STEP1~STEP9 execution reference.
+Open Issues: none.
+
+Time: 2026-05-13 20:18
+Step: Add v2 detailed execution plan for multi-task floating panel and parallel running
+Completed: Added `develop_guide/multi_task_parallel_execution_step_plan_v2.md` with explicit purpose, DoD, ordered execution sequence (STEP0~STEP9), file/API-level implementation guidance, backend/frontend contract alignment, validation checklist, risk controls, and agent execution constraints. This version emphasizes user-confirmed requirements: right-side collapsible multi-task floating panel, per-task jump, in-page running-task switcher, and user-configurable parallel limit (1~10) in Model Settings.
+Verification: Plan file created and reviewed for step-by-step agent readability and executable granularity.
+Open Issues: none.
+
+Time: 2026-05-13 19:30
+Step: Fix Task Create start-navigation and backend shutdown cleanup
+Completed: Fixed two issues. (1) In `main/frontend/src/pages/TaskCreate/TaskCreatePage.tsx`, task creation now navigates to `/tasks/running` immediately after task creation succeeds; upload/parse/run continues asynchronously in background, so user enters monitoring page without waiting on preprocessing. (2) Hardened backend shutdown in `main/desktop/scripts/stop-backend.ps1` with 3-layer stop strategy: stop PID from pid-file, stop any process listening on port 8080, and stop python/pythonw uvicorn processes matching `app.api.app:app --port 8080` command line; then remove pid-file and print explicit status when nothing is running.
+Verification: Frontend `npm.cmd run build` passed. Shutdown script execution check passed (`powershell -ExecutionPolicy Bypass -File main/desktop/scripts/stop-backend.ps1`) with expected no-process output in idle state.
+Open Issues: none.
+
+Time: 2026-05-13 19:12
+Step: Fix session-invalid auth handling causing `/models` fallback illusion and task-run `Session not found` failures
+Completed: Implemented auth-invalid统一处理，修复两个关联问题。Backend: updated `main/backend/app/api/errors.py` to map auth/session-related `ValueError` messages (`Session not found/expired`, missing/invalid Authorization header, missing token) to HTTP 401 `UNAUTHORIZED` instead of generic 400. Frontend: updated `main/frontend/src/api/http.ts` response parser to detect 401/session-invalid responses, clear local auth cache (`wf_token/wf_user_id/wf_username/wf_email`), and redirect to `/Login`, preventing stale-token state from showing misleading `/models` defaults and preventing repeated task-run failures.
+Verification: Backend tests `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_provider_matrix.py main/backend/tests/test_provider_user_scope.py main/backend/tests/test_steps_21_30.py -q` passed (7/7). Frontend `npm.cmd run build` passed.
+Test Updates: adjusted `main/backend/tests/test_provider_matrix.py` unauthorized expectation for `/v1/providers/default/me` from 400 to 401.
+Open Issues: none.
+
+Time: 2026-05-13 17:05
+Step: Execute model-config consistency plan STEP6 (manual verification checklist)
+Completed: Ran end-to-end checklist verification with FastAPI `TestClient` on isolated temp data dir, covering both users and router behavior. Verified: (1) User A registers/logs in and saves `vllm` config (`model_name=Model_A`), (2) subsequent task infer request succeeds and `ModelRouter.pick(user_a, generation)` resolves to `user_default` with `provider_type=vllm` and `model_name=Model_A`, (3) `GET /v1/providers/default/me` for User A returns persisted `Model_A` config, (4) User B cannot read User A provider list (`GET /v1/providers/{user_a}` returns 400), and (5) User B without custom provider falls back to system default vLLM (`source=system_default`, `provider_type=vllm`).
+Verification: Executed script in `main/backend` workspace with output markers: `STEP6_CHECK_OK`, `USER_A_MODEL Model_A`, `USER_B_SOURCE system_default`, `USER_B_PROVIDER vllm`.
+Open Issues: none.
+
+Time: 2026-05-13 16:55
+Step: Execute model-config consistency plan STEP5 (automated tests expansion)
+Completed: Added focused provider persistence/scope test suite `main/backend/tests/test_provider_user_scope.py` to validate: (1) per-user default switching uniqueness (`A default -> B default` leaves only B default), (2) `provider_id` update path persists and `GET /v1/providers/default/me` reflects updated values, and (3) cross-user provider listing is blocked. Existing provider/model-router regression suites were re-run to ensure no behavior regressions.
+Verification: `python -m py_compile main/backend/tests/test_provider_user_scope.py` passed. `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_provider_user_scope.py main/backend/tests/test_provider_matrix.py main/backend/tests/test_model_router.py -q` passed (8/8).
+Open Issues: none.
+
+Time: 2026-05-13 16:42
+Step: Execute model-config consistency plan STEP4 (frontend `/models` hydration and save synchronization)
+Completed: Updated `main/frontend/src/pages/ModelSettings/ModelSettingsPage.tsx` to make `/models` state backend-consistent. Added page-entry auto hydration via `GET /v1/providers/default/me` and provider list auto-load. Save flow now sends `provider_id` (when current default exists) to follow update path instead of always creating a new provider, then refetches default provider and provider list to guarantee post-save UI consistency. Added `Load Default` action for explicit re-hydration from backend state.
+Verification: `npm.cmd run build` passed in `main/frontend` (TypeScript compile + Vite production build successful).
+Open Issues: none.
+
+Time: 2026-05-13 16:30
+Step: Execute model-config consistency plan STEP3 (model router correctness verification/fix)
+Completed: Verified and hardened `ModelRouter` priority path (`user default -> system vllm fallback`). Added user-default usability guard in `main/backend/app/services/model_router/router.py`: if persisted default provider is missing key routing fields (e.g., empty `provider_type` or `model_name`), router now degrades safely to system vLLM default instead of routing with broken config. This keeps immediate effectiveness while preventing stale/bad config breakage.
+Verification: `python -m py_compile main/backend/app/services/model_router/router.py main/backend/tests/test_model_router.py` passed. `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_model_router.py -q` passed (4/4).
+Test Updates: Extended `main/backend/tests/test_model_router.py` with (1) default-switch immediate-effect case and (2) invalid-user-default fallback-to-vLLM case.
+Open Issues: none.
+
+Time: 2026-05-13 16:05
+Step: Execute model-config consistency plan STEP1 (baseline audit and reproducible bug script)
+Completed: Finished baseline audit for provider save/load/routing chain across backend and frontend. Key findings: (1) provider APIs are not user-auth bound in route layer (`/v1/providers/{user_id}` trusts path user_id; `/v1/providers` trusts payload user_id), creating ownership risk; (2) `ModelSettingsPage` does not auto-hydrate from current default provider on page entry and has no dedicated default-provider fetch path; (3) Save flow does not include `provider_id`, so repeated saves create new provider records instead of deterministic update; (4) model router priority is correct (`user default -> system vllm fallback`) and immediate effectiveness is expected once default provider is persisted; (5) repository upsert already clears other defaults for same user when `is_default=true`, but service/API contract still needs explicit default-read/update semantics.
+Verification: Audited files: `main/backend/app/api/routes/providers.py`, `main/backend/app/services/llm_provider/provider_service.py`, `main/backend/app/services/model_router/router.py`, `main/backend/app/repositories/interfaces/provider_config_repository.py`, `main/backend/app/repositories/json_impl/repositories.py`, `main/frontend/src/pages/ModelSettings/ModelSettingsPage.tsx`, `main/frontend/src/api/http.ts`, `main/backend/app/models/requests.py`.
+Repro Script: User A login -> open `/models` -> choose provider and Save twice with changed model name -> click Load Providers (observe multiple new rows instead of stable update) -> run task/infer (router should pick latest default) -> reload `/models` (form not auto-hydrated from saved default) -> login as User B and call `/v1/providers/{userA_id}` with valid token (should be blocked but currently route-layer ownership guard is absent).
+Open Issues: none (baseline captured; ready for STEP2 implementation).
+
+Time: 2026-05-13 16:18
+Step: Execute model-config consistency plan STEP2 (backend contract hardening for user default provider)
+Completed: Hardened provider APIs with auth-bound user scope and added default-provider read endpoint. `main/backend/app/api/routes/providers.py` now requires Bearer auth on all provider routes and enforces ownership (`payload.user_id` / path `user_id` must equal current token user). Added `GET /v1/providers/default/me` for current-user default provider hydration. Added `ProviderService.get_default_for_user(...)` in `main/backend/app/services/llm_provider/provider_service.py` for explicit service-level default retrieval.
+Verification: `python -m py_compile main/backend/app/api/routes/providers.py main/backend/app/services/llm_provider/provider_service.py main/backend/tests/test_provider_matrix.py main/backend/tests/test_steps_21_30.py` passed. `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_provider_matrix.py main/backend/tests/test_steps_21_30.py -q` passed (5/5).
+Test Updates: Updated provider-related tests to include auth headers; added scope enforcement checks (`test_provider_endpoints_enforce_user_scope`) and default-me endpoint assertion.
+Open Issues: none.
+
+Time: 2026-05-12 11:20
+Step: Execute and verify Step 1 (template bundle standardization and fixed naming)
+Completed: Verified Step 1 requirements against implementation: fixed template artifact names/constants in template-generation runtime, fixed read-path constants in tasks route, and exact-path-first template resolution (`templates/ppt/{style}/template.pptx`) in task-service. Confirmed template listing keeps compatibility for both new fixed bundle file name and legacy `*.pptx` entries. During verification, found and fixed a missing model export regression: `TemplateRecoveryCompleteRequest` was not defined/exported in `app.models` while referenced by tasks route; added class in `models/requests.py` and exported it from `models/__init__.py`.
+Verification: `python -m py_compile main/backend/app/skills/template_generation/runtime.py main/backend/app/services/task_manager/task_service.py main/backend/app/api/routes/tasks.py main/backend/app/models/requests.py main/backend/app/models/__init__.py` passed; `python -m pytest tests/test_task_api_flow.py -k template -q` passed (1 passed).
+Open Issues: none for Step 1.
+
+Time: 2026-05-12 12:05
+Step: Execute and verify Step 2 (template completeness validation and failure branching)
+Completed: Implemented Step 2 in `template_generation` runtime: added PPT metadata completeness checks and explicit branching outputs. Runtime now returns `status=requires_user_completion` with `missing_fields` and `suggested_values` when required PPT design fields are missing; otherwise returns `status=completed`. Also aligned template artifact constants in runtime (`template.pptx/template.md`, `template.meta.json`, `template.params.json`, `render_from_template.py`, `assets/`) and ensured task-agent artifact model reads these branch fields. Added API-flow regression test `test_template_generation_returns_requires_user_completion_for_incomplete_ppt_design` to assert incomplete PPT template input triggers recovery branch.
+Verification: `python -m py_compile main/backend/app/skills/template_generation/runtime.py main/backend/app/agents/task_agents/template_generation_task_agent.py main/backend/tests/test_task_api_flow.py` passed; `python -m pytest tests/test_task_api_flow.py -k "template_generation_returns_requires_user_completion_for_incomplete_ppt_design or test_ppt_template_extraction_and_template_listing" -q` passed (2 passed).
+Open Issues: none for Step 2.
+
+Time: 2026-05-12 12:35
+Step: Execute STEP 1 in `develop_guide/ppt_generation_plan.md` (template bundle schema and unified validator)
+Completed: Added a new backend template-bundle validation module with fixed schema constants and a unified validation entry: `validate_template_bundle(template_dir) -> {ok, missing_files, errors}`. Implemented required fixed-file checks for `template.pptx`, `template.meta.json`, `template.rules.json`, `render_from_template.py`, plus schema checks for required meta fields (`slide_size/theme/layout_map/text_style`) and rules root (`rules`). Added package exports for direct orchestrator usage.
+Verification: `python -m py_compile main/backend/app/services/template_bundle/validator.py main/backend/app/services/template_bundle/__init__.py main/backend/tests/test_template_bundle_validator.py` passed; `python -m pytest tests/test_template_bundle_validator.py -q` passed (2/2).
+Open Issues: this step introduces validator + schema baseline only; template-generation and task-flow integration with `template.rules.json` will be handled in later steps.
+
+Time: 2026-05-12 13:05
+Step: Execute STEP 2 in `develop_guide/ppt_generation_plan.md` (PPT template-generation recovery flow + recovery/resume API)
+Completed: Upgraded `app/skills/ppt_template_generation/runtime.py` to generate fixed template bundle artifacts (`template.pptx`, `template.meta.json`, `template.rules.json`, `render_from_template.py`) and run unified `validate_template_bundle(...)` immediately. Added failure branch to return `status=requires_user_completion` and write fixed recovery artifact `template.recovery.json` with `missing_items`, `validation_errors`, `suggested_values`, `resume_token`. Added task-service handling in PPT template extraction path to persist recovery payload and mark task status `requires_user_completion` instead of hard-fail. Added resume workflow API support by introducing `POST /v1/tasks/{task_id}/template-generation/resume` and service method `resume_template_generation_recovery(...)` with resume-token validation and re-validation loop. Kept `recovery/complete` as backward-compatible alias. Updated task status enum with `requires_user_completion`.
+Verification: `python -m py_compile main/backend/app/skills/ppt_template_generation/runtime.py main/backend/app/services/template_bundle/validator.py main/backend/app/services/task_manager/task_service.py main/backend/app/models/entities.py main/backend/app/models/requests.py main/backend/app/models/__init__.py main/backend/app/api/routes/tasks.py main/backend/tests/test_task_api_flow.py` passed; `python -m pytest tests/test_task_api_flow.py -k "test_ppt_template_extraction_and_template_listing or test_ppt_template_generation_recovery_and_resume_flow" -q` passed (2 passed); `python -m pytest tests/test_template_bundle_validator.py -q` passed (2 passed).
+Open Issues: LLM-generated field-level suggestion quality in recovery payload is currently heuristic-based; can be upgraded to provider-backed explanation in a later step.
+
+Time: 2026-05-12 13:25
+Step: Execute STEP 3 in `develop_guide/ppt_generation_plan.md` (frontend recovery page + auto routing)
+Completed: Added dedicated recovery page route `/template-generation/recovery` and implemented dynamic recovery form in `TemplateGenerationRecoveryPage.tsx`. The page reads `GET /v1/tasks/{task_id}/template-generation/recovery`, renders missing fields with suggested default values, and submits `POST /v1/tasks/{task_id}/template-generation/resume` (`resume_token + user_filled_fields`). Updated task-running page auto-navigation: when task enters `requires_user_completion` and task type is `template_generation` or `ppt`, frontend now auto-jumps to recovery page with `taskId` query param.
+Verification: `cmd /c npm run build` passed in `main/frontend` (TypeScript build + Vite production build).
+Open Issues: none for Step 3.
+
+Time: 2026-05-12 13:45
+Step: Execute STEP 4 in `develop_guide/ppt_generation_plan.md` (template list endpoint returns valid-only bundles)
+Completed: Refactored `TaskService.list_ppt_templates()` to bundle-directory validation mode and return only templates where `validate_template_bundle(...).ok == true`. Added diagnostic fields in list payload: `is_valid`, `missing_files`, `schema_version`. Kept non-PPT template listing behavior while adding the same fields for response-shape consistency. Frontend TaskCreate requires no extra filter change because it already renders only backend-returned items; now invalid PPT bundles are naturally excluded from dropdown options.
+Verification: `python -m py_compile main/backend/app/services/task_manager/task_service.py main/backend/tests/test_task_api_flow.py` passed; `python -m pytest tests/test_task_api_flow.py -k "test_list_ppt_templates_returns_only_valid_bundles or test_ppt_template_extraction_and_template_listing" -q` passed (2 passed).
+Open Issues: none for Step 4.
+
+Time: 2026-05-12 14:05
+Step: Execute STEP 5 in `develop_guide/ppt_generation_plan.md` (TemplateChoice strong binding in TaskCreate + backend)
+Completed: Refactored PPT task creation and execution binding to use explicit `TemplateChoice` as primary template selector instead of style-based implicit matching. Frontend `TaskCreate` now separates `Style` and `Template Choice` for PPT. Backend now parses `TemplateChoice` from requirement, resolves bundle via strict `_resolve_template_bundle(template_name)`, validates existence + schema (`validate_template_bundle`) and blocks execution with explicit error if invalid/non-existent. Export path and template-context injection now use selected bundle when `TemplateChoice` is provided.
+Verification: `python -m py_compile main/backend/app/services/task_manager/task_service.py main/backend/tests/test_task_api_flow.py` passed; `python -m pytest tests/test_task_api_flow.py -k "test_ppt_generation_fails_when_templatechoice_is_invalid or test_ppt_template_extraction_and_template_listing" -q` passed (2 passed); frontend `cmd /c npm run build` passed.
+Open Issues: short-term compatibility fallback by style still exists when `TemplateChoice` is not provided; full de-prioritization/removal is scheduled in subsequent step.
+
+Time: 2026-05-12 14:20
+Step: Execute STEP 6 in `develop_guide/ppt_generation_plan.md` (backend template resolution: fuzzy -> precise first)
+Completed: Finalized precise template bundle resolution flow in task-service. `_resolve_template_bundle(template_name)` now returns full bundle structure (`bundle_dir/template_file/meta_path/rules_path/script_path`) and enforces strict existence + schema validation before use. Runtime selection path `_resolve_selected_template_path(task)` now always prioritizes explicit `TemplateChoice`; when provided and invalid, execution fails with explicit error and does not silently fall back. Legacy `_resolve_template_path(style)` remains for backward compatibility when `TemplateChoice` is absent.
+Verification: `python -m py_compile main/backend/app/services/task_manager/task_service.py main/backend/tests/test_task_api_flow.py` passed; `python -m pytest tests/test_task_api_flow.py -k "test_ppt_generation_fails_when_templatechoice_is_invalid or test_ppt_generation_uses_templatechoice_even_if_style_is_invalid" -q` passed (2 passed).
+Open Issues: none for Step 6.
+
+Time: 2026-05-12 14:40
+Step: Execute STEP 7 in `develop_guide/ppt_generation_plan.md` (exporter upgrade: template_bundle + meta/rules application)
+Completed: Upgraded `PptxExporter.export(...)` to accept `template_bundle` in addition to legacy `template_path`. Exporter now loads `template.meta.json` and `template.rules.json` from bundle paths and applies core rules during rendering: (1) layout preference by `layout_map` names with fallback, (2) title/body font sizes from `text_style`, (3) text-overflow handling by rules (`truncate` or `shrink` behavior). Updated task-service PPT export call sites (normal run / rollback / revision) to pass resolved `template_bundle` first, while keeping `template_path` compatibility for transitional safety.
+Verification: `python -m py_compile main/backend/app/services/export_engine/pptx_exporter.py main/backend/app/services/task_manager/task_service.py main/backend/tests/test_pptx_exporter_template_bundle.py` passed; `python -m pytest tests/test_pptx_exporter_template_bundle.py -q` passed (1/1); `python -m pytest tests/test_task_api_flow.py -k "test_ppt_generation_uses_templatechoice_even_if_style_is_invalid" -q` passed (1 passed).
+Open Issues: full semantic mapping of all `template.rules.json` rule types is not complete yet (currently text overflow + layout/font core rules are enforced).
+
+Time: 2026-05-12 15:10
+Step: Execute STEP 8 in `develop_guide/ppt_generation_plan.md` (ppt_generation skill consumes template constraints)
+Completed: Enhanced `app/skills/ppt_generation/runtime.py` to consume template constraints from requirement context (`TemplateMeta=...`, `TemplateRules=...`) and emit renderer-friendly per-slide layout intent. Generation output now includes `layout_intent` for each slide (`layout_name` + `title/body/image` slots) and returns a `template_constraints` section indicating loaded meta/rules. Content generation path (LLM and fallback) now consistently attaches layout intent, reducing exporter-side guesswork.
+Verification: `python -m py_compile main/backend/app/skills/ppt_generation/runtime.py main/backend/tests/test_ppt_generation_runtime_template_constraints.py` passed; `python -m pytest tests/test_ppt_generation_runtime_template_constraints.py -q` passed (1/1); `python -m pytest tests/test_task_api_flow.py -k "test_ppt_generation_uses_templatechoice_even_if_style_is_invalid" -q` passed (1 passed).
+Open Issues: runtime currently parses `TemplateMeta/TemplateRules` from requirement line payload; passing structured bundle metadata directly through payload can further reduce truncation risk in later optimization.
+Time: 2026-05-11 11:45
+Step: Enforce unified SKILL.md documentation template in AGENTS.md
+Completed: Updated `AGENTS.md` with a mandatory "Skill Template Standard" section. Defined fixed template source (`C:\Users\Binb_\Desktop\SKILL.md`), required document structure (frontmatter, title, usage conditions, execution steps, examples, fallback guidance), and merge gate rule for non-compliant Skill documents. Clarified that template compliance is additive and does not replace runtime binding/audit/test enforcement.
+Verification: Manual review of `AGENTS.md` confirms new mandatory section exists and is unambiguous.
+Open Issues: none.
+Time: 2026-05-11 12:05
+Step: Migrate knowledge-search and data-analysis tool code into skill-local modules
+Completed: Moved `KnowledgeSearchService` implementation from `main/backend/app/services/knowledge_search/search_service.py` into `main/backend/app/skills/common/knowledge_search/service.py`, and moved Excel category-distribution report tool implementation from `main/backend/app/services/data_analysis_tools/excel_report_tool.py` into `main/backend/app/skills/data_analysis/data_excel_cate_word_report/tool.py`. Updated both skill runtime files to import local modules, removed obsolete service directories, and updated tests that patched old knowledge-search service path.
+Verification: `python -m py_compile` passed for updated skill runtime/modules and task-flow test; `pytest` targeted run for no-source-file knowledge-search and excel-report flows passed.
+Open Issues: none.
+Time: 2026-05-11 12:28
+Step: Verify merged knowledge_search runtime and fix patch call path
+Completed: Checked merged `main/backend/app/skills/common/knowledge_search/runtime.py` call chain via `SkillExecutor` and `TaskService`; runtime binding remains valid (`runtime.py:run`). Found stale test patch target pointing to removed module path and updated patches to `app.skills.common.knowledge_search.runtime.KnowledgeSearchService.search_and_extract`.
+Verification: `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "no_source_file_can_still_generate_by_search or no_source_file_search_empty_still_generates_with_fallback" -q` passed (2 passed, 15 deselected).
+Open Issues: none.
+Time: 2026-05-11 13:05
+Step: Implement LLM-confirmed task-type inference and generic capability-setup flow
+Completed: Refactored `CoordinatorAgent.infer_task_type` to always run LLM confirmation with keyword result injected as prompt context (`matched task type` or `NO_KEYWORD_MATCH`). Added generic capability setup orchestration: `GenericTaskAgent` now detects "new capability/new task" intent and returns setup-required artifacts; `TaskService` converts this to `capability_setup_required` run result + task event marker; TaskRunning page auto-redirects to new `CapabilitySetupPage`. Added capability bootstrap backend API (`POST /v1/tasks/{task_id}/capabilities/bootstrap`) that scaffolds skill/runtime/task-agent skeleton and performs runtime smoke-check through `SkillExecutor`. Added rerun support with `capability_name` and `force_generic_direct` in run request.
+Verification: `python -m py_compile` passed for updated backend modules; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "infer_task_type_returns_generic_when_no_keyword or auto_task_type_routes_to_generic_task_and_runs" -q` passed (2 passed, 15 deselected).
+Open Issues: capability bootstrap naming/safety policy still needs product-level confirmation (allowed character set / overwrite policy / approval guard).
+Time: 2026-05-11 13:22
+Step: Enforce capability dedup policy (same-content reuse, different-content distinguish)
+Completed: Updated capability bootstrap flow to support explicit content-based deduplication. Added optional `capability_spec` in build request; backend computes normalized SHA256 signature. If same capability name already exists and signature matches, system reuses existing capability without rebuilding. If same name but signature differs, system auto-distinguishes by suffixing name with short signature and creates a new capability. Persisted signature metadata in `capability.meta.json` under skill directory. Updated capability setup page to collect capability content and consume resolved capability name for rerun.
+Verification: `python -m py_compile` passed for updated backend modules; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "infer_task_type_returns_generic_when_no_keyword or auto_task_type_routes_to_generic_task_and_runs" -q` passed (2 passed, 15 deselected).
+Open Issues: none.
+Time: 2026-05-11 13:40
+Step: Add automatic runtime error detection and self-repair for bootstrapped capability skills
+Completed: Confirmed previous flow did not guarantee automatic code repair after capability runtime failure. Implemented auto-repair mechanism in `TaskService` for generic capability execution: on first runtime error, system locates capability `runtime.py`, generates a safe repaired fallback runtime, writes/compiles it, records repair event, and retries execution once automatically. If retry still fails, orchestration falls back according to existing `require_llm` and generic fallback policy.
+Verification: `python -m py_compile main/backend/app/services/task_manager/task_service.py` passed; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "auto_task_type_routes_to_generic_task_and_runs" -q` passed (1 passed, 16 deselected).
+Open Issues: none.
+Time: 2026-05-11 14:20
+Step: Implement auxiliary template-generation feature (coordinator -> task agent -> skill) and frontend entries
+Completed: Added task type `template_generation`; coordinator keyword routing now recognizes template-generation intent. Added `TemplateGenerationTaskAgent` that invokes `template_generation` skill. Added skill package `main/backend/app/skills/common/template_generation` (`SKILL.md + runtime.py`) to generate reusable templates (`ppt/wechat_post/report`) and metadata under `main/backend/app/templates/<type>/<name>/`. Added backend list API `GET /v1/tasks/templates/{template_type}` and service `list_templates` for non-PPT templates. Updated TaskCreate to support aux mode (`/tasks/create?aux=template_generation`), template-target/template-name settings, and template selection for `ppt/report/wechat_post`. Added 5 floating auxiliary buttons on Home page including template-generation entry.
+Verification: `python -m py_compile` passed for new/updated backend modules; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "infer_task_type_returns_generic_when_no_keyword" -q` passed (1 passed, 16 deselected). Frontend `npm run build` could not execute due local PowerShell execution policy (`npm.ps1` blocked), not due TypeScript compile diagnostics from project code.
+Open Issues: none.
+Time: 2026-05-11 14:42
+Step: Enforce template naming and enrich PPT template metadata/artifacts
+Completed: Updated `template_generation` skill runtime so `TemplateName` is mandatory (backend hard-check). For PPT templates, `template.meta.json` now includes design-level metadata (slide size/aspect, layout names/count, title/body average font size, per-slide title/layout/placeholder stats, extracted media assets). Added `template.params.json` and `render_from_template.py` into each generated template directory. Updated TaskCreate template-generation settings to require `Template Name` input.
+Verification: `python -m py_compile main/backend/app/skills/common/template_generation/runtime.py` passed; `cmd /c npm run build` passed in `main/frontend`.
+Open Issues: none.
+Time: 2026-05-11 15:08
+Step: Split template-generation into dedicated two-page frontend flow and enforce no-overwrite naming policy
+Completed: Added dedicated pages `TemplateGeneration` and `TemplateSettings` and routed Home auxiliary button to `/template-generation` (instead of TaskCreate aux mode). Flow now collects requirement + optional file first, then requires 5 mandatory settings: Template Type (dropdown), Template Name (user input), Language (dropdown), Template Intent (user input), Target Audience (user input). Added temporary frontend draft state for cross-page transfer (including optional file object), and task creation now uploads/parses optional file before running template-generation task. Backend `template_generation` runtime now enforces conflict policy A: same template name is rejected with explicit error and user must re-enter a new name. Also updated PPT template resolution to scan recursive template folders and inject `template.meta.json` + `template.params.json` context into PPT planning requirement so agent can read selected template configuration.
+Verification: `python -m py_compile` passed for updated backend modules; `cmd /c npm run build` passed in `main/frontend`.
+Open Issues: none.
 Time: 2026-05-05 21:12
 Step: Centralize LLM and agent prompt templates
 Completed: Added new prompt registry path `main/backend/app/prompts/` and migrated all active LLM prompt text plus agent instruction templates there. Refactored `outline_agent.py` and `content_agent.py` to consume `build_outline_prompt(...)`, `build_content_prompt(...)`, and agent note/snippet templates from the new prompt package. Added `README.md` in prompt directory with per-prompt caller path and purpose.
@@ -476,4 +724,175 @@ Time: 2026-05-10 21:20
 Step: Remove sub_agent model and refactor to per-domain small-skill runtime chains
 Completed: Rebuilt task execution architecture so each domain (`ppt/report/wechat_post/data_analysis/code_doc/paper_assistant`) is now a large skill package that contains multiple small skills (`planner/writer/reviewer`) as `runtime.py + SKILL.md`. Added domain-level guide markdowns (`*_SKILL.md`) documenting available small skills and execution path. Updated all task agents to invoke small skills directly through `skill_execute_fn`, updated PPT flow and revision-review flow in `TaskService` to use skill runtime calls, and removed all remaining `app/skills/*/sub_agents` directories. Also fixed skill-call audit serialization by masking callable payload entries.
 Verification: `PYTHONPATH=. python -m py_compile app/agents/task_agents/*.py app/services/task_manager/task_service.py` passed; `PYTHONPATH=. pytest tests/test_skill_runtime_extension.py -q` passed (2/2); `PYTHONPATH=. pytest tests/test_task_api_flow.py -k "create_upload_parse_run_flow or extended_task_types_generate_markdown_outputs" -q` passed (2 selected).
+Open Issues: none.
+Time: 2026-05-11 02:25
+Step: Add PPT template extraction skill and template selection integration
+Completed: Added new skill `main/backend/app/skills/ppt/ppt_template_extractor` (`runtime.py + SKILL.md`) to extract uploaded PPT template structure and assets into `main/backend/app/templates/ppt/<template_name>/` with `template.meta.json`. Updated PPT orchestration so template-extraction intent in requirement triggers router->PPT task->skill path and completes with template metadata output. Added `GET /v1/tasks/ppt/templates` for template listing and updated frontend PPT settings to load and select extracted templates in Style selector.
+Verification: `PYTHONPATH=. python -m py_compile app/services/task_manager/task_service.py app/api/routes/tasks.py app/skills/ppt/ppt_template_extractor/runtime.py` passed; `PYTHONPATH=. pytest tests/test_task_api_flow.py -k "ppt_template_extraction_and_template_listing or create_upload_parse_run_flow" -q` passed (2 selected); `PYTHONPATH=. pytest tests/test_skill_runtime_extension.py -q` passed (2/2); `npm run build` passed in `main/frontend`.
+Open Issues: none.
+Time: 2026-05-11 02:50
+Step: Consolidate PPT into two top-level skills and add router intent split
+Completed: Reorganized PPT skill packages so `main/backend/app/skills` now uses two dedicated PPT skills only: `ppt_generation` and `ppt_template_generation`, each folder containing only `runtime.py` and `SKILL.md`. Deleted legacy `main/backend/app/skills/ppt/` directory and updated `PPTTaskAgent` to invoke only `ppt_generation`. Added `CoordinatorAgent.infer_ppt_skill(...)` and updated task orchestration to route template-intent requests to `ppt_template_generation`, normal requests to `ppt_generation`. Updated skill registry to support direct top-level skill folders (`skills/<skill>/SKILL.md`) in addition to domain-based layout.
+Verification: `PYTHONPATH=. python -m py_compile app/agents/coordinator/coordinator_agent.py app/agents/task_agents/ppt_task_agent.py app/services/skill_registry/registry.py app/services/task_manager/task_service.py app/skills/ppt_generation/runtime.py app/skills/ppt_template_generation/runtime.py` passed; `PYTHONPATH=. pytest tests/test_task_api_flow.py -k "create_upload_parse_run_flow or ppt_template_extraction_and_template_listing" -q` passed (2 selected); `PYTHONPATH=. pytest tests/test_skill_runtime_extension.py -q` passed (2/2).
+Open Issues: none.
+Time: 2026-05-10 23:35
+Step: Add find_skill and enforce task-agent first-call policy
+Completed: Added universal skill `find_skill` under `main/backend/app/skills/find_skill` with runtime binding `runtime.py:run`. Updated all task agents (`ppt/report/wechat_post/data_analysis/code_doc/paper_assistant`) so first action is calling `find_skill`, then executing matched skills; if no match is returned, agents use default direct skill path. Updated PPT template-generation branch in task service to call `find_skill` before template extraction skill execution.
+Verification: `python -m py_compile` passed for updated skill runtime, task agents, and task service; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_skill_runtime_extension.py -q` passed (2/2); `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "create_upload_parse_run_flow or extended_task_types_generate_markdown_outputs or ppt_template_extraction_and_template_listing" -q` passed (3 passed, 10 deselected).
+Open Issues: none.
+Time: 2026-05-11 03:45
+Step: Fix no-source-file forced-search hard-fail in task execution
+Completed: Adjusted `TaskService` no-source-file path for both PPT and non-PPT tasks: force-calls search skill with multiple query attempts, but no longer fails task when search returns empty. Workflow now logs `no_source_file_forced_search_empty;fallback_to_requirement_context` and continues generation using requirement text as fallback context.
+Verification: `python -m py_compile main/backend/app/services/task_manager/task_service.py main/backend/tests/test_task_api_flow.py` passed; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "no_source_file_can_still_generate_by_search or no_source_file_search_empty_still_generates_with_fallback" -q` passed (2 passed, 12 deselected); `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_skill_runtime_extension.py -q` passed (2/2).
+Open Issues: none.
+Time: 2026-05-11 04:12
+Step: Enforce agent fallback when find_skill has no match
+Completed: Updated all task agents (`ppt/report/wechat_post/data_analysis/code_doc/paper_assistant`) to continue execution when `find_skill` returns empty or skill execution errors occur. Agents now degrade to direct generation path instead of raising runtime failure. Added regression test to verify task completion when `find_skill` yields no matched skills.
+Verification: `python -m py_compile` passed for updated task agents and tests; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "no_source_file_can_still_generate_by_search or no_source_file_search_empty_still_generates_with_fallback or continues_when_find_skill_returns_no_match" -q` passed (3 passed, 12 deselected).
+Open Issues: none.
+Time: 2026-05-11 11:30
+Step: Hybrid task-type inference + generic task-agent fallback
+Completed: Refactored `CoordinatorAgent.infer_task_type` to hybrid routing (`keyword first -> LLM fallback -> generic fallback`). If keyword hit exists, it routes directly; if keyword miss and `user_id` is available, it calls LLM to classify into supported task types; if still unresolved, it returns `generic_task` instead of defaulting to PPT. Added new `GenericTaskAgent` under `main/backend/app/agents/task_agents` and wired non-PPT execution to route unsupported/unknown task types to this agent, removing old hard-fail branch (`Unsupported non-ppt task_type`). Updated task/create and infer-type API path to pass user context for LLM fallback, and extended task-type model literals to include `generic_task`. Added regression tests for infer-type generic fallback and auto-created generic-task run completion.
+Verification: `python -m py_compile main/backend/app/agents/coordinator/coordinator_agent.py main/backend/app/agents/task_agents/generic_task_agent.py main/backend/app/services/task_manager/task_service.py main/backend/app/models/requests.py main/backend/app/models/entities.py main/backend/app/api/routes/tasks.py main/backend/tests/test_task_api_flow.py` passed; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "infer_task_type_returns_generic_when_no_keyword or auto_task_type_routes_to_generic_task_and_runs" -q` passed.
+Open Issues: none.
+
+Time: 2026-05-11 17:15
+Step: Template-generation required-field auto-fill via LLM extraction
+Completed: Added backend request model export and new API POST /v1/tasks/template-generation/infer-settings; coordinator now provides infer_template_settings(requirement,user_id) using LLM with strict JSON schema and safe fallback to empty fields. Frontend template-generation input page now calls infer-settings before navigation and stores inferred results in app store draft. Settings page now auto-prefills required fields from inferred values and keeps required validation for missing items.
+Verification: Pending in this step (run compile/build in next step).
+Open Issues: none.
+
+
+Time: 2026-05-11 17:28
+Step: Template generation completion jump to dedicated preview page with downloadable artifacts
+Completed: Added backend template-preview APIs for template-generation tasks: summary endpoint GET /v1/tasks/{task_id}/template-preview (template file + meta JSON content + params + render script + assets list) and file download endpoint GET /v1/tasks/{task_id}/template-preview/file (template/meta/params/script/asset). Added frontend TemplatePreviewPage and route /template-preview. Updated TaskRunning completion routing to jump to /template-preview when 	ask_type=template_generation, otherwise keep /result.
+Verification: backend py_compile passed for tasks route; frontend build passed (
+pm run build).
+Open Issues: none.
+
+
+Time: 2026-05-11 17:37
+Step: Replace template preview JSON with LLM-formatted textual preview items and tooltip explanations
+Completed: Added new common skill 	emplate_preview_formatter (SKILL.md + 
+untime.py) under pp/skills/common. Preview API now invokes this skill on every template preview request, passing metadata/assets and user model routing config; skill uses LLM to produce human-readable preview_title/preview_summary/items(label,value,explanation) with deterministic fallback. Frontend template preview page now renders textual items (not raw JSON) and each item includes tooltip explanation.
+Verification: backend py_compile passed; frontend build passed (
+pm run build).
+Open Issues: none.
+
+
+Time: 2026-05-11 17:48
+Step: Refine template preview rendering logic to key:value display + per-item LLM explanation
+Completed: Reworked 	emplate_preview_formatter skill runtime to first parse and flatten 	emplate.meta.json into key:value rows, then call LLM per metadata item for tooltip explanation only (one item -> one explanation call). UI values are now driven by metadata keys/values, not raw JSON printing. Added API fallback so if skill call fails, metadata key:value rows are still returned with fallback explanations to avoid blank preview.
+Verification: backend py_compile passed; frontend build passed (
+pm run build).
+Open Issues: none.
+
+
+Time: 2026-05-11 21:15
+Step: Upgrade find_skill to metadata-first selection + fuzzy/semantic matching
+Completed: Updated ind_skill to default 	ask_type=generic_task, removed stage from caller payload contract, and implemented hybrid matching pipeline: preferred skill hits + requirement keyword fuzzy matching (metadata-based) + optional LLM semantic selection. Added conservative merge strategy to avoid missing needed skills. Updated all task-agent invocations to remove stage. Task-service skill-execute wrappers now auto-inject model routing info (provider_type/base_url/model_name/api_key) into ind_skill calls for semantic matching. Skill registry frontmatter parser now reads metadata section only (no full skill-body load).
+Verification: python -m py_compile passed for updated modules; PYTHONPATH=main/backend python -m pytest main/backend/tests/test_skill_runtime_extension.py -q passed (2/2).
+Open Issues: none.
+
+
+Time: 2026-05-11 21:22
+Step: Merge paper_assistant sub-skills into single runtime skill
+Completed: Collapsed pp/skills/paper_assistant from multi-subskill layout into a single skill contract with only SKILL.md and 
+untime.py. Removed planner/writer/reviewer/outline/revision sub-skill files and updated PaperAssistantTaskAgent to call unified paper_assistant skill via ind_skill preferred match. Deleted legacy package files in this folder (PAPER_ASSISTANT_SKILL.md, __init__.py). Updated skill runtime extension test to assert unified skill execution (paper_assistant) and removed obsolete ind_skill.stage test input.
+Verification: python -m py_compile main/backend/app/skills/paper_assistant/runtime.py main/backend/app/agents/task_agents/paper_assistant_task_agent.py passed; PYTHONPATH=main/backend python -m pytest main/backend/tests/test_skill_runtime_extension.py -q passed (2/2).
+Open Issues: none.
+
+
+Time: 2026-05-11 22:11
+Step: Merge report/code_doc/wechat_post into single-skill runtime per domain
+Completed: Collapsed pp/skills/report, pp/skills/code_doc, and pp/skills/wechat_post into single executable skill structure (SKILL.md + 
+untime.py only). Removed all planner/writer/reviewer and auxiliary sub-skill folders/files in these three domains. Updated task agents (ReportTaskAgent, CodeDocTaskAgent, WechatPostTaskAgent) to call unified skills (
+eport, code_doc, wechat_post) after ind_skill match. Updated tests that referenced removed skill names (
+eport_outline, code_readme_structure, wechat_title_ideas, planner skill names) to unified skill assertions.
+Verification: python -m py_compile passed for updated runtimes/agents/tests; PYTHONPATH=main/backend python -m pytest main/backend/tests/test_skill_runtime_extension.py -q passed (2/2).
+Open Issues: none.
+
+
+Time: 2026-05-11 22:17
+Step: Merge data_analysis domain into single skill runtime
+Completed: Collapsed pp/skills/data_analysis into single-skill structure (SKILL.md + 
+untime.py) and removed all sub-skills/tools in this directory. Unified runtime now supports two paths: (1) markdown data-analysis generation, (2) Excel cate-distribution DOCX export when excel_path/report_docx_path/chart_png_path are provided. Updated DataAnalysisTaskAgent to call unified skill data_analysis. Updated task-service export branch to invoke data_analysis (instead of removed data_excel_cate_word_report) for Excel report generation. Updated tests referencing old planner/clean-plan skill names.
+Verification: python -m py_compile passed for updated runtime/agent/task-service/tests; PYTHONPATH=main/backend python -m pytest main/backend/tests/test_skill_runtime_extension.py -q passed (2/2).
+Open Issues: none.
+
+Time: 2026-05-11 22:35
+Step: Move common skills to top-level skills directory and update call paths
+Completed: Moved skill packages from `app/skills/common/*` to `app/skills/*` (`base_prompt`, `knowledge_search`, `template_generation`, `template_preview_formatter`), removed old `app/skills/common` directory, and updated test patch targets from `app.skills.common.knowledge_search...` to `app.skills.knowledge_search...`. Verified skill discovery remains valid under top-level layout. During regression, fixed Python 3.9 incompatibility in tasks route (`str | None` -> `Optional[str]`) and corrected `_run_text_task` agent invocation kwargs so `force_direct/selected_capability_name` are only passed to `GenericTaskAgent`.
+Verification: py_compile passed for touched modules; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_skill_runtime_extension.py -q` passed (2/2); `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "no_source_file_can_still_generate_by_search or extended_task_types_generate_markdown_outputs" -q` passed (2 passed).
+Open Issues: none.
+Time: 2026-05-11 23:02
+Step: Rename generation-domain skill names/metadata for better find-skill recognition
+Completed: Renamed skill identifiers in frontmatter for generation domains to explicit generation names: `report_generation`, `code_doc_generation`, `wechat_post_generation`, `paper_assistant_generation`. Updated each SKILL.md description and trigger keywords to be more generation-oriented and easier for metadata-based matching. Updated task-agent preferred-skill routing and fallback skill names in `ReportTaskAgent`, `CodeDocTaskAgent`, `WechatPostTaskAgent`, and `PaperAssistantTaskAgent`. Updated tests to use new skill names.
+Verification: `python -m py_compile` passed for touched agents/tests; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_skill_runtime_extension.py -q` passed (2/2); `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_task_api_flow.py -k "extended_task_types_generate_markdown_outputs" -q` passed (1 passed).
+Open Issues: none.
+
+Time: 2026-05-13 13:20
+Step: Add implementation plan for vLLM default routing, multi-user active count, registration entry, and user data isolation
+Completed: Added `develop_guide/vllm_concurrency_active_users_registration_plan.md` as an agent-executable rollout plan. The plan defines confirmed scope and decisions (single-node vLLM global default, active-user window=10 minutes, system-wide count, WebSocket realtime, registration flow, per-user data isolation), phased backend/frontend changes, API and WS contracts, test matrix, risk/rollback strategy, and DoD. Plan explicitly includes repository governance requirements (`architecture.md` and `process.md` update rules) for downstream execution.
+Verification: Document created and saved under `develop_guide`; content reviewed for direct handoff to implementation agent.
+Open Issues: none.
+
+Time: 2026-05-13 13:40
+Step: Execute STEP 1 - switch global default model routing to vLLM
+Completed: Implemented vLLM global default fallback for model routing. Added `VllmConfig` defaults (`WORKFORGE_VLLM_BASE_URL`, `WORKFORGE_VLLM_MODEL`, `WORKFORGE_VLLM_API_KEY`) in provider defaults module; exported it via llm_provider package; updated `ModelRouter` system fallback from Ollama to vLLM (`provider_type=vllm`, `display_name=vLLM Local (Default)`, default endpoint `http://127.0.0.1:8000/v1`). Updated router test expectations accordingly.
+Verification: `python -m py_compile main/backend/app/services/llm_provider/provider_defaults.py main/backend/app/services/llm_provider/__init__.py main/backend/app/services/model_router/router.py main/backend/tests/test_model_router.py` passed; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_model_router.py -q` passed (2/2).
+Open Issues: none.
+
+Time: 2026-05-13 14:05
+Step: Execute STEP 2 - backend active-user tracking and query API
+Completed: Added `ActiveUserTracker` service with 10-minute sliding window and thread-safe in-memory unique-user tracking. Wired tracker initialization in FastAPI lifespan and added HTTP middleware to touch activity for authenticated Bearer-token requests without blocking request flow on tracker/auth errors. Added new authenticated endpoint `GET /v1/system/active-users` returning `{active_users, window_seconds, server_time}` and route registration in app router index.
+Verification: `python -m py_compile main/backend/app/services/active_users/active_user_tracker.py main/backend/app/services/active_users/__init__.py main/backend/app/api/routes/system.py main/backend/app/api/routes/__init__.py main/backend/app/api/app.py main/backend/tests/test_active_user_tracker.py` passed; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_active_user_tracker.py -q` passed (2/2).
+Open Issues: none.
+
+Time: 2026-05-13 14:20
+Step: Execute STEP 3 - realtime active-user push via WebSocket and frontend display
+Completed: Added backend WebSocket endpoint `/ws/system/active-users` in `ws_tasks.py` with token validation (`AuthService.validate_token`) and policy-close on invalid/missing token. Endpoint now pushes active-user snapshot every 3 seconds and touches authenticated user activity on connect. Frontend added `getWsBaseUrl()` helper in `http.ts`; Task Running page now opens active-user websocket with reconnect backoff (2s/5s/10s), updates live count state, and displays `Active Users (10m)` tag.
+Verification: `python -m py_compile main/backend/app/api/routes/ws_tasks.py` passed; `npm.cmd run build` passed in `main/frontend` (TypeScript + Vite production build successful).
+Open Issues: none.
+
+Time: 2026-05-13 14:35
+Step: Execute STEP 4 - registration entry and register->login flow
+Completed: Delivered dedicated registration page and login-page registration entry. Frontend auth flow now has `/Login` and `/Register` routes, login form uses `account + password`, and registration form requires `username + password`; successful registration redirects back to `/Login`. Backend auth contracts updated: `RegisterRequest` now takes `username/password`, `LoginRequest` now takes `account/password` (username or email accepted). Added username uniqueness enforcement in repository and service layers; registration generates internal email (`<username>@local.workforge`) to preserve existing User schema compatibility. Added backend static route for `/Register`.
+Verification: `python -m py_compile main/backend/app/models/requests.py main/backend/app/repositories/interfaces/user_repository.py main/backend/app/repositories/json_impl/repositories.py main/backend/app/services/auth_service.py main/backend/app/api/app.py main/backend/tests/test_provider_matrix.py main/backend/tests/test_steps_21_30.py` passed; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_provider_matrix.py -q` passed (1/1); `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_steps_21_30.py -q` passed (3/3); `npm.cmd run build` passed in `main/frontend`.
+Open Issues: none.
+
+Time: 2026-05-13 15:05
+Step: Execute STEP 5 - user data isolation hardening
+Completed: Implemented strict owner checks for task-related APIs and task WebSocket. Added shared auth helpers in `tasks.py` to parse bearer token, resolve current user, and validate task ownership before all task operations (create/list/get/upload/parse/run/recovery/bootstrap/status/download/version/revision/cache/template preview). Added user-id consistency checks on create/infer endpoints. Updated `/ws/tasks/{task_id}` to require token query and reject cross-user subscriptions. Updated frontend Task Running task-WS connection to send token in query string. Added dedicated isolation tests to verify cross-user API/WS access is blocked and updated step regression tests to pass auth headers on task endpoints.
+Verification: `python -m py_compile main/backend/app/api/routes/tasks.py main/backend/app/api/routes/ws_tasks.py main/backend/tests/test_user_data_isolation.py main/backend/tests/test_steps_21_30.py` passed; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_user_data_isolation.py main/backend/tests/test_steps_21_30.py -q` passed (5/5); `npm.cmd run build` passed in `main/frontend`.
+Open Issues: none.
+
+Time: 2026-05-13 15:20
+Step: Execute STEP 6 - tests and regression matrix
+Completed: Added dedicated integration tests for auth-flow and active-user runtime push: `main/backend/tests/test_auth_and_active_users_api_ws.py` covering (1) register->login success, (2) `/v1/system/active-users` response contract, and (3) `/ws/system/active-users` realtime push payload. Completed target and critical regression suites for model routing, active-user tracking, data isolation, provider paths, and step21-30 auth/task/ws workflows.
+Verification: `python -m py_compile main/backend/tests/test_auth_and_active_users_api_ws.py` passed; `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_model_router.py main/backend/tests/test_active_user_tracker.py main/backend/tests/test_auth_and_active_users_api_ws.py main/backend/tests/test_user_data_isolation.py -q` passed (8/8); `PYTHONPATH=main/backend python -m pytest main/backend/tests/test_provider_matrix.py main/backend/tests/test_steps_21_30.py -q` passed (4/4).
+Open Issues: none.
+
+Time: 2026-05-13 15:22
+Step: Execute STEP 7 - documentation finalization
+Completed: Updated `develop_guide/architecture.md` with verified acceptance-baseline entry for vLLM default routing, active-user tracker/API/WS, registration-login flow, and owner-scoped data isolation. Synchronized `develop_guide/process.md` with complete Step 6 and Step 7 execution/verification records.
+Verification: Documentation files saved successfully and aligned with current implemented architecture and test baseline.
+Open Issues: none.
+
+Time: 2026-05-13 15:35
+Step: Align frontend model-settings defaults with backend vLLM system default
+Completed: Updated `main/frontend/src/pages/ModelSettings/ModelSettingsPage.tsx` to include explicit `vllm` provider type/preset and switched form initial defaults from `ollama` to `vllm` (`base_url=http://127.0.0.1:8000/v1`, `model_name=Qwen/Qwen2.5-7B-Instruct`). Provider selector initial value and fallback preset now both use `vllm`, resolving frontend/backend default mismatch.
+Verification: `npm.cmd run build` passed in `main/frontend` (TypeScript + Vite build successful).
+Open Issues: none.
+
+Time: 2026-05-12 09:40
+Step: Execute PPT generation plan STEP 9 and STEP 10 checks/fixes
+Completed: Updated template-generation recovery status flow in `main/backend/app/services/task_manager/task_service.py` so recovery-required branch now writes `requires_user_completion` task status (instead of `failed_generation`). Added auditability fields/events for recovery flow: template name, bundle validation result (ok/missing/errors), resume attempt count, and applied rules count on successful resume. Kept compatibility strategy: invalid/legacy PPT bundles remain filtered from dropdown (`list_ppt_templates` returns only `validate_template_bundle.ok == true`), while strict `TemplateChoice` resolution is preserved for new tasks.
+Verification: `python -m py_compile main/backend/app/services/task_manager/task_service.py main/backend/tests/test_task_api_flow.py` passed. Targeted pytest subset: `list_ppt_templates_returns_only_valid_bundles` and `ppt_generation_fails_when_templatechoice_is_invalid` passed; one existing template-generation E2E case returned 400 in this environment before reaching new assertions (needs separate stabilization of template-generation E2E fixture/runtime path).
+Open Issues: stabilize `test_template_generation_returns_requires_user_completion_for_incomplete_ppt_design` environment-path behavior to make full Step 9 regression green.
+
+Time: 2026-05-13 15:45
+Step: Add detailed execution plan for model-config save persistence and backend/frontend consistency
+Completed: Added `develop_guide/model_config_provider_persistence_plan.md` with agent-executable steps to fix and verify: user-scoped provider save/update semantics, unique per-user default switching, immediate model-router effectiveness after save, `/models` page hydration/reload consistency, owner-scope security checks, regression tests, manual verification checklist, rollback strategy, and DoD.
+Verification: Plan file saved and reviewed for direct handoff; structure includes file-level targets, acceptance criteria, and required documentation updates.
 Open Issues: none.

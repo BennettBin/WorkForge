@@ -1,7 +1,9 @@
 import json
+import os
 import threading
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 
 
@@ -44,14 +46,38 @@ class JsonCollectionStore:
             self._atomic_write(rows)
 
     def _atomic_write(self, rows: list[dict[str, Any]]) -> None:
-        temp_path = self.file_path.with_suffix(f"{self.file_path.suffix}.tmp")
+        temp_path = self.file_path.with_name(
+            f"{self.file_path.name}.tmp.{os.getpid()}.{threading.get_ident()}.{uuid4().hex[:8]}"
+        )
         with temp_path.open("w", encoding="utf-8") as f:
             json.dump(rows, f, ensure_ascii=False, indent=2, default=str)
-        temp_path.replace(self.file_path)
+            f.flush()
+            os.fsync(f.fileno())
+
+        # Windows may transiently fail replace when target file is briefly locked by another process.
+        last_exc: Optional[Exception] = None
+        for attempt in range(8):
+            try:
+                os.replace(str(temp_path), str(self.file_path))
+                return
+            except PermissionError as exc:
+                last_exc = exc
+                time.sleep(0.03 * (attempt + 1))
+            except OSError as exc:
+                last_exc = exc
+                time.sleep(0.03 * (attempt + 1))
+
+        if temp_path.exists():
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
+        if last_exc is not None:
+            raise last_exc
 
     def _quarantine_corrupt(self, reason: str) -> None:
         backup_name = f"{self.file_path.stem}.corrupt.{reason}.{uuid4().hex[:8]}{self.file_path.suffix}"
         backup_path = self.file_path.with_name(backup_name)
         if self.file_path.exists():
-            self.file_path.replace(backup_path)
+            os.replace(str(self.file_path), str(backup_path))
         self._atomic_write([])

@@ -20,10 +20,15 @@ class AuthService:
         self.repos = repos
 
     def register(self, payload: RegisterRequest) -> User:
+        username = payload.username.strip()
+        if self.repos.users.get_by_username(username) is not None:
+            raise ValueError("Username already registered.")
+
         user = User(
             user_id=new_id("user"),
-            email=payload.email.strip().lower(),
-            username=payload.username.strip(),
+            # Keep email field for existing data model; generate deterministic internal email from username.
+            email=f"{username.lower()}@local.workforge",
+            username=username,
             password_hash=_hash_password(payload.password),
         )
         self.repos.users.create(user)
@@ -45,7 +50,10 @@ class AuthService:
         return admin
 
     def login(self, payload: LoginRequest) -> dict:
-        user = self.repos.users.get_by_email(payload.email.strip().lower())
+        account = payload.account.strip()
+        user = self.repos.users.get_by_username(account)
+        if user is None:
+            user = self.repos.users.get_by_email(account.lower())
         if user is None:
             raise ValueError("User not found.")
         if user.password_hash != _hash_password(payload.password):

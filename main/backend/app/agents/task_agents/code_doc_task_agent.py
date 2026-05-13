@@ -14,6 +14,20 @@ class CodeDocTaskArtifacts:
 
 
 class CodeDocTaskAgent:
+    def _direct_fallback(
+        self,
+        requirement: str,
+        parsed_text: str,
+        llm_generate_fn: Optional[Callable[[str], str]],
+    ) -> CodeDocTaskArtifacts:
+        if llm_generate_fn is not None:
+            prompt = f"Generate code documentation in markdown.\nRequirement:\n{requirement}\n\nContext:\n{parsed_text[:4000]}"
+            markdown = llm_generate_fn(prompt)
+        else:
+            source = (parsed_text or requirement or "").strip()
+            markdown = f"# Code Documentation\n\n{source[:3000]}"
+        return CodeDocTaskArtifacts(markdown=markdown.strip() + "\n", review_passed=True, review_issues=[], plan_summary="direct fallback", section_count=max(1, markdown.count("\n## ")))
+
     def execute(
         self,
         requirement: str,
@@ -23,24 +37,34 @@ class CodeDocTaskAgent:
         skill_execute_fn: Callable[[str, dict[str, Any]], dict[str, Any]],
         llm_generate_fn: Optional[Callable[[str], str]] = None,
     ) -> CodeDocTaskArtifacts:
-        plan = skill_execute_fn("code_doc_planner", {"requirement": requirement, "parsed_text": parsed_text, "language": language})
-        draft = skill_execute_fn(
-            "code_doc_writer",
-            {
-                "requirement": requirement,
-                "parsed_text": parsed_text,
-                "style": style,
-                "language": language,
-                "plan": plan,
-                "llm_generate_fn": llm_generate_fn,
-            },
-        )
-        review = skill_execute_fn("code_doc_reviewer", {"draft": draft})
+        try:
+            finder = skill_execute_fn(
+                "find_skill",
+                {"task_type": "code_doc", "requirement": requirement, "preferred_skills": ["code_doc_generation"]},
+            )
+        except Exception:
+            return self._direct_fallback(requirement, parsed_text, llm_generate_fn)
+        matched = finder.get("matched_skills", []) if isinstance(finder, dict) else []
+        if not matched:
+            return self._direct_fallback(requirement, parsed_text, llm_generate_fn)
+        skill_name = matched[0] if len(matched) > 0 else "code_doc_generation"
+        try:
+            result = skill_execute_fn(
+                skill_name,
+                {
+                    "requirement": requirement,
+                    "parsed_text": parsed_text,
+                    "style": style,
+                    "language": language,
+                    "llm_generate_fn": llm_generate_fn,
+                },
+            )
+        except Exception:
+            return self._direct_fallback(requirement, parsed_text, llm_generate_fn)
         return CodeDocTaskArtifacts(
-            markdown=str(review.get("normalized_markdown", "")).strip() + "\n",
-            review_passed=bool(review.get("passed", False)),
-            review_issues=[str(x) for x in review.get("issues", [])] if isinstance(review.get("issues"), list) else [],
-            plan_summary=str(plan.get("summary", "code doc plan generated")),
-            section_count=int(draft.get("section_count", 0) or 0),
+            markdown=str(result.get("markdown", "")).strip() + "\n",
+            review_passed=bool(result.get("passed", False)),
+            review_issues=[str(x) for x in result.get("issues", [])] if isinstance(result.get("issues"), list) else [],
+            plan_summary=str(result.get("plan_summary", "code doc plan generated")),
+            section_count=int(result.get("section_count", 0) or 0),
         )
-

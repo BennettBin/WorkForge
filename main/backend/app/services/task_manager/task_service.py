@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
+import re
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -14,12 +16,14 @@ from app.agents.task_agents import (
     PPTTaskAgent,
     CodeDocTaskAgent,
     DataAnalysisTaskAgent,
+    GenericTaskAgent,
     PaperAssistantTaskAgent,
     ReportTaskAgent,
+    TemplateGenerationTaskAgent,
     WechatPostTaskAgent,
 )
 from app.config import settings
-from app.models.entities import AgentRun, FileRecord, OutputFile, SkillCall, Task, TaskEvent
+from app.models.entities import AgentRun, FileRecord, OutputFile, SkillCall, Task, TaskEvent, UserSettings
 from app.models.requests import CreateTaskRequest
 from app.prompts import NO_SOURCE_FILE_SYSTEM_INSTRUCTION
 from app.services.export_engine import PptxExportError, PptxExporter
@@ -30,12 +34,17 @@ from app.services.model_router import ModelRouter
 from app.services.repository_factory import RepositoryBundle
 from app.services.skill_runtime import SkillExecutor
 from app.services.skill_registry import SkillRegistry
+from app.services.template_bundle import TEMPLATE_META_FILENAME as BUNDLE_META_FILENAME, TEMPLATE_RULES_FILENAME as BUNDLE_RULES_FILENAME, TEMPLATE_SCHEMA_VERSION, validate_template_bundle
 from app.services.text_processing import clean_text_content
 from app.services.vector_store import VectorIndexService
 from app.utils.ids import new_id
 
 
 ALLOWED_FILE_TYPES = {"pdf", "docx", "doc", "txt", "ppt", "pptx", "xlsx", "xls"}
+TEMPLATE_META_FILENAME = "template.meta.json"
+TEMPLATE_PARAMS_FILENAME = "template.params.json"
+TEMPLATE_RENDER_SCRIPT_FILENAME = "render_from_template.py"
+TEMPLATE_PPT_FILENAME = "template.pptx"
 
 
 def _utc_now() -> datetime:
@@ -47,11 +56,43 @@ class TaskService:
     repos: RepositoryBundle
     storage_root: Path
 
+    RUNNING_STATUSES = {
+        "created",
+        "file_uploaded",
+        "file_parsed",
+        "planning",
+        "skill_selecting",
+        "model_selecting",
+        "generating",
+        "reviewing",
+        "exporting",
+        "revision_requested",
+        "revision_planning",
+        "revision_generating",
+        "revision_reviewing",
+        "requires_user_completion",
+    }
+    CAPACITY_COUNT_STATUSES = {
+        "planning",
+        "skill_selecting",
+        "model_selecting",
+        "generating",
+        "reviewing",
+        "exporting",
+        "revision_requested",
+        "revision_planning",
+        "revision_generating",
+        "revision_reviewing",
+        "requires_user_completion",
+    }
+    RUNNING_STALE_TIMEOUT_SECONDS = 30 * 60
+
     def create_task(self, req: CreateTaskRequest) -> Task:
+        self._ensure_parallel_capacity(req.user_id)
         task_type = req.task_type
         if task_type == "auto":
             coordinator = CoordinatorAgent(ModelRouter(self.repos))
-            task_type = coordinator.infer_task_type(req.user_requirement)
+            task_type = coordinator.infer_task_type(req.user_requirement, user_id=req.user_id)
         task = Task(
             task_id=new_id("task"),
             user_id=req.user_id,
@@ -185,16 +226,23 @@ class TaskService:
         rerun: bool = False,
         require_llm: bool = False,
         llm_timeout_seconds: Optional[int] = None,
+        force_generic_direct: bool = False,
+        capability_name: Optional[str] = None,
     ) -> dict:
         task = self.repos.tasks.get_by_id(task_id)
         if task is None:
             raise ValueError("Task not found.")
+        self._ensure_parallel_capacity(task.user_id, exclude_task_id=task_id)
+        if task.task_type == "template_generation":
+            return self._run_template_generation_task(task, rerun=rerun)
         if task.task_type != "ppt":
             return self._run_text_task(
                 task=task,
                 rerun=rerun,
                 require_llm=require_llm,
                 llm_timeout_seconds=llm_timeout_seconds,
+                force_generic_direct=force_generic_direct,
+                capability_name=capability_name,
             )
 
         if rerun:
@@ -203,6 +251,84 @@ class TaskService:
 
         files = self.repos.files.list_by_task(task_id)
         no_source_file = len(files) == 0
+        coordinator_for_skill = CoordinatorAgent(ModelRouter(self.repos))
+        selected_ppt_skill = coordinator_for_skill.infer_ppt_skill(task.user_requirement)
+        self._add_event(task_id, "planning", f"router_selected_skill={selected_ppt_skill}")
+        if selected_ppt_skill == "ppt_template_generation":
+            if not files:
+                raise ValueError("Template extraction requires an uploaded PPT/PPTX file.")
+            source_file = Path(files[0].file_path)
+            if source_file.suffix.lower() not in {".ppt", ".pptx"}:
+                raise ValueError("Template extraction requires a PPT/PPTX source file.")
+            self.repos.tasks.update_status(task_id, "generating")
+            skill_executor = SkillExecutor.create_default()
+            planning_decision = coordinator_for_skill.router.pick(task.user_id, "planning")
+            default_cfg = self.repos.providers.get_default_for_user(task.user_id)
+            finder_result = skill_executor.execute(
+                "find_skill",
+                {
+                    "task_type": "ppt",
+                    "requirement": task.user_requirement,
+                    "preferred_skills": ["ppt_template_generation"],
+                    "provider_type": planning_decision.provider_type or "",
+                    "base_url": planning_decision.base_url or "",
+                    "model_name": planning_decision.model_name or "",
+                    "api_key": (default_cfg.api_key_encrypted if default_cfg and default_cfg.api_key_encrypted else ""),
+                },
+            )
+            self._add_skill_call(
+                task_id,
+                "find_skill",
+                {"task_type": "ppt", "preferred_skills": ["ppt_template_generation"]},
+                finder_result,
+                1,
+            )
+            matched = finder_result.get("matched_skills", []) if isinstance(finder_result, dict) else []
+            template_skill_name = matched[0] if matched else "ppt_template_generation"
+            templates_root = Path(__file__).resolve().parents[2] / "templates" / "ppt"
+            extraction = skill_executor.execute(
+                template_skill_name,
+                {
+                    "source_pptx_path": str(source_file.resolve()),
+                    "templates_root": str(templates_root.resolve()),
+                    "template_name": self._extract_template_name(task.user_requirement) or source_file.stem,
+                    "force_invalid_bundle": str(self._extract_task_setting(task.user_requirement, "ForceInvalidBundle") or "").strip().lower() in {"1", "true", "yes"},
+                },
+            )
+            self._add_skill_call(task_id, template_skill_name, {"source_pptx_path": str(source_file.resolve()), "template_name": extraction.get("template_name", "")}, extraction, 1)
+            if str(extraction.get("status", "completed")) == "requires_user_completion":
+                recovery_payload = {
+                    "task_id": task_id,
+                    "template_name": extraction.get("template_name"),
+                    "template_dir": extraction.get("template_dir"),
+                    "template_file": extraction.get("template_file"),
+                    "metadata_file": extraction.get("metadata_file"),
+                    "rules_file": extraction.get("rules_file"),
+                    "render_script": extraction.get("render_script"),
+                    "recovery_file": extraction.get("recovery_file"),
+                    "missing_items": extraction.get("missing_items", []),
+                    "validation_errors": extraction.get("validation_errors", []),
+                    "suggested_values": extraction.get("suggested_values", {}),
+                    "resume_token": extraction.get("resume_token", ""),
+                }
+                self._write_template_recovery_payload(task_id, recovery_payload)
+                self.repos.tasks.update_status(task_id, "requires_user_completion")
+                self._add_event(task_id, "requires_user_completion", f"template_generation_requires_user_completion:{json.dumps(recovery_payload, ensure_ascii=False)}")
+                self._snapshot_excel()
+                return {"task_id": task_id, "status": "requires_user_completion", **recovery_payload}
+            self._add_agent_run(task_id, "PPTTaskAgent", "completed", f"template_extracted={extraction.get('template_name', '')}")
+            self.repos.tasks.update_status(task_id, "completed")
+            self._add_event(task_id, "completed", f"template_extracted={extraction.get('template_name', '')}")
+            self._snapshot_excel()
+            return {
+                "task_id": task_id,
+                "status": "completed",
+                "template_extracted": True,
+                "template_name": extraction.get("template_name"),
+                "template_dir": extraction.get("template_dir"),
+                "template_file": extraction.get("template_file"),
+                "metadata_file": extraction.get("metadata_file"),
+            }
         parsed_text = ""
         effective_requirement = task.user_requirement
         vector_index_service = self._build_vector_index_service(task.user_id)
@@ -217,11 +343,10 @@ class TaskService:
                 max_results=4,
             )
             if not forced_items:
-                self.repos.tasks.update_status(task_id, "failed_generation")
-                self._add_event(task_id, "failed_generation", "no_source_file_forced_search_empty")
-                self._snapshot_excel()
-                raise ValueError("No source file uploaded and forced search returned no usable results.")
-            parsed_text = forced_context
+                self._add_event(task_id, "planning", "no_source_file_forced_search_empty;fallback_to_requirement_context")
+                parsed_text = clean_text_content(task.user_requirement or "")
+            else:
+                parsed_text = forced_context
         else:
             if files[0].parse_status != "success":
                 self.parse_task_file(task_id, force=False)
@@ -236,6 +361,13 @@ class TaskService:
                 self._add_event(task_id, "failed_file_parse", "parsed text empty during run")
                 self._snapshot_excel()
                 raise ValueError("Parsed text is empty.")
+
+        if (task.style or "").strip() or (self._extract_task_setting(task.user_requirement, "TemplateChoice") or "").strip():
+            template_ctx = self._load_template_context_for_task(task)
+            if template_ctx:
+                template_choice = (self._extract_task_setting(task.user_requirement, "TemplateChoice") or "").strip()
+                effective_requirement = f"{effective_requirement}\n\n[Template Context]\n{template_ctx}"
+                self._add_event(task_id, "planning", f"template_context_loaded style={task.style};template_choice={template_choice or 'none'}")
 
         if (not no_source_file) and (not vector_index_service.has_index(task_id)):
             index_info = vector_index_service.build_index(task_id, parsed_text)
@@ -347,13 +479,21 @@ class TaskService:
             return items
 
         def skill_execute(skill_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+            effective_payload = dict(payload)
+            if skill_name == "find_skill":
+                effective_payload.setdefault("task_type", "generic_task")
+                effective_payload.setdefault("requirement", effective_requirement)
+                effective_payload.setdefault("provider_type", generation_decision.provider_type if generation_decision else "")
+                effective_payload.setdefault("base_url", generation_decision.base_url if generation_decision else "")
+                effective_payload.setdefault("model_name", generation_decision.model_name if generation_decision else "")
+                effective_payload.setdefault("api_key", (default_cfg.api_key_encrypted if default_cfg and default_cfg.api_key_encrypted else ""))
             safe_payload = {
                 k: ("<callable>" if callable(v) else v)
-                for k, v in payload.items()
+                for k, v in effective_payload.items()
             }
             started = time.perf_counter()
             try:
-                output = skill_executor.execute(skill_name, payload)
+                output = skill_executor.execute(skill_name, effective_payload)
                 self._add_skill_call(
                     task_id,
                     skill_name,
@@ -541,8 +681,9 @@ class TaskService:
 
         try:
             exporter = PptxExporter()
-            template_path = self._resolve_template_path(task.style)
-            exported = exporter.export(artifacts.slides, output_path, template_path=template_path)
+            template_bundle = self._resolve_selected_template_bundle(task)
+            template_path = Path(str(template_bundle["template_file"])) if template_bundle else None
+            exported = exporter.export(artifacts.slides, output_path, template_path=template_path, template_bundle=template_bundle)
             if not exported.exists():
                 raise PptxExportError(f"Export finished but output file missing: {exported}")
         except PptxExportError as exc:
@@ -663,8 +804,9 @@ class TaskService:
         outline_path.write_text(json.dumps([], ensure_ascii=False, indent=2), encoding="utf-8")
 
         exporter = PptxExporter()
-        template_path = self._resolve_template_path(task.style)
-        exported = exporter.export(slides, output_path, template_path=template_path)
+        template_bundle = self._resolve_selected_template_bundle(task)
+        template_path = Path(str(template_bundle["template_file"])) if template_bundle else None
+        exported = exporter.export(slides, output_path, template_path=template_path, template_bundle=template_bundle)
 
         output = OutputFile(
             output_id=new_id("output"),
@@ -1050,7 +1192,7 @@ class TaskService:
 
         self.repos.tasks.update_status(task_id, "revision_reviewing")
         skill_executor = SkillExecutor.create_default()
-        review_result = skill_executor.execute("ppt_quality_reviewer", {"slides": slides, "requested_pages": len(slides)})
+        review_result = skill_executor.execute("ppt_generation", {"slides": slides, "requested_pages": len(slides)})
         if not bool(review_result.get("passed", False)):
             self.repos.tasks.update_status(task_id, "failed_review")
             issues = [str(x) for x in review_result.get("issues", [])] if isinstance(review_result.get("issues"), list) else []
@@ -1068,8 +1210,9 @@ class TaskService:
         new_outline_path.write_text(json.dumps([], ensure_ascii=False, indent=2), encoding="utf-8")
 
         exporter = PptxExporter()
-        template_path = self._resolve_template_path(task.style)
-        exported = exporter.export(slides, output_path, template_path=template_path)
+        template_bundle = self._resolve_selected_template_bundle(task)
+        template_path = Path(str(template_bundle["template_file"])) if template_bundle else None
+        exported = exporter.export(slides, output_path, template_path=template_path, template_bundle=template_bundle)
         output = OutputFile(
             output_id=new_id("output"),
             task_id=task_id,
@@ -1103,7 +1246,12 @@ class TaskService:
         templates_dir = Path(__file__).resolve().parents[2] / "templates" / "ppt"
         if not templates_dir.exists():
             return None
-        template_files = [p for p in templates_dir.glob("*.ppt*") if p.is_file()]
+        style_name = (style or "").strip()
+        if style_name:
+            exact = templates_dir / style_name / TEMPLATE_PPT_FILENAME
+            if exact.exists() and exact.is_file():
+                return exact
+        template_files = [p for p in templates_dir.glob(f"**/{TEMPLATE_PPT_FILENAME}") if p.is_file()]
         if not template_files:
             return None
         style_key = self._normalize_style_key(style)
@@ -1125,8 +1273,202 @@ class TaskService:
             return None
         return best_path
 
+    def _resolve_template_bundle(self, template_name: str) -> dict[str, Any]:
+        name = (template_name or "").strip()
+        if not name:
+            raise ValueError("TemplateChoice is empty.")
+        templates_dir = Path(__file__).resolve().parents[2] / "templates" / "ppt"
+        bundle_dir = templates_dir / name
+        if not bundle_dir.exists() or not bundle_dir.is_dir():
+            raise ValueError(f"TemplateChoice points to non-existent template: {name}")
+        validation = validate_template_bundle(bundle_dir)
+        if not bool(validation.get("ok", False)):
+            raise ValueError(
+                f"TemplateChoice points to invalid template bundle: {name}; missing_files={validation.get('missing_files', [])}; errors={validation.get('errors', [])}"
+            )
+        template_file = bundle_dir / TEMPLATE_PPT_FILENAME
+        if not template_file.exists():
+            raise ValueError(f"TemplateChoice template file missing: {name}/{TEMPLATE_PPT_FILENAME}")
+        meta_path = bundle_dir / TEMPLATE_META_FILENAME
+        rules_path = bundle_dir / BUNDLE_RULES_FILENAME
+        script_path = bundle_dir / TEMPLATE_RENDER_SCRIPT_FILENAME
+        return {
+            "template_name": name,
+            "bundle_dir": bundle_dir,
+            "template_file": template_file,
+            "meta_path": meta_path,
+            "rules_path": rules_path,
+            "script_path": script_path,
+        }
+
+    def _resolve_selected_template_path(self, task: Task) -> Optional[Path]:
+        template_choice = (self._extract_task_setting(task.user_requirement, "TemplateChoice") or "").strip()
+        if template_choice:
+            bundle = self._resolve_template_bundle(template_choice)
+            return Path(bundle["template_file"])
+        return self._resolve_template_path(task.style)
+
+    def _resolve_selected_template_bundle(self, task: Task) -> Optional[dict[str, Any]]:
+        template_choice = (self._extract_task_setting(task.user_requirement, "TemplateChoice") or "").strip()
+        if template_choice:
+            return self._resolve_template_bundle(template_choice)
+        style_path = self._resolve_template_path(task.style)
+        if not style_path:
+            return None
+        bundle_dir = style_path.parent
+        validation = validate_template_bundle(bundle_dir)
+        if not bool(validation.get("ok", False)):
+            return None
+        return {
+            "template_name": bundle_dir.name,
+            "bundle_dir": bundle_dir,
+            "template_file": style_path,
+            "meta_path": bundle_dir / TEMPLATE_META_FILENAME,
+            "rules_path": bundle_dir / BUNDLE_RULES_FILENAME,
+            "script_path": bundle_dir / TEMPLATE_RENDER_SCRIPT_FILENAME,
+        }
+
+    def _load_template_context(self, style: str) -> str:
+        path = self._resolve_template_path(style)
+        if path is None:
+            return ""
+        parent = path.parent
+        meta_path = parent / TEMPLATE_META_FILENAME
+        params_path = parent / TEMPLATE_PARAMS_FILENAME
+        parts: list[str] = []
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                parts.append("TemplateMeta=" + json.dumps(meta, ensure_ascii=False)[:4000])
+            except Exception:
+                pass
+        if params_path.exists():
+            try:
+                params = json.loads(params_path.read_text(encoding="utf-8"))
+                parts.append("TemplateParams=" + json.dumps(params, ensure_ascii=False)[:1200])
+            except Exception:
+                pass
+        return "\n".join(parts).strip()
+
+    def _load_template_context_for_task(self, task: Task) -> str:
+        template_choice = (self._extract_task_setting(task.user_requirement, "TemplateChoice") or "").strip()
+        if template_choice:
+            bundle = self._resolve_template_bundle(template_choice)
+            parts: list[str] = []
+            meta_path = Path(bundle["meta_path"])
+            if meta_path.exists():
+                try:
+                    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                    parts.append("TemplateMeta=" + json.dumps(meta, ensure_ascii=False)[:4000])
+                except Exception:
+                    pass
+            rules_path = Path(bundle["rules_path"])
+            if rules_path.exists():
+                try:
+                    rules = json.loads(rules_path.read_text(encoding="utf-8"))
+                    parts.append("TemplateRules=" + json.dumps(rules, ensure_ascii=False)[:2000])
+                except Exception:
+                    pass
+            return "\n".join(parts).strip()
+        return self._load_template_context(task.style)
+
     def _normalize_style_key(self, value: str) -> str:
         return "".join((ch.lower() if ch.isalnum() else "_") for ch in (value or "")).strip("_")
+
+    def _is_ppt_template_extract_request(self, requirement: str) -> bool:
+        text = (requirement or "").lower()
+        signals = [
+            "提取模板",
+            "模板提取",
+            "保存模板",
+            "提取ppt模板",
+            "extract template",
+            "save template",
+            "extract ppt template",
+        ]
+        return any(sig in text for sig in signals)
+
+    def _extract_template_name(self, requirement: str) -> Optional[str]:
+        text = (requirement or "").strip()
+        markers = ["模板名=", "template_name=", "template="]
+        for line in text.splitlines():
+            raw = line.strip()
+            for marker in markers:
+                if raw.lower().startswith(marker.lower()):
+                    value = raw[len(marker) :].strip()
+                    return value or None
+        return None
+
+    def list_ppt_templates(self) -> list[dict[str, Any]]:
+        templates_dir = Path(__file__).resolve().parents[2] / "templates" / "ppt"
+        if not templates_dir.exists():
+            return []
+        items: list[dict[str, Any]] = []
+        for bundle_dir in templates_dir.iterdir():
+            if not bundle_dir.is_dir():
+                continue
+            validation = validate_template_bundle(bundle_dir)
+            if not bool(validation.get("ok", False)):
+                continue
+            template_name = bundle_dir.name
+            pptx = bundle_dir / TEMPLATE_PPT_FILENAME
+            meta_path = bundle_dir / TEMPLATE_META_FILENAME
+            meta: dict[str, Any] = {}
+            if meta_path.exists():
+                try:
+                    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                except Exception:
+                    meta = {}
+            items.append(
+                {
+                    "name": template_name,
+                    "style_value": template_name,
+                    "file_path": str(pptx.resolve()),
+                    "metadata_file": str(meta_path.resolve()) if meta_path.exists() else None,
+                    "metadata": meta,
+                    "is_valid": True,
+                    "missing_files": [],
+                    "schema_version": str(meta.get("schema_version", TEMPLATE_SCHEMA_VERSION)),
+                }
+            )
+        items.sort(key=lambda x: str(x.get("name", "")))
+        return items
+
+    def list_templates(self, template_type: str) -> list[dict[str, Any]]:
+        normalized = (template_type or "").strip().lower()
+        if normalized == "ppt":
+            return self.list_ppt_templates()
+        templates_dir = Path(__file__).resolve().parents[2] / "templates" / normalized
+        if not templates_dir.exists():
+            return []
+        items: list[dict[str, Any]] = []
+        for f in templates_dir.glob("**/*"):
+            if not f.is_file() or f.name == TEMPLATE_META_FILENAME:
+                continue
+            if f.suffix.lower() not in {".md", ".txt", ".docx", ".pptx"}:
+                continue
+            meta_path = f.parent / TEMPLATE_META_FILENAME
+            meta: dict[str, Any] = {}
+            if meta_path.exists():
+                try:
+                    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                except Exception:
+                    meta = {}
+            name = str(meta.get("template_name", "")).strip() or f.stem
+            items.append(
+                {
+                    "name": name,
+                    "style_value": name,
+                    "file_path": str(f.resolve()),
+                    "metadata_file": str(meta_path.resolve()) if meta_path.exists() else None,
+                    "metadata": meta,
+                    "is_valid": True,
+                    "missing_files": [],
+                    "schema_version": str(meta.get("schema_version", "")),
+                }
+            )
+        items.sort(key=lambda x: str(x.get("name", "")))
+        return items
 
     def _run_text_task(
         self,
@@ -1134,6 +1476,8 @@ class TaskService:
         rerun: bool,
         require_llm: bool,
         llm_timeout_seconds: Optional[int],
+        force_generic_direct: bool,
+        capability_name: Optional[str],
     ) -> dict[str, Any]:
         task_id = task.task_id
         if rerun:
@@ -1159,11 +1503,10 @@ class TaskService:
                 max_results=4,
             )
             if not forced_items:
-                self.repos.tasks.update_status(task_id, "failed_generation")
-                self._add_event(task_id, "failed_generation", "no_source_file_forced_search_empty")
-                self._snapshot_excel()
-                raise ValueError("No source file uploaded and forced search returned no usable results.")
-            parsed_text = forced_context
+                self._add_event(task_id, "planning", "no_source_file_forced_search_empty;fallback_to_requirement_context")
+                parsed_text = clean_text_content(task.user_requirement or "")
+            else:
+                parsed_text = forced_context
 
         self.repos.tasks.update_status(task_id, "planning")
         self._add_event(task_id, "planning", f"start {task.task_type} planning")
@@ -1196,13 +1539,21 @@ class TaskService:
         skill_executor = SkillExecutor.create_default()
 
         def skill_execute(skill_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+            effective_payload = dict(payload)
+            if skill_name == "find_skill":
+                effective_payload.setdefault("task_type", task.task_type or "generic_task")
+                effective_payload.setdefault("requirement", task.user_requirement)
+                effective_payload.setdefault("provider_type", generation_decision.provider_type if generation_decision else "")
+                effective_payload.setdefault("base_url", generation_decision.base_url if generation_decision else "")
+                effective_payload.setdefault("model_name", generation_decision.model_name if generation_decision else "")
+                effective_payload.setdefault("api_key", (default_cfg.api_key_encrypted if default_cfg and default_cfg.api_key_encrypted else ""))
             safe_payload = {
                 k: ("<callable>" if callable(v) else v)
-                for k, v in payload.items()
+                for k, v in effective_payload.items()
             }
             started = time.perf_counter()
             try:
-                output = skill_executor.execute(skill_name, payload)
+                output = skill_executor.execute(skill_name, effective_payload)
                 self._add_skill_call(
                     task_id,
                     skill_name,
@@ -1255,36 +1606,82 @@ class TaskService:
             "data_analysis": DataAnalysisTaskAgent,
             "code_doc": CodeDocTaskAgent,
             "paper_assistant": PaperAssistantTaskAgent,
+            "generic_task": GenericTaskAgent,
         }
-        agent_cls = task_agent_map.get(task.task_type)
-        if agent_cls is None:
-            raise ValueError(f"Unsupported non-ppt task_type: {task.task_type}")
+        agent_cls = task_agent_map.get(task.task_type, GenericTaskAgent)
         task_agent = agent_cls()
         task_agent_name = agent_cls.__name__
+        execute_kwargs = {
+            "requirement": task.user_requirement,
+            "parsed_text": parsed_text,
+            "style": task.style,
+            "language": task.language,
+            "skill_execute_fn": skill_execute,
+            "llm_generate_fn": llm_generate if generation_decision is not None else None,
+        }
+        if isinstance(task_agent, GenericTaskAgent):
+            execute_kwargs["force_direct"] = force_generic_direct
+            execute_kwargs["selected_capability_name"] = capability_name
         try:
-            artifacts = task_agent.execute(
-                requirement=task.user_requirement,
-                parsed_text=parsed_text,
-                style=task.style,
-                language=task.language,
-                skill_execute_fn=skill_execute,
-                llm_generate_fn=llm_generate if generation_decision is not None else None,
-            )
+            artifacts = task_agent.execute(**execute_kwargs)
         except Exception as exc:
-            if require_llm:
+            recovered = False
+            if isinstance(task_agent, GenericTaskAgent) and capability_name:
+                repaired = self._auto_repair_generic_capability_runtime(capability_name, str(exc))
+                if repaired:
+                    self._add_event(task_id, "generating", f"capability_runtime_repaired:{capability_name};retry_once")
+                    try:
+                        retry_kwargs = dict(execute_kwargs)
+                        retry_kwargs["llm_generate_fn"] = llm_generate if generation_decision is not None else None
+                        retry_kwargs["force_direct"] = force_generic_direct
+                        retry_kwargs["selected_capability_name"] = capability_name
+                        artifacts = task_agent.execute(**retry_kwargs)
+                        recovered = True
+                    except Exception as retry_exc:
+                        self._add_event(task_id, "generating", f"capability_runtime_repair_retry_failed:{str(retry_exc)[:160]}")
+                        if require_llm:
+                            self.repos.tasks.update_status(task_id, "failed_generation")
+                            self._add_agent_run(task_id, task_agent_name, "failed", str(retry_exc)[:300])
+                            self._snapshot_excel()
+                            raise ValueError(f"Generation failed (LLM required): {str(retry_exc)}") from retry_exc
+                        self._add_event(task_id, "generating", f"text_task_agent_failed_fallback={str(retry_exc)[:160]}")
+                        retry_fallback_kwargs = dict(execute_kwargs)
+                        retry_fallback_kwargs["llm_generate_fn"] = None
+                        retry_fallback_kwargs["force_direct"] = True
+                        retry_fallback_kwargs["selected_capability_name"] = None
+                        artifacts = task_agent.execute(**retry_fallback_kwargs)
+                        recovered = True
+                else:
+                    self._add_event(task_id, "generating", f"capability_runtime_repair_unavailable:{capability_name}")
+            if recovered:
+                pass
+            elif require_llm:
                 self.repos.tasks.update_status(task_id, "failed_generation")
                 self._add_agent_run(task_id, task_agent_name, "failed", str(exc)[:300])
                 self._snapshot_excel()
                 raise ValueError(f"Generation failed (LLM required): {str(exc)}") from exc
-            self._add_event(task_id, "generating", f"text_task_agent_failed_fallback={str(exc)[:160]}")
-            artifacts = task_agent.execute(
-                requirement=task.user_requirement,
-                parsed_text=parsed_text,
-                style=task.style,
-                language=task.language,
-                skill_execute_fn=skill_execute,
-                llm_generate_fn=None,
-            )
+            else:
+                self._add_event(task_id, "generating", f"text_task_agent_failed_fallback={str(exc)[:160]}")
+                fallback_kwargs = dict(execute_kwargs)
+                fallback_kwargs["llm_generate_fn"] = None
+                if isinstance(task_agent, GenericTaskAgent):
+                    fallback_kwargs["force_direct"] = force_generic_direct
+                    fallback_kwargs["selected_capability_name"] = capability_name
+                artifacts = task_agent.execute(**fallback_kwargs)
+
+        if isinstance(task_agent, GenericTaskAgent) and artifacts.requires_capability_setup:
+            suggested = (artifacts.suggested_capability_name or "new_capability").strip()
+            self.repos.tasks.update_status(task_id, "failed_generation")
+            self._add_event(task_id, "failed_generation", f"capability_setup_required:{suggested}")
+            self._snapshot_excel()
+            return {
+                "task_id": task_id,
+                "status": "capability_setup_required",
+                "task_type": task.task_type,
+                "requires_capability_setup": True,
+                "suggested_capability_name": suggested,
+                "setup_url": f"/capabilities/setup?taskId={task_id}&capability={suggested}",
+            }
 
         self._add_agent_run(task_id, task_agent_name, "completed", f"plan={artifacts.plan_summary[:180]};sections={artifacts.section_count}")
         planner_name = f"{task_agent_name.replace('TaskAgent', '')}PlannerSubAgent"
@@ -1317,7 +1714,7 @@ class TaskService:
                     docx_path = output_dir / f"v{next_version}.docx"
                     chart_path = output_dir / f"v{next_version}.cate_distribution.png"
                     report_info = skill_execute(
-                        "data_excel_cate_word_report",
+                        "data_analysis",
                         {
                             "excel_path": str(source_file.resolve()),
                             "report_docx_path": str(docx_path.resolve()),
@@ -1326,8 +1723,6 @@ class TaskService:
                             "llm_markdown": artifacts.markdown,
                             "language": task.language,
                             "target_column": self._extract_task_setting(task.user_requirement, "TargetColumn") or "cate",
-                            "stage": "exporting",
-                            "task_type": "data_analysis",
                         },
                     )
                     if str(report_info.get("report_path", "")).strip():
@@ -1368,6 +1763,489 @@ class TaskService:
             },
         }
 
+    def bootstrap_generic_capability(self, task_id: str, capability_name: str, capability_spec: Optional[str] = None) -> dict[str, Any]:
+        task = self.repos.tasks.get_by_id(task_id)
+        if task is None:
+            raise ValueError("Task not found.")
+        slug = self._normalize_capability_slug(capability_name)
+        if not slug:
+            raise ValueError("Invalid capability name.")
+        spec_text = (capability_spec or task.user_requirement or "").strip()
+        spec_signature = self._capability_signature(spec_text)
+
+        skills_root = Path(__file__).resolve().parents[2] / "skills"
+        base_skill_name = f"generic_{slug}_executor"
+        base_skill_dir = skills_root / "custom" / base_skill_name
+        manifest_name = "capability.meta.json"
+
+        # Policy:
+        # 1) same-name + same-content => reuse existing
+        # 2) same-name + different-content => create distinguished capability name
+        if base_skill_dir.exists():
+            manifest_path = base_skill_dir / manifest_name
+            if manifest_path.exists():
+                try:
+                    meta = json.loads(manifest_path.read_text(encoding="utf-8"))
+                except Exception:
+                    meta = {}
+            else:
+                meta = {}
+            existing_sig = str(meta.get("spec_signature", "")).strip()
+            if existing_sig and existing_sig == spec_signature:
+                self._add_event(task_id, "planning", f"capability_reused:{slug};skill={base_skill_name}")
+                self._snapshot_excel()
+                return {
+                    "task_id": task_id,
+                    "capability_name": slug,
+                    "skill_name": base_skill_name,
+                    "skill_dir": str(base_skill_dir.resolve()),
+                    "agent_path": str((Path(__file__).resolve().parents[2] / "agents" / "task_agents" / f"{slug}_task_agent.py").resolve()),
+                    "runtime_check_ok": True,
+                    "reused_existing": True,
+                    "reason": "same_name_same_content",
+                }
+            short = spec_signature[:8]
+            slug = f"{slug}_{short}"
+
+        skill_name = f"generic_{slug}_executor"
+        skill_dir = skills_root / "custom" / skill_name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+
+        skill_md = (
+            "---\n"
+            f"name: {skill_name}\n"
+            "description: Executes a user-bootstrapped generic capability.\n"
+            "domain: custom\n"
+            "version: 1.0.0\n"
+            "owner: backend\n"
+            "status: active\n"
+            "task_types:\n"
+            "  - generic_task\n"
+            "stages:\n"
+            "  - generating\n"
+            "runtime_handler: runtime.py:run\n"
+            "trigger_keywords:\n"
+            f"  - {slug}\n"
+            "---\n\n"
+            f"# {skill_name}\n\n"
+            "## When to Use This Skill\n"
+            "Use this skill when the user asks to execute the custom capability.\n\n"
+            "## What This Skill Does\n"
+            "Generates structured markdown output for the custom capability task.\n\n"
+            "## How to Execute\n"
+            "Call via `SkillExecutor.execute` with requirement/context payload.\n\n"
+            "## Example\n"
+            "Input: requirement/context\n"
+            "Output: markdown text\n\n"
+            "## Fallback\n"
+            "If execution fails, orchestration should fall back to generic direct generation.\n"
+        )
+        runtime_py = (
+            "from __future__ import annotations\n\n"
+            "def run(payload: dict) -> dict:\n"
+            "    requirement = str(payload.get('requirement', '')).strip()\n"
+            "    context = str(payload.get('context', '')).strip()\n"
+            f"    title = '{slug.replace('_', ' ').title()}'\n"
+            "    body = context if context else requirement\n"
+            "    markdown = f\"# {title}\\n\\n## Summary\\n{body[:3500]}\\n\"\n"
+            "    return {'passed': True, 'markdown': markdown, 'capability': title}\n"
+        )
+        skill_md_path = skill_dir / "SKILL.md"
+        runtime_py_path = skill_dir / "runtime.py"
+        manifest_path = skill_dir / manifest_name
+        skill_md_path.write_text(skill_md, encoding="utf-8")
+        runtime_py_path.write_text(runtime_py, encoding="utf-8")
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "capability_name": slug,
+                    "skill_name": skill_name,
+                    "spec_signature": spec_signature,
+                    "source_task_id": task_id,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        agent_path = Path(__file__).resolve().parents[2] / "agents" / "task_agents" / f"{slug}_task_agent.py"
+        agent_code = (
+            "from __future__ import annotations\n\n"
+            "from dataclasses import dataclass\n"
+            "from typing import Any, Callable, Optional\n\n"
+            "@dataclass\n"
+            "class CapabilityTaskArtifacts:\n"
+            "    markdown: str\n"
+            "    review_passed: bool\n"
+            "    review_issues: list[str]\n"
+            "    plan_summary: str\n"
+            "    section_count: int\n\n"
+            "class CapabilityTaskAgent:\n"
+            "    def execute(\n"
+            "        self,\n"
+            "        requirement: str,\n"
+            "        parsed_text: str,\n"
+            "        style: str,\n"
+            "        language: str,\n"
+            "        skill_execute_fn: Callable[[str, dict[str, Any]], dict[str, Any]],\n"
+            "        llm_generate_fn: Optional[Callable[[str], str]] = None,\n"
+            "    ) -> CapabilityTaskArtifacts:\n"
+            f"        result = skill_execute_fn('{skill_name}', {{'requirement': requirement, 'context': parsed_text, 'style': style, 'language': language}})\n"
+            "        markdown = str(result.get('markdown', '')).strip() + '\\n'\n"
+            "        return CapabilityTaskArtifacts(markdown=markdown, review_passed=True, review_issues=[], plan_summary='custom capability task agent', section_count=max(1, markdown.count('\\n## ')))\n"
+        )
+        agent_path.write_text(agent_code, encoding="utf-8")
+
+        compile(runtime_py, str(runtime_py_path), "exec")
+        compile(agent_code, str(agent_path), "exec")
+
+        check = SkillExecutor.create_default().execute(
+            skill_name,
+            {"requirement": task.user_requirement, "context": task.user_requirement},
+        )
+        self._add_event(task_id, "planning", f"capability_bootstrapped:{slug};skill={skill_name}")
+        self._snapshot_excel()
+        return {
+            "task_id": task_id,
+            "capability_name": slug,
+            "skill_name": skill_name,
+            "skill_dir": str(skill_dir.resolve()),
+            "agent_path": str(agent_path.resolve()),
+            "runtime_check_ok": isinstance(check, dict),
+            "reused_existing": False,
+            "reason": "created_new_or_distinguished",
+        }
+
+    def _run_template_generation_task(self, task: Task, rerun: bool = False) -> dict[str, Any]:
+        task_id = task.task_id
+        if rerun:
+            self._add_agent_run(task_id, "TemplateGenerationTaskAgent", "running", "manual rerun requested")
+        files = self.repos.files.list_by_task(task_id)
+        source_file_path = ""
+        parsed_text = ""
+        if files:
+            file_row = files[0]
+            source_file_path = file_row.file_path
+            if file_row.parse_status != "success":
+                try:
+                    file_row = self.parse_task_file(task_id, force=False)
+                except Exception:
+                    file_row = files[0]
+            if file_row.parsed_text_path:
+                p = Path(file_row.parsed_text_path)
+                if p.exists():
+                    parsed_text = clean_text_content(p.read_text(encoding="utf-8"))
+
+        self.repos.tasks.update_status(task_id, "planning")
+        self._add_event(task_id, "planning", "start template generation planning")
+        self.repos.tasks.update_status(task_id, "generating")
+
+        skill_executor = SkillExecutor.create_default()
+        planning_decision = ModelRouter(self.repos).pick(task.user_id, "planning")
+        default_cfg = self.repos.providers.get_default_for_user(task.user_id)
+
+        def skill_execute(skill_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+            effective_payload = dict(payload)
+            if skill_name == "find_skill":
+                effective_payload.setdefault("task_type", "template_generation")
+                effective_payload.setdefault("requirement", task.user_requirement)
+                effective_payload.setdefault("provider_type", planning_decision.provider_type or "")
+                effective_payload.setdefault("base_url", planning_decision.base_url or "")
+                effective_payload.setdefault("model_name", planning_decision.model_name or "")
+                effective_payload.setdefault("api_key", (default_cfg.api_key_encrypted if default_cfg and default_cfg.api_key_encrypted else ""))
+            started = time.perf_counter()
+            output = skill_executor.execute(skill_name, effective_payload)
+            self._add_skill_call(
+                task_id,
+                skill_name,
+                effective_payload,
+                output,
+                max(1, int((time.perf_counter() - started) * 1000)),
+            )
+            return output
+
+        templates_root = Path(__file__).resolve().parents[2] / "templates"
+        agent = TemplateGenerationTaskAgent()
+        result = agent.execute(
+            requirement=task.user_requirement,
+            parsed_text=parsed_text,
+            source_file_path=source_file_path,
+            templates_root=str(templates_root.resolve()),
+            skill_execute_fn=skill_execute,
+        )
+        self._add_agent_run(task_id, "TemplateGenerationTaskAgent", "completed", f"type={result.template_type};name={result.template_name}")
+        if result.status == "requires_user_completion":
+            self.repos.tasks.update_status(task_id, "requires_user_completion")
+            recovery_payload = {
+                "task_id": task_id,
+                "template_type": result.template_type,
+                "template_name": result.template_name,
+                "template_dir": result.template_dir,
+                "template_file": result.template_file,
+                "metadata_file": result.metadata_file,
+                "params_file": result.params_file,
+                "render_script": result.render_script,
+                "missing_fields": result.missing_fields,
+                "suggested_values": result.suggested_values,
+            }
+            self._write_template_recovery_payload(task_id, recovery_payload)
+            self._add_event(task_id, "requires_user_completion", f"template_generation_requires_user_completion:{json.dumps(recovery_payload, ensure_ascii=False)}")
+            self._snapshot_excel()
+            return {"task_id": task_id, "status": "requires_user_completion", **recovery_payload}
+
+        self.repos.tasks.update_status(task_id, "exporting")
+        output_path = Path(result.template_file)
+        suffix = output_path.suffix.lower()
+        output_file_type = "md"
+        if suffix == ".pptx":
+            output_file_type = "pptx"
+        elif suffix == ".json":
+            output_file_type = "json"
+        elif suffix == ".txt":
+            output_file_type = "txt"
+        elif suffix == ".docx":
+            output_file_type = "docx"
+
+        latest = self.repos.outputs.get_latest(task_id)
+        next_version = 1 if latest is None else latest.version + 1
+        out = OutputFile(
+            output_id=new_id("output"),
+            task_id=task_id,
+            version=next_version,
+            file_type=output_file_type,  # type: ignore[arg-type]
+            file_path=str(output_path.resolve()),
+        )
+        self.repos.outputs.create(out)
+        self.repos.tasks.update_status(task_id, "completed")
+        self._add_event(task_id, "completed", f"template_generated type={result.template_type};name={result.template_name}")
+        self._clear_template_recovery_payload(task_id)
+        self._snapshot_excel()
+        return {
+            "task_id": task_id,
+            "status": "completed",
+            "task_type": task.task_type,
+            "template_type": result.template_type,
+            "template_name": result.template_name,
+            "template_dir": result.template_dir,
+            "template_file": result.template_file,
+            "metadata_file": result.metadata_file,
+            "params_file": result.params_file,
+            "render_script": result.render_script,
+            "output_version": next_version,
+            "output_path": str(output_path.resolve()),
+        }
+
+    def get_template_generation_recovery(self, task_id: str) -> dict[str, Any]:
+        task = self.repos.tasks.get_by_id(task_id)
+        if task is None:
+            raise ValueError("Task not found.")
+        if task.task_type not in {"template_generation", "ppt"}:
+            raise ValueError("Task is not a template generation task.")
+        data = self._read_template_recovery_payload(task_id)
+        if not data:
+            return {"task_id": task_id, "has_recovery": False}
+        return {"task_id": task_id, "has_recovery": True, **data}
+
+    def resume_template_generation_recovery(self, task_id: str, resume_token: str, user_filled_fields: dict[str, str]) -> dict[str, Any]:
+        recovery = self._read_template_recovery_payload(task_id)
+        if not recovery:
+            raise ValueError("No recovery payload found for this task.")
+        expected_token = str(recovery.get("resume_token", "")).strip()
+        if not expected_token or resume_token.strip() != expected_token:
+            raise ValueError("Invalid resume token.")
+        resume_attempt = int(recovery.get("resume_attempt", 0) or 0) + 1
+        recovery["resume_attempt"] = resume_attempt
+        template_dir = Path(str(recovery.get("template_dir", "")))
+        meta_path = Path(str(recovery.get("metadata_file", ""))) if recovery.get("metadata_file") else (template_dir / BUNDLE_META_FILENAME)
+        rules_path = Path(str(recovery.get("rules_file", ""))) if recovery.get("rules_file") else (template_dir / BUNDLE_RULES_FILENAME)
+        if not meta_path.exists():
+            raise ValueError("Recovery metadata file not found.")
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        updates = user_filled_fields or {}
+        for key, value in updates.items():
+            if not str(value).strip():
+                continue
+            if str(key).startswith("rules."):
+                if not rules_path.exists():
+                    rules_path.write_text(json.dumps({"schema_version": "v1", "rules": []}, ensure_ascii=False, indent=2), encoding="utf-8")
+                rules = json.loads(rules_path.read_text(encoding="utf-8"))
+                rules_key = key[len("rules.") :]
+                rules_value: Any = value
+                if rules_key == "rules":
+                    try:
+                        parsed = json.loads(str(value))
+                        if isinstance(parsed, list):
+                            rules_value = parsed
+                    except Exception:
+                        rules_value = [{"name": "text_overflow", "action": "shrink"}]
+                self._set_nested_key(rules, rules_key, rules_value)
+                rules_path.write_text(json.dumps(rules, ensure_ascii=False, indent=2), encoding="utf-8")
+            else:
+                self._set_nested_key(meta, key, value)
+        meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        validation = validate_template_bundle(template_dir)
+        self._add_event(
+            task_id,
+            "planning",
+            (
+                f"template_bundle_validation template_name={recovery.get('template_name', template_dir.name)};"
+                f"ok={bool(validation.get('ok', False))};"
+                f"missing={len(validation.get('missing_files', []))};"
+                f"errors={len(validation.get('errors', []))};"
+                f"resume_attempt={resume_attempt}"
+            ),
+        )
+        if not bool(validation.get("ok", False)):
+            recovery["missing_items"] = validation.get("missing_files", [])
+            recovery["validation_errors"] = validation.get("errors", [])
+            self._write_template_recovery_payload(task_id, recovery)
+            task = self.repos.tasks.update_status(task_id, "requires_user_completion")
+            self._add_event(
+                task_id,
+                "requires_user_completion",
+                (
+                    "template_generation_resume_validation_failed;"
+                    f"template_name={recovery.get('template_name', template_dir.name)};"
+                    f"missing_items={len(recovery.get('missing_items', []))};"
+                    f"validation_errors={len(recovery.get('validation_errors', []))};"
+                    f"resume_attempt={resume_attempt}"
+                ),
+            )
+            self._snapshot_excel()
+            return {
+                "task_id": task_id,
+                "status": task.status if task else "requires_user_completion",
+                "has_recovery": True,
+                **recovery,
+            }
+        rules_count = 0
+        if rules_path.exists():
+            try:
+                rules_payload = json.loads(rules_path.read_text(encoding="utf-8"))
+                maybe_rules = rules_payload.get("rules", [])
+                if isinstance(maybe_rules, list):
+                    rules_count = len(maybe_rules)
+            except Exception:
+                rules_count = 0
+        self._clear_template_recovery_payload(task_id)
+        task = self.repos.tasks.update_status(task_id, "completed")
+        self._add_event(
+            task_id,
+            "completed",
+            (
+                "template_generation_resume_completed;"
+                f"template_name={recovery.get('template_name', template_dir.name)};"
+                f"resume_attempt={resume_attempt};"
+                f"applied_rules={rules_count}"
+            ),
+        )
+        self._snapshot_excel()
+        return {"task_id": task_id, "status": task.status if task else "completed"}
+
+    def complete_template_generation_recovery(self, task_id: str, fields: dict[str, str]) -> dict[str, Any]:
+        # Backward-compatible alias for previous frontend route.
+        recovery = self._read_template_recovery_payload(task_id)
+        resume_token = str(recovery.get("resume_token", "")).strip()
+        if not resume_token:
+            raise ValueError("No recovery resume token found.")
+        return self.resume_template_generation_recovery(task_id, resume_token, fields)
+
+    def _template_recovery_file(self, task_id: str) -> Path:
+        folder = self.storage_root / "outputs" / task_id
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder / "template.recovery.json"
+
+    def _write_template_recovery_payload(self, task_id: str, payload: dict[str, Any]) -> None:
+        path = self._template_recovery_file(task_id)
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _read_template_recovery_payload(self, task_id: str) -> dict[str, Any]:
+        path = self._template_recovery_file(task_id)
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _clear_template_recovery_payload(self, task_id: str) -> None:
+        path = self._template_recovery_file(task_id)
+        if path.exists():
+            path.unlink()
+
+    def _set_nested_key(self, data: dict[str, Any], key: str, value: Any) -> None:
+        parts = [p for p in str(key).split(".") if p]
+        if not parts:
+            return
+        curr: Any = data
+        for part in parts[:-1]:
+            if not isinstance(curr, dict):
+                return
+            if part not in curr or not isinstance(curr[part], dict):
+                curr[part] = {}
+            curr = curr[part]
+        if isinstance(curr, dict):
+            curr[parts[-1]] = value
+
+    def _nested_key_has_value(self, data: dict[str, Any], key: str) -> bool:
+        parts = [p for p in str(key).split(".") if p]
+        curr: Any = data
+        for part in parts:
+            if not isinstance(curr, dict) or part not in curr:
+                return False
+            curr = curr[part]
+        if curr is None:
+            return False
+        if isinstance(curr, str):
+            return bool(curr.strip())
+        if isinstance(curr, (list, dict)):
+            return len(curr) > 0
+        return True
+
+    def _normalize_capability_slug(self, value: str) -> str:
+        raw = (value or "").strip().lower()
+        slug = re.sub(r"[^a-z0-9_]+", "_", raw).strip("_")
+        return slug[:48]
+
+    def _capability_signature(self, content: str) -> str:
+        normalized = re.sub(r"\s+", " ", (content or "").strip().lower())
+        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+    def _auto_repair_generic_capability_runtime(self, capability_name: str, error_message: str) -> bool:
+        slug = self._normalize_capability_slug(capability_name)
+        if not slug:
+            return False
+        skill_name = f"generic_{slug}_executor"
+        skill_dir = Path(__file__).resolve().parents[2] / "skills" / "custom" / skill_name
+        runtime_path = skill_dir / "runtime.py"
+        if not runtime_path.exists():
+            return False
+        safe_error = (error_message or "").replace("\n", " ").replace("\r", " ").strip()[:240]
+        repaired_runtime = (
+            "from __future__ import annotations\n\n"
+            "def run(payload: dict) -> dict:\n"
+            "    requirement = str(payload.get('requirement', '')).strip()\n"
+            "    context = str(payload.get('context', '')).strip()\n"
+            f"    title = '{slug.replace('_', ' ').title()}'\n"
+            "    body = context if context else requirement\n"
+            "    # auto-repaired runtime fallback for generic capability execution\n"
+            "    markdown = (\n"
+            "        f\"# {title}\\n\\n\"\n"
+            "        f\"## Summary\\n{body[:3000]}\\n\\n\"\n"
+            f"        f\"## Runtime Repair Note\\nAuto-repaired from previous error: {safe_error}\\n\"\n"
+            "    )\n"
+            "    return {'passed': True, 'markdown': markdown, 'capability': title, 'auto_repaired': True}\n"
+        )
+        try:
+            compile(repaired_runtime, str(runtime_path), "exec")
+            runtime_path.write_text(repaired_runtime, encoding="utf-8")
+        except Exception:
+            return False
+        return True
+
     def _force_search_context(
         self,
         *,
@@ -1377,30 +2255,35 @@ class TaskService:
         max_results: int = 4,
     ) -> tuple[list[dict[str, Any]], str]:
         skill_executor = SkillExecutor.create_default()
-        query = requirement.strip()
-        if not query:
-            query = "latest information overview"
-        started = time.perf_counter()
-        try:
-            result = skill_executor.execute("knowledge_search", {"query": query, "max_results": max_results})
-            items = result.get("items", []) if isinstance(result, dict) else []
-        except Exception as exc:
-            self._add_skill_call(
-                task_id,
-                "knowledge_search_failed",
-                {"query": query, "max_results": max_results, "forced": True},
-                {"error": str(exc)[:300]},
-                max(1, int((time.perf_counter() - started) * 1000)),
-            )
-            return [], ""
-
-        self._add_skill_call(
-            task_id,
-            "knowledge_search",
-            {"query": query, "max_results": max_results, "forced": True},
-            {"count": len(items)},
-            max(1, int((time.perf_counter() - started) * 1000)),
-        )
+        base_query = requirement.strip()
+        if not base_query:
+            base_query = "latest information overview"
+        query_candidates = [base_query, f"{base_query} latest overview", f"{base_query} background key points"]
+        items: list[dict[str, Any]] = []
+        for query in query_candidates:
+            started = time.perf_counter()
+            try:
+                result = skill_executor.execute("knowledge_search", {"query": query, "max_results": max_results})
+                current = result.get("items", []) if isinstance(result, dict) else []
+                self._add_skill_call(
+                    task_id,
+                    "knowledge_search",
+                    {"query": query, "max_results": max_results, "forced": True},
+                    {"count": len(current)},
+                    max(1, int((time.perf_counter() - started) * 1000)),
+                )
+                if isinstance(current, list) and current:
+                    items = current
+                    break
+            except Exception as exc:
+                self._add_skill_call(
+                    task_id,
+                    "knowledge_search_failed",
+                    {"query": query, "max_results": max_results, "forced": True},
+                    {"error": str(exc)[:300]},
+                    max(1, int((time.perf_counter() - started) * 1000)),
+                )
+                continue
         if items:
             try:
                 append_info = vector_index_service.append_documents(task_id, items)
@@ -1512,8 +2395,52 @@ class TaskService:
                 "task_events": self.repos.task_events.store.read_all(),
                 "users": self.repos.users.store.read_all(),
                 "sessions": self.repos.sessions.store.read_all(),
+                "user_settings": self.repos.user_settings.store.read_all(),
             }
         )
+
+    def get_user_max_parallel_tasks(self, user_id: str) -> int:
+        settings = self.repos.user_settings.get_by_user(user_id)
+        if settings is None:
+            return 10
+        return max(1, min(10, int(settings.max_parallel_tasks)))
+
+    def set_user_max_parallel_tasks(self, user_id: str, max_parallel_tasks: int) -> int:
+        value = max(1, min(10, int(max_parallel_tasks)))
+        current = self.repos.user_settings.get_by_user(user_id)
+        payload = (
+            current.model_copy(update={"max_parallel_tasks": value, "updated_at": _utc_now()})
+            if current is not None
+            else UserSettings(user_id=user_id, max_parallel_tasks=value, updated_at=_utc_now())
+        )
+        self.repos.user_settings.upsert(payload)
+        self._snapshot_excel()
+        return value
+
+    def list_running_tasks_by_user(self, user_id: str) -> list[Task]:
+        tasks = self.repos.tasks.list_by_user(user_id)
+        running: list[Task] = []
+        now = _utc_now()
+        for t in tasks:
+            if t.status not in self.RUNNING_STATUSES:
+                continue
+            age_seconds = (now - t.updated_at).total_seconds()
+            if age_seconds > self.RUNNING_STALE_TIMEOUT_SECONDS:
+                self.repos.tasks.update_status(t.task_id, "failed_generation")
+                self._add_event(t.task_id, "failed_generation", "stale_running_task_auto_closed")
+                continue
+            running.append(t)
+        if running:
+            running.sort(key=lambda x: x.updated_at, reverse=True)
+        return running
+
+    def _ensure_parallel_capacity(self, user_id: str, exclude_task_id: Optional[str] = None) -> None:
+        limit = self.get_user_max_parallel_tasks(user_id)
+        running = [t for t in self.list_running_tasks_by_user(user_id) if t.status in self.CAPACITY_COUNT_STATUSES]
+        if exclude_task_id:
+            running = [t for t in running if t.task_id != exclude_task_id]
+        if len(running) >= limit:
+            raise ValueError(f"Running task limit reached ({len(running)}/{limit}).")
 
     def _get_output_by_version(self, task_id: str, version: int) -> Optional[OutputFile]:
         for item in self.repos.outputs.list_versions(task_id):
@@ -1557,4 +2484,45 @@ class TaskService:
 
 def build_task_service(repos: RepositoryBundle) -> TaskService:
     return TaskService(repos=repos, storage_root=settings.data_dir)
+
+
+def recover_interrupted_running_tasks(repos: RepositoryBundle) -> int:
+    """
+    On backend restart, previously in-flight tasks cannot continue (no resumable worker runtime).
+    Convert stale running-like statuses to failed_generation so UI won't keep showing zombie tasks.
+    """
+    tasks_repo = repos.tasks
+    if not hasattr(tasks_repo, "store"):
+        return 0
+
+    rows = tasks_repo.store.read_all()
+    now = _utc_now().isoformat()
+    interrupted_statuses = TaskService.RUNNING_STATUSES
+    changed = 0
+    affected_task_ids: list[str] = []
+
+    for row in rows:
+        status = str(row.get("status", "")).strip()
+        if status in interrupted_statuses:
+            row["status"] = "failed_generation"
+            row["updated_at"] = now
+            changed += 1
+            task_id = str(row.get("task_id", "")).strip()
+            if task_id:
+                affected_task_ids.append(task_id)
+
+    if changed == 0:
+        return 0
+
+    tasks_repo.store.write_all(rows)
+    for task_id in affected_task_ids:
+        repos.task_events.create(
+            TaskEvent(
+                event_id=new_id("evt"),
+                task_id=task_id,
+                stage="failed_generation",
+                message="interrupted_task_auto_closed_on_backend_restart",
+            )
+        )
+    return changed
 

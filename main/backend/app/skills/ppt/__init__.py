@@ -1,2 +1,0 @@
-# PPT skill domain package.
-

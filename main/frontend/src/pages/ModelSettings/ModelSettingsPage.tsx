@@ -1,7 +1,7 @@
 import { QuestionCircleOutlined } from "@ant-design/icons";
-import { Alert, Button, Card, Checkbox, Form, Input, List, Select, Space, Tooltip, Typography } from "antd";
-import { useMemo, useState } from "react";
-import { getJson, postJson } from "../../api/http";
+import { Alert, Button, Card, Checkbox, Form, Input, InputNumber, List, Select, Space, Tooltip, Typography } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { getJson, postJson, putJson } from "../../api/http";
 import { useAppStore } from "../../store/appStore";
 import { ApiEnvelope } from "../../types/api";
 
@@ -10,6 +10,7 @@ type ProviderType =
   | "openai_api"
   | "anthropic_api"
   | "qwen_api"
+  | "vllm"
   | "ollama"
   | "huggingface"
   | "local_llm";
@@ -23,6 +24,10 @@ type ProviderItem = {
   chat_model?: string;
   embedding_model?: string;
   is_default: boolean;
+};
+
+type ProviderDefaultResponse = {
+  item: ProviderItem | null;
 };
 
 type ProviderConfigPreset = {
@@ -46,6 +51,11 @@ const OLLAMA_DEFAULT = {
   chat_model: "qwen3:8b",
   embedding_model: "qwen3-embedding:8b",
   base_url: "http://localhost:11434",
+};
+
+const VLLM_DEFAULT = {
+  model_name: "Qwen/Qwen2.5-7B-Instruct",
+  base_url: "http://127.0.0.1:8000/v1",
 };
 
 const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
@@ -95,6 +105,20 @@ const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
       display_name: "Qwen API",
       base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
       model_name: "qwen3:8b",
+    },
+  },
+  vllm: {
+    label: "vLLM",
+    providerType: "vllm",
+    baseUrlExample: VLLM_DEFAULT.base_url,
+    modelExample: VLLM_DEFAULT.model_name,
+    needsApiKey: false,
+    needsChatModel: false,
+    needsEmbeddingModel: false,
+    defaultValues: {
+      display_name: "vLLM Local",
+      base_url: VLLM_DEFAULT.base_url,
+      model_name: VLLM_DEFAULT.model_name,
     },
   },
   ollama: {
@@ -159,10 +183,12 @@ export default function ModelSettingsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderItem[]>([]);
+  const [currentProviderId, setCurrentProviderId] = useState<string | null>(null);
+  const [maxParallelTasks, setMaxParallelTasks] = useState<number>(10);
   const [form] = Form.useForm();
 
-  const providerType: ProviderType = Form.useWatch("provider_type", form) ?? "ollama";
-  const preset = useMemo(() => PROVIDER_PRESETS[providerType] ?? PROVIDER_PRESETS.ollama, [providerType]);
+  const providerType: ProviderType = Form.useWatch("provider_type", form) ?? "vllm";
+  const preset = useMemo(() => PROVIDER_PRESETS[providerType] ?? PROVIDER_PRESETS.vllm, [providerType]);
 
   async function save(values: {
     provider_type: ProviderType;
@@ -179,7 +205,8 @@ export default function ModelSettingsPage() {
       return;
     }
     setError(null);
-    const res = await postJson<ApiEnvelope<ProviderItem>>("/v1/providers", {
+    await postJson<ApiEnvelope<ProviderItem>>("/v1/providers", {
+      provider_id: currentProviderId,
       user_id: auth.userId,
       provider_type: values.provider_type,
       display_name: values.display_name,
@@ -190,7 +217,7 @@ export default function ModelSettingsPage() {
       api_key: values.api_key || null,
       is_default: !!values.is_default
     });
-    setMessage(`Saved provider ${res.data.display_name}`);
+    await loadDefaultProvider(true);
     await loadProviders();
   }
 
@@ -201,6 +228,72 @@ export default function ModelSettingsPage() {
     const res = await getJson<ApiEnvelope<{ items: ProviderItem[] }>>(`/v1/providers/${auth.userId}`);
     setProviders(res.data.items);
   }
+
+  async function loadDefaultProvider(showMessage = false) {
+    if (!auth.userId) {
+      return;
+    }
+    setError(null);
+    const res = await getJson<ApiEnvelope<ProviderDefaultResponse>>("/v1/providers/default/me");
+    const item = res.data.item;
+    if (!item) {
+      setCurrentProviderId(null);
+      form.setFieldsValue({
+        provider_type: "vllm",
+        ...PROVIDER_PRESETS.vllm.defaultValues,
+        api_key: null,
+        is_default: true,
+      });
+      if (showMessage) {
+        setMessage("Saved. No user default provider found; using vLLM preset.");
+      }
+      return;
+    }
+    setCurrentProviderId(item.provider_id);
+    form.setFieldsValue({
+      provider_type: item.provider_type,
+      display_name: item.display_name,
+      base_url: item.base_url ?? "",
+      model_name: item.model_name,
+      chat_model: item.chat_model ?? null,
+      embedding_model: item.embedding_model ?? null,
+      api_key: null,
+      is_default: item.is_default,
+    });
+    if (showMessage) {
+      setMessage(`Saved provider ${item.display_name}`);
+    }
+  }
+
+  async function loadUserSettings() {
+    try {
+      const res = await getJson<ApiEnvelope<{ max_parallel_tasks: number }>>("/v1/users/settings/me");
+      setMaxParallelTasks(Math.max(1, Math.min(10, Number(res.data.max_parallel_tasks || 10))));
+    } catch (e) {
+      const msg = String(e);
+      if (msg.includes("HTTP 404")) {
+        // Backward compatibility: older backend may not expose this endpoint yet.
+        setMaxParallelTasks(10);
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async function saveUserSettings() {
+    setError(null);
+    const res = await putJson<ApiEnvelope<{ max_parallel_tasks: number }>>("/v1/users/settings/me", {
+      max_parallel_tasks: maxParallelTasks,
+    });
+    setMaxParallelTasks(Number(res.data.max_parallel_tasks || 10));
+    setMessage(`Saved max parallel tasks = ${res.data.max_parallel_tasks}`);
+  }
+
+  useEffect(() => {
+    loadDefaultProvider().catch((e) => setError(String(e)));
+    loadProviders().catch((e) => setError(String(e)));
+    loadUserSettings().catch((e) => setError(String(e)));
+  }, [auth.userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function testCurrentConfig() {
     const values = await form.validateFields();
@@ -225,8 +318,8 @@ export default function ModelSettingsPage() {
         layout="vertical"
         onFinish={save}
         initialValues={{
-          provider_type: "ollama",
-          ...PROVIDER_PRESETS.ollama.defaultValues,
+          provider_type: "vllm",
+          ...PROVIDER_PRESETS.vllm.defaultValues,
           is_default: true,
         }}
         onValuesChange={(changed) => {
@@ -244,7 +337,7 @@ export default function ModelSettingsPage() {
           }
         }}
       >
-        <Form.Item label="Provider" name="provider_type" initialValue="ollama">
+        <Form.Item label="Provider" name="provider_type" initialValue="vllm">
           <Select
             options={Object.values(PROVIDER_PRESETS).map((x) => ({ label: x.label, value: x.providerType }))}
           />
@@ -306,6 +399,7 @@ export default function ModelSettingsPage() {
             Save
           </Button>
           <Button onClick={() => testCurrentConfig().catch((e) => setError(String(e)))}>Test Current Config</Button>
+          <Button onClick={() => loadDefaultProvider().catch((e) => setError(String(e)))}>Load Default</Button>
           <Button onClick={loadProviders}>Load Providers</Button>
         </Space>
       </Form>
@@ -319,6 +413,14 @@ export default function ModelSettingsPage() {
           </List.Item>
         )}
       />
+      <Typography.Title level={5} style={{ marginTop: 20 }}>Task Concurrency</Typography.Title>
+      <Space>
+        <Typography.Text>Max Parallel Tasks</Typography.Text>
+        <InputNumber min={1} max={10} value={maxParallelTasks} onChange={(v) => setMaxParallelTasks(Number(v || 1))} />
+        <Button type="primary" onClick={() => saveUserSettings().catch((e) => setError(String(e)))}>
+          Save Limit
+        </Button>
+      </Space>
     </Card>
   );
 }

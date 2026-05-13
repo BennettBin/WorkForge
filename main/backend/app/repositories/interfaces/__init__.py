@@ -7,6 +7,7 @@ from .skill_call_repository import SkillCallRepository
 from .task_event_repository import TaskEventRepository
 from .task_repository import TaskRepository
 from .user_repository import UserRepository
+from .user_settings_repository import UserSettingsRepository
 
 __all__ = [
     "TaskRepository",
@@ -16,6 +17,7 @@ __all__ = [
     "AgentRunRepository",
     "SkillCallRepository",
     "UserRepository",
+    "UserSettingsRepository",
     "SessionRepository",
     "TaskEventRepository",
 ]

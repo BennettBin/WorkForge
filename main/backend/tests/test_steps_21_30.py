@@ -43,8 +43,8 @@ def _build_pdf_bytes(text: str) -> bytes:
 
 
 def _register_and_login(client: TestClient):
-    client.post("/v1/auth/register", json={"email": "user@test.com", "username": "tester", "password": "123456"})
-    login = client.post("/v1/auth/login", json={"email": "user@test.com", "password": "123456"})
+    client.post("/v1/auth/register", json={"username": "tester", "password": "123456"})
+    login = client.post("/v1/auth/login", json={"account": "tester", "password": "123456"})
     assert login.status_code == 200
     token = login.json()["data"]["token"]
     user_id = login.json()["data"]["user_id"]
@@ -80,14 +80,16 @@ def test_step21_to_step30_core_flows():
                     "model_name": "qwen2.5:7b",
                     "is_default": True,
                 },
+                headers=auth,
             )
             assert provider.status_code == 200
-            provider_list = client.get(f"/v1/providers/{user_id}")
+            provider_list = client.get(f"/v1/providers/{user_id}", headers=auth)
             assert provider_list.status_code == 200
             assert len(provider_list.json()["data"]["items"]) >= 1
             provider_test = client.post(
                 "/v1/providers/test",
                 json={"provider_type": "openai_compatible", "base_url": "https://api.deepseek.com", "model_name": "deepseek-chat"},
+                headers=auth,
             )
             assert provider_test.status_code == 200
 
@@ -105,24 +107,26 @@ def test_step21_to_step30_core_flows():
                     "style": "academic_simple",
                     "language": "zh-CN",
                 },
+                headers=auth,
             )
             task_id = create.json()["data"]["task_id"]
 
-            with client.websocket_connect(f"/ws/tasks/{task_id}") as ws:
+            with client.websocket_connect(f"/ws/tasks/{task_id}?token={token}") as ws:
                 payload = ws.receive_json()
                 assert payload["task_id"] == task_id
 
             upload = client.post(
                 f"/v1/tasks/{task_id}/upload",
                 files={"upload": ("sample.txt", BytesIO(b"hello task flow"), "text/plain")},
+                headers=auth,
             )
             assert upload.status_code == 200
-            parse = client.post(f"/v1/tasks/{task_id}/parse", json={"force": False})
+            parse = client.post(f"/v1/tasks/{task_id}/parse", json={"force": False}, headers=auth)
             assert parse.status_code == 200
-            run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
+            run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False}, headers=auth)
             assert run.status_code == 200
 
-            versions = client.get(f"/v1/tasks/{task_id}/versions")
+            versions = client.get(f"/v1/tasks/{task_id}/versions", headers=auth)
             assert versions.status_code == 200
             assert len(versions.json()["data"]["items"]) == 1
 
@@ -142,23 +146,24 @@ def test_step21_to_step30_core_flows():
                     rev = client.post(
                         f"/v1/tasks/{task_id}/revisions",
                         json={"page_index": 2, "instruction": f"rev-{i}"},
+                        headers=auth,
                     )
                     assert rev.status_code == 200
                     assert mocked_llm.called
 
-            versions2 = client.get(f"/v1/tasks/{task_id}/versions")
+            versions2 = client.get(f"/v1/tasks/{task_id}/versions", headers=auth)
             items = versions2.json()["data"]["items"]
             assert len(items) == 5
 
-            compare = client.get(f"/v1/tasks/{task_id}/versions/compare?from_version=1&to_version=5")
+            compare = client.get(f"/v1/tasks/{task_id}/versions/compare?from_version=1&to_version=5", headers=auth)
             assert compare.status_code == 200
             assert compare.json()["data"]["changed_page_count"] >= 1
 
-            rollback = client.post(f"/v1/tasks/{task_id}/versions/rollback/2", json={})
+            rollback = client.post(f"/v1/tasks/{task_id}/versions/rollback/2", json={}, headers=auth)
             assert rollback.status_code == 200
             assert rollback.json()["data"]["new_version"] == 6
 
-            dl_v2 = client.get(f"/v1/tasks/{task_id}/download/2")
+            dl_v2 = client.get(f"/v1/tasks/{task_id}/download/2", headers=auth)
             assert dl_v2.status_code == 200
             assert dl_v2.json()["data"]["exists"] is True
 
@@ -168,7 +173,8 @@ def test_step22_min_regression_set():
         settings.data_dir = Path(temp_dir)
         app = create_app()
         with TestClient(app) as client:
-            _, user_id = _register_and_login(client)
+            token, user_id = _register_and_login(client)
+            auth = {"Authorization": f"Bearer {token}"}
 
             valid_samples = [
                 ("ok1.pdf", _build_pdf_bytes("pdf sample 1")),
@@ -200,11 +206,13 @@ def test_step22_min_regression_set():
                             "style": "academic_simple",
                             "language": "zh-CN",
                         },
+                        headers=auth,
                     )
                     task_id = create.json()["data"]["task_id"]
                     upload = client.post(
                         f"/v1/tasks/{task_id}/upload",
                         files={"upload": (name, BytesIO(content), "application/octet-stream")},
+                        headers=auth,
                     )
                     assert upload.status_code == 200
 
@@ -218,11 +226,13 @@ def test_step22_min_regression_set():
                             "style": "academic_simple",
                             "language": "zh-CN",
                         },
+                        headers=auth,
                     )
                     task_id = create.json()["data"]["task_id"]
                     upload = client.post(
                         f"/v1/tasks/{task_id}/upload",
                         files={"upload": (name, BytesIO(content), "application/octet-stream")},
+                        headers=auth,
                     )
                     assert upload.status_code == 400
 
@@ -235,14 +245,16 @@ def test_step22_min_regression_set():
                         "style": "academic_simple",
                         "language": "zh-CN",
                     },
+                    headers=auth,
                 )
                 task_id = create.json()["data"]["task_id"]
                 upload = client.post(
                     f"/v1/tasks/{task_id}/upload",
                     files={"upload": (damaged_sample[0], BytesIO(damaged_sample[1]), "application/octet-stream")},
+                    headers=auth,
                 )
                 assert upload.status_code == 200
-                parse = client.post(f"/v1/tasks/{task_id}/parse", json={"force": False})
+                parse = client.post(f"/v1/tasks/{task_id}/parse", json={"force": False}, headers=auth)
                 assert parse.status_code == 400
             finally:
                 settings.max_upload_size_bytes = original_limit
@@ -253,7 +265,8 @@ def test_revision_without_page_index_can_auto_select_multiple_slides():
         settings.data_dir = Path(temp_dir)
         app = create_app()
         with TestClient(app) as client:
-            _, user_id = _register_and_login(client)
+            token, user_id = _register_and_login(client)
+            auth = {"Authorization": f"Bearer {token}"}
             create = client.post(
                 "/v1/tasks",
                 json={
@@ -263,16 +276,18 @@ def test_revision_without_page_index_can_auto_select_multiple_slides():
                     "style": "academic_simple",
                     "language": "en-US",
                 },
+                headers=auth,
             )
             task_id = create.json()["data"]["task_id"]
             upload = client.post(
                 f"/v1/tasks/{task_id}/upload",
                 files={"upload": ("sample.txt", BytesIO(b"AI governance baseline content"), "text/plain")},
+                headers=auth,
             )
             assert upload.status_code == 200
-            parse = client.post(f"/v1/tasks/{task_id}/parse", json={"force": False})
+            parse = client.post(f"/v1/tasks/{task_id}/parse", json={"force": False}, headers=auth)
             assert parse.status_code == 200
-            run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
+            run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False}, headers=auth)
             assert run.status_code == 200
 
             selector_json = "{\"page_indexes\":[2,3],\"reason\":\"scope spans two slides\"}"
@@ -285,6 +300,7 @@ def test_revision_without_page_index_can_auto_select_multiple_slides():
                 rev = client.post(
                     f"/v1/tasks/{task_id}/revisions",
                     json={"instruction": "Please merge duplicated points and refine logic"},
+                    headers=auth,
                 )
                 assert rev.status_code == 200
                 revised_pages = rev.json()["data"].get("revised_pages", [])

@@ -1,4 +1,4 @@
-import { Card, Typography } from "antd";
+import { Card, Space, Typography } from "antd";
 import { useAppStore } from "../../store/appStore";
 
 export default function HomePage() {
@@ -11,6 +11,9 @@ export default function HomePage() {
       <Typography.Paragraph>
         MVP-1 full loop: Auth {"->"} TaskCreate {"->"} TaskRunning {"->"} Result Preview.
       </Typography.Paragraph>
+      <Space direction="vertical">
+        <Typography.Text type="secondary">辅助功能悬浮按钮位于右下角</Typography.Text>
+      </Space>
     </Card>
   );
 }

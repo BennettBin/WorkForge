@@ -1,5 +1,6 @@
 from io import BytesIO
 import json
+import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -11,6 +12,7 @@ from pptx import Presentation
 from app.api.app import create_app
 from app.config import settings
 from app.models.entities import LLMProviderConfig
+from app.services.skill_runtime.executor import SkillExecutor
 
 
 def test_task_api_create_upload_parse_run_flow():
@@ -57,6 +59,8 @@ def test_task_api_create_upload_parse_run_flow():
             get_task = client.get(f"/v1/tasks/{task_id}")
             assert get_task.status_code == 200
             assert get_task.json()["data"]["task"]["status"] == "completed"
+            skill_names = [row["skill_name"] for row in get_task.json()["data"]["skill_calls"]]
+            assert "find_skill" in skill_names
 
             download = client.get(f"/v1/tasks/{task_id}/download/latest")
             assert download.status_code == 200
@@ -185,8 +189,8 @@ def test_task_api_no_source_file_can_still_generate_by_search():
             task_id = create.json()["data"]["task_id"]
 
             with patch(
-                "app.services.skill_runtime.executor.SkillExecutor.execute",
-                return_value={"items": [{"title": "AI trend", "url": "https://example.com/trend", "snippet": "trend snippet", "content": "trend content"}]},
+                "app.skills.knowledge_search.runtime.KnowledgeSearchService.search_and_extract",
+                return_value=[{"title": "AI trend", "url": "https://example.com/trend", "snippet": "trend snippet", "content": "trend content"}],
             ):
                 run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
                 assert run.status_code == 200
@@ -198,6 +202,39 @@ def test_task_api_no_source_file_can_still_generate_by_search():
             assert detail.status_code == 200
             events = detail.json()["data"]["events"]
             assert any("no_source_file_detected" in e["message"] for e in events)
+
+
+def test_task_api_no_source_file_search_empty_still_generates_with_fallback():
+    with TemporaryDirectory() as temp_dir:
+        settings.data_dir = Path(temp_dir)
+        app = create_app()
+        with TestClient(app) as client:
+            create = client.post(
+                "/v1/tasks",
+                json={
+                    "user_id": "u-1",
+                    "user_requirement": "Create PPT about AI governance without source file",
+                    "pages": 8,
+                    "style": "academic_simple",
+                    "language": "en-US",
+                },
+            )
+            assert create.status_code == 200
+            task_id = create.json()["data"]["task_id"]
+
+            with patch(
+                "app.skills.knowledge_search.runtime.KnowledgeSearchService.search_and_extract",
+                return_value=[],
+            ):
+                run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
+                assert run.status_code == 200
+                assert run.json()["data"]["status"] == "completed"
+                assert Path(run.json()["data"]["output_path"]).exists()
+
+            detail = client.get(f"/v1/tasks/{task_id}")
+            assert detail.status_code == 200
+            events = detail.json()["data"]["events"]
+            assert any("no_source_file_forced_search_empty;fallback_to_requirement_context" in e["message"] for e in events)
 
 
 def test_task_api_exports_image_placeholder_metadata():
@@ -395,7 +432,7 @@ def test_task_api_extended_task_types_generate_markdown_outputs():
                         )
                     ),
                 ), patch(
-                    "app.services.knowledge_search.search_service.KnowledgeSearchService.search_and_extract",
+                    "app.skills.knowledge_search.runtime.KnowledgeSearchService.search_and_extract",
                     return_value=[{"title": "t", "url": "https://example.com", "snippet": "s", "content": "c"}],
                 ):
                     run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
@@ -408,14 +445,55 @@ def test_task_api_extended_task_types_generate_markdown_outputs():
                 detail = client.get(f"/v1/tasks/{task_id}")
                 assert detail.status_code == 200
                 skill_names = [row["skill_name"] for row in detail.json()["data"]["skill_calls"]]
+                assert "find_skill" in skill_names
                 assert "skill_registry_resolve" in skill_names
                 assert any(name in skill_names for name in {
-                    "report_planner",
-                    "wechat_post_planner",
-                    "data_analysis_planner",
-                    "code_doc_planner",
-                    "paper_assistant_planner",
+                    "report_generation",
+                    "wechat_post_generation",
+                    "data_analysis",
+                    "code_doc_generation",
+                    "paper_assistant_generation",
                 })
+
+
+def test_task_api_continues_when_find_skill_returns_no_match():
+    with TemporaryDirectory() as temp_dir:
+        settings.data_dir = Path(temp_dir)
+        app = create_app()
+        with TestClient(app) as client:
+            create = client.post(
+                "/v1/tasks",
+                json={
+                    "user_id": "u-1",
+                    "task_type": "report",
+                    "user_requirement": "Generate weekly report",
+                    "pages": 8,
+                    "style": "academic_simple",
+                    "language": "en-US",
+                },
+            )
+            assert create.status_code == 200
+            task_id = create.json()["data"]["task_id"]
+            upload = client.post(
+                f"/v1/tasks/{task_id}/upload",
+                files={"upload": ("sample.txt", BytesIO(b"weekly report source content"), "text/plain")},
+            )
+            assert upload.status_code == 200
+            parse = client.post(f"/v1/tasks/{task_id}/parse", json={"force": False})
+            assert parse.status_code == 200
+
+            original_execute = SkillExecutor.execute
+
+            def _mock_execute(self, skill_name, payload):
+                if skill_name == "find_skill":
+                    return {"task_type": "report", "stage": "generation", "has_match": False, "matched_skills": [], "all_candidates": []}
+                return original_execute(self, skill_name, payload)
+
+            with patch("app.services.skill_runtime.executor.SkillExecutor.execute", new=_mock_execute):
+                run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
+                assert run.status_code == 200
+                assert run.json()["data"]["status"] == "completed"
+                assert Path(run.json()["data"]["output_path"]).exists()
 
 
 def test_non_ppt_revision_uses_markdown_pipeline_instead_of_slide_json():
@@ -515,3 +593,353 @@ def test_data_analysis_task_accepts_xlsx_and_exports_docx_report():
                 out = Path(run.json()["data"]["output_path"])
                 assert out.exists()
                 assert out.suffix == ".docx"
+
+
+def test_ppt_template_extraction_and_template_listing():
+    with TemporaryDirectory() as temp_dir:
+        settings.data_dir = Path(temp_dir)
+        app = create_app()
+        with TestClient(app) as client:
+            create = client.post(
+                "/v1/tasks",
+                json={
+                    "user_id": "u-1",
+                    "task_type": "ppt",
+                    "user_requirement": "请提取模板并保存模板\nTemplate_Name=OncologyTemplate",
+                    "pages": 8,
+                    "style": "academic_simple",
+                    "language": "zh-CN",
+                },
+            )
+            assert create.status_code == 200
+            task_id = create.json()["data"]["task_id"]
+
+            prs = Presentation()
+            slide = prs.slides.add_slide(prs.slide_layouts[0])
+            if slide.shapes.title is not None:
+                slide.shapes.title.text = "Template Title"
+            if len(slide.placeholders) > 1:
+                slide.placeholders[1].text = "Template Subtitle"
+            stream = BytesIO()
+            prs.save(stream)
+            stream.seek(0)
+
+            upload = client.post(
+                f"/v1/tasks/{task_id}/upload",
+                files={"upload": ("template_source.pptx", stream, "application/vnd.openxmlformats-officedocument.presentationml.presentation")},
+            )
+            assert upload.status_code == 200
+
+            run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
+            assert run.status_code == 200
+            data = run.json()["data"]
+            assert data["template_extracted"] is True
+            assert data["template_name"] == "OncologyTemplate"
+            assert Path(data["template_file"]).exists()
+            assert Path(data["metadata_file"]).exists()
+
+            templates = client.get("/v1/tasks/ppt/templates")
+            assert templates.status_code == 200
+            items = templates.json()["data"]["items"]
+            assert any(item["name"] == "OncologyTemplate" for item in items)
+
+
+def test_ppt_template_generation_recovery_and_resume_flow():
+    with TemporaryDirectory() as temp_dir:
+        settings.data_dir = Path(temp_dir)
+        app = create_app()
+        with TestClient(app) as client:
+            create = client.post(
+                "/v1/tasks",
+                json={
+                    "user_id": "u-1",
+                    "task_type": "ppt",
+                    "user_requirement": "extract template for ppt\nTemplate_Name=RecoveryTemplate\nForceInvalidBundle=true",
+                    "pages": 8,
+                    "style": "academic_simple",
+                    "language": "en-US",
+                },
+            )
+            assert create.status_code == 200
+            task_id = create.json()["data"]["task_id"]
+
+            prs = Presentation()
+            prs.slides.add_slide(prs.slide_layouts[0])
+            stream = BytesIO()
+            prs.save(stream)
+            stream.seek(0)
+
+            upload = client.post(
+                f"/v1/tasks/{task_id}/upload",
+                files={"upload": ("template_source.pptx", stream, "application/vnd.openxmlformats-officedocument.presentationml.presentation")},
+            )
+            assert upload.status_code == 200
+
+            run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
+            assert run.status_code == 200
+            data = run.json()["data"]
+            assert data["status"] == "requires_user_completion"
+            assert data.get("resume_token")
+
+            recovery = client.get(f"/v1/tasks/{task_id}/template-generation/recovery")
+            assert recovery.status_code == 200
+            rec = recovery.json()["data"]
+            assert rec["has_recovery"] is True
+            token = rec["resume_token"]
+
+            resume = client.post(
+                f"/v1/tasks/{task_id}/template-generation/resume",
+                json={
+                    "resume_token": token,
+                    "user_filled_fields": {
+                        "text_style.title.size_pt": "32",
+                        "text_style.body.size_pt": "18",
+                        "rules.schema_version": "v1",
+                        "rules.rules": "[]",
+                    },
+                },
+            )
+            assert resume.status_code == 200
+            assert resume.json()["data"]["status"] == "completed"
+
+
+def test_list_ppt_templates_returns_only_valid_bundles():
+    with TemporaryDirectory() as temp_dir:
+        settings.data_dir = Path(temp_dir)
+        app = create_app()
+        templates_root = Path(__file__).resolve().parents[1] / "app" / "templates" / "ppt"
+        valid_dir = templates_root / "valid_bundle_for_test"
+        invalid_dir = templates_root / "invalid_bundle_for_test"
+        try:
+            valid_dir.mkdir(parents=True, exist_ok=True)
+            invalid_dir.mkdir(parents=True, exist_ok=True)
+            (valid_dir / "template.pptx").write_bytes(b"pptx")
+            (valid_dir / "render_from_template.py").write_text("print('ok')\n", encoding="utf-8")
+            (valid_dir / "template.meta.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "v1",
+                        "template_type": "ppt",
+                        "template_name": "valid_bundle_for_test",
+                        "slide_size": {"width_inches": 13.333, "height_inches": 7.5, "aspect_ratio": "16:9"},
+                        "theme": {"name": "default", "palette": {"primary": "#000"}},
+                        "layout_map": {"cover": "Title Slide"},
+                        "text_style": {"title": {"font": "Arial", "size_pt": 32}, "body": {"font": "Arial", "size_pt": 18}},
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            (valid_dir / "template.rules.json").write_text(json.dumps({"schema_version": "v1", "rules": []}), encoding="utf-8")
+
+            # invalid bundle: missing rules and script
+            (invalid_dir / "template.pptx").write_bytes(b"pptx")
+            (invalid_dir / "template.meta.json").write_text(json.dumps({"schema_version": "v1", "template_type": "ppt"}), encoding="utf-8")
+
+            with TestClient(app) as client:
+                res = client.get("/v1/tasks/ppt/templates")
+                assert res.status_code == 200
+                items = res.json()["data"]["items"]
+                names = [x["name"] for x in items]
+                assert "valid_bundle_for_test" in names
+                assert "invalid_bundle_for_test" not in names
+                row = next(x for x in items if x["name"] == "valid_bundle_for_test")
+                assert row["is_valid"] is True
+                assert row["missing_files"] == []
+                assert row["schema_version"] == "v1"
+        finally:
+            if valid_dir.exists():
+                shutil.rmtree(valid_dir)
+            if invalid_dir.exists():
+                shutil.rmtree(invalid_dir)
+
+
+def test_ppt_generation_fails_when_templatechoice_is_invalid():
+    with TemporaryDirectory() as temp_dir:
+        settings.data_dir = Path(temp_dir)
+        app = create_app()
+        with TestClient(app) as client:
+            create = client.post(
+                "/v1/tasks",
+                json={
+                    "user_id": "u-1",
+                    "task_type": "ppt",
+                    "user_requirement": "Build slides for demo.\nTemplateChoice=non_existing_template",
+                    "pages": 8,
+                    "style": "academic_simple",
+                    "language": "en-US",
+                },
+            )
+            assert create.status_code == 200
+            task_id = create.json()["data"]["task_id"]
+            upload = client.post(
+                f"/v1/tasks/{task_id}/upload",
+                files={"upload": ("sample.txt", BytesIO(b"slide content source text"), "text/plain")},
+            )
+            assert upload.status_code == 200
+            parse = client.post(f"/v1/tasks/{task_id}/parse", json={"force": False})
+            assert parse.status_code == 200
+            run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
+            assert run.status_code == 400
+            assert "TemplateChoice points to non-existent template" in run.text
+
+
+def test_ppt_generation_uses_templatechoice_even_if_style_is_invalid():
+    with TemporaryDirectory() as temp_dir:
+        settings.data_dir = Path(temp_dir)
+        app = create_app()
+        templates_root = Path(__file__).resolve().parents[1] / "app" / "templates" / "ppt"
+        chosen_dir = templates_root / "chosen_template_for_step6"
+        try:
+            chosen_dir.mkdir(parents=True, exist_ok=True)
+            prs = Presentation()
+            prs.slides.add_slide(prs.slide_layouts[0])
+            prs.save(str(chosen_dir / "template.pptx"))
+            (chosen_dir / "render_from_template.py").write_text("print('ok')\n", encoding="utf-8")
+            (chosen_dir / "template.meta.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "v1",
+                        "template_type": "ppt",
+                        "template_name": "chosen_template_for_step6",
+                        "slide_size": {"width_inches": 13.333, "height_inches": 7.5, "aspect_ratio": "16:9"},
+                        "theme": {"name": "default", "palette": {"primary": "#000"}},
+                        "layout_map": {"cover": "Title Slide"},
+                        "text_style": {"title": {"font": "Arial", "size_pt": 32}, "body": {"font": "Arial", "size_pt": 18}},
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            (chosen_dir / "template.rules.json").write_text(json.dumps({"schema_version": "v1", "rules": []}), encoding="utf-8")
+
+            with TestClient(app) as client:
+                create = client.post(
+                    "/v1/tasks",
+                    json={
+                        "user_id": "u-1",
+                        "task_type": "ppt",
+                        "user_requirement": "Build slides for demo.\nTemplateChoice=chosen_template_for_step6",
+                        "pages": 8,
+                        "style": "this_style_does_not_exist",
+                        "language": "en-US",
+                    },
+                )
+                assert create.status_code == 200
+                task_id = create.json()["data"]["task_id"]
+                upload = client.post(
+                    f"/v1/tasks/{task_id}/upload",
+                    files={"upload": ("sample.txt", BytesIO(b"slide content source text"), "text/plain")},
+                )
+                assert upload.status_code == 200
+                parse = client.post(f"/v1/tasks/{task_id}/parse", json={"force": False})
+                assert parse.status_code == 200
+                run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
+                assert run.status_code == 200
+                assert run.json()["data"]["status"] == "completed"
+        finally:
+            if chosen_dir.exists():
+                shutil.rmtree(chosen_dir)
+
+
+def test_template_generation_returns_requires_user_completion_for_incomplete_ppt_design():
+    with TemporaryDirectory() as temp_dir:
+        settings.data_dir = Path(temp_dir)
+        app = create_app()
+        with TestClient(app) as client:
+            create = client.post(
+                "/v1/tasks",
+                json={
+                    "user_id": "u-1",
+                    "task_type": "template_generation",
+                    "user_requirement": "\n".join(
+                        [
+                            "Please generate a ppt template from this sample.",
+                            "TemplateTarget=ppt",
+                            "TemplateName=IncompletePptTemplate",
+                        ]
+                    ),
+                    "pages": 8,
+                    "style": "academic_simple",
+                    "language": "en-US",
+                },
+            )
+            assert create.status_code == 200
+            task_id = create.json()["data"]["task_id"]
+
+            prs = Presentation()
+            prs.slides.add_slide(prs.slide_layouts[0])
+            stream = BytesIO()
+            prs.save(stream)
+            stream.seek(0)
+
+            upload = client.post(
+                f"/v1/tasks/{task_id}/upload",
+                files={"upload": ("template_source.pptx", stream, "application/vnd.openxmlformats-officedocument.presentationml.presentation")},
+            )
+            assert upload.status_code == 200
+
+            run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
+            assert run.status_code == 200
+            data = run.json()["data"]
+            assert data["status"] == "requires_user_completion"
+            assert data["template_type"] == "ppt"
+            assert data["template_name"] == "IncompletePptTemplate"
+            assert isinstance(data.get("missing_fields"), list)
+            assert "ppt_design.average_title_font_size_pt" in data["missing_fields"]
+            assert "ppt_design.average_body_font_size_pt" in data["missing_fields"]
+            assert isinstance(data.get("suggested_values"), dict)
+            assert data["suggested_values"].get("ppt_design.average_title_font_size_pt")
+            assert data["suggested_values"].get("ppt_design.average_body_font_size_pt")
+            detail = client.get(f"/v1/tasks/{task_id}")
+            assert detail.status_code == 200
+            assert detail.json()["data"]["task"]["status"] == "requires_user_completion"
+
+
+def test_infer_task_type_returns_generic_when_no_keyword():
+    with TemporaryDirectory() as temp_dir:
+        settings.data_dir = Path(temp_dir)
+        app = create_app()
+        with TestClient(app) as client:
+            resp = client.post(
+                "/v1/tasks/infer-type",
+                json={"requirement": "Please help me process this request with custom workflow."},
+            )
+            assert resp.status_code == 200
+            assert resp.json()["data"]["task_type"] == "generic_task"
+
+
+def test_auto_task_type_routes_to_generic_task_and_runs():
+    with TemporaryDirectory() as temp_dir:
+        settings.data_dir = Path(temp_dir)
+        app = create_app()
+        with TestClient(app) as client:
+            create = client.post(
+                "/v1/tasks",
+                json={
+                    "user_id": "u-1",
+                    "task_type": "auto",
+                    "user_requirement": "Please handle this custom internal workflow without special format.",
+                    "pages": 8,
+                    "style": "academic_simple",
+                    "language": "en-US",
+                },
+            )
+            assert create.status_code == 200
+            task_id = create.json()["data"]["task_id"]
+
+            detail = client.get(f"/v1/tasks/{task_id}")
+            assert detail.status_code == 200
+            assert detail.json()["data"]["task"]["task_type"] == "generic_task"
+
+            with patch(
+                "app.services.llm_runtime.text_generator.LLMTextGenerator.generate",
+                return_value="# Generic Task Output\n\n## Summary\nDone.",
+            ):
+                run = client.post(f"/v1/tasks/{task_id}/run", json={"rerun": False})
+                assert run.status_code == 200
+                assert run.json()["data"]["status"] == "completed"
+                assert run.json()["data"]["task_type"] == "generic_task"
+                output_path = Path(run.json()["data"]["output_path"])
+                assert output_path.exists()
+                assert output_path.suffix == ".md"

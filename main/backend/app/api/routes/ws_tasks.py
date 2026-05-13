@@ -3,12 +3,29 @@ from datetime import datetime
 
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 
+from app.services.auth_service import AuthService
 
 router = APIRouter(tags=["ws"])
 
 
 @router.websocket("/ws/tasks/{task_id}")
 async def task_progress_ws(websocket: WebSocket, task_id: str):
+    token = (websocket.query_params.get("token") or "").strip()
+    if not token:
+        await websocket.close(code=1008)
+        return
+    auth = AuthService(websocket.app.state.repositories)
+    try:
+        user = auth.validate_token(token)
+    except Exception:
+        await websocket.close(code=1008)
+        return
+
+    task = websocket.app.state.repositories.tasks.get_by_id(task_id)
+    if task is None or task.user_id != user.user_id:
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
     app = websocket.app
     repos = app.state.repositories
@@ -45,5 +62,29 @@ async def task_progress_ws(websocket: WebSocket, task_id: str):
             }
             await websocket.send_json(payload)
             await asyncio.sleep(0.5)
+    except WebSocketDisconnect:
+        return
+
+
+@router.websocket("/ws/system/active-users")
+async def active_users_ws(websocket: WebSocket):
+    token = (websocket.query_params.get("token") or "").strip()
+    if not token:
+        await websocket.close(code=1008)
+        return
+
+    auth = AuthService(websocket.app.state.repositories)
+    try:
+        user = auth.validate_token(token)
+    except Exception:
+        await websocket.close(code=1008)
+        return
+
+    await websocket.accept()
+    websocket.app.state.active_user_tracker.touch(user.user_id)
+    try:
+        while True:
+            await websocket.send_json(websocket.app.state.active_user_tracker.snapshot())
+            await asyncio.sleep(3.0)
     except WebSocketDisconnect:
         return
