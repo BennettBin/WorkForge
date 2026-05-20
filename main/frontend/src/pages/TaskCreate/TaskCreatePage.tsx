@@ -1,15 +1,37 @@
-import { Alert, Button, Card, Form, Input, InputNumber, Select, Space, Tag, Typography } from "antd";
+import { Alert, AutoComplete, Button, Card, Form, Input, InputNumber, Select, Space, Tag, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getJson, postFile, postJson } from "../../api/http";
+import AuthImage from "../../components/AuthImage";
 import { useAppStore } from "../../store/appStore";
 import { ApiEnvelope } from "../../types/api";
 
 type CreateTaskData = { task_id: string; status: string };
-type InferTypeData = { task_type: TaskType };
-type TaskType = "ppt" | "report" | "wechat_post" | "data_analysis" | "code_doc" | "paper_assistant" | "generic_task" | "template_generation";
+type InferTypeData = { task_type: string };
+type InferTemplateSettingsData = {
+  templateType?: string;
+  templateTarget?: string;
+  template_target?: string;
+  templateName?: string;
+  template_name?: string;
+  language?: string;
+};
+type TaskType = string;
 type Step = "requirement" | "setting";
-type PptTemplateItem = { name: string; style_value: string };
+type PptTemplateItem = {
+  name: string;
+  style_value: string;
+  is_valid?: boolean;
+  missing_files?: string[];
+  schema_version?: string;
+  preview_images?: Array<{ page: number; url: string }>;
+  sample_preview_images?: Array<{ page: number; url: string }>;
+};
+
+type PptStyleItem = {
+  name: string;
+  description: string;
+};
 
 type SettingValues = {
   language: string;
@@ -30,9 +52,22 @@ type SettingValues = {
   templateTarget?: string;
   templateName?: string;
   templateChoice?: string;
+  styleGuide?: string;
 };
 
-const taskTypeLabel: Record<TaskType, string> = {
+const PPT_STYLE_STORAGE_KEY = "wf_ppt_custom_styles";
+const BUILTIN_PPT_STYLES: PptStyleItem[] = [
+  {
+    name: "academic_simple",
+    description: "采用学术简洁风格：结构清晰、论点明确、表达克制，优先呈现核心结论、证据和逻辑链条，避免营销化措辞。",
+  },
+  {
+    name: "academic_report",
+    description: "采用学术报告风格：内容信息密度较高，强调背景、方法、发现和启示，语言专业严谨，适合正式汇报与研究型展示。",
+  },
+];
+
+const taskTypeLabel: Record<string, string> = {
   ppt: "PPT",
   report: "Report",
   wechat_post: "WeChat Post",
@@ -42,6 +77,15 @@ const taskTypeLabel: Record<TaskType, string> = {
   generic_task: "Generic Task",
   template_generation: "Template Generation"
 };
+
+const taskTypeOptions = Object.entries(taskTypeLabel).map(([value, label]) => ({
+  value,
+  label: `${label} (${value})`,
+}));
+
+function getTaskTypeLabel(taskType: string): string {
+  return taskTypeLabel[taskType] || taskType;
+}
 
 function buildFinalRequirement(baseRequirement: string, taskType: TaskType, settings: SettingValues): string {
   const lines: string[] = [];
@@ -57,6 +101,9 @@ function buildFinalRequirement(baseRequirement: string, taskType: TaskType, sett
   if (taskType === "ppt") {
     lines.push(`Pages=${settings.pages ?? 10}`);
     lines.push(`Style=${settings.style ?? "academic_simple"}`);
+    if (settings.styleGuide) {
+      lines.push(`StyleGuide=${settings.styleGuide}`);
+    }
   }
   if (taskType === "report") {
     lines.push(`Audience=${settings.audience ?? "General stakeholders"}`);
@@ -94,6 +141,24 @@ function buildFinalRequirement(baseRequirement: string, taskType: TaskType, sett
   return lines.join("\n");
 }
 
+function inferTemplateTargetFromFile(file: File | null): string {
+  const ext = (file?.name.split(".").pop() || "").toLowerCase();
+  if (ext === "ppt" || ext === "pptx") return "ppt";
+  if (ext === "doc" || ext === "docx" || ext === "pdf") return "report";
+  return "ppt";
+}
+
+function normalizeTemplateTarget(value: unknown, fallback: string): string {
+  const target = String(value || "").trim().toLowerCase();
+  return ["ppt", "wechat_post", "report"].includes(target) ? target : fallback;
+}
+
+function fallbackTemplateName(requirement: string, file: File | null): string {
+  const base = (file?.name || requirement || "generated_template").replace(/\.[^.]+$/, "");
+  const slug = base.toLowerCase().replace(/[^a-z0-9_\-\u4e00-\u9fa5]+/g, "_").replace(/^_+|_+$/g, "");
+  return slug || "generated_template";
+}
+
 export default function TaskCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -105,12 +170,20 @@ export default function TaskCreatePage() {
   const [step, setStep] = useState<Step>("requirement");
   const [requirement, setRequirement] = useState<string>("");
   const [inferredTaskType, setInferredTaskType] = useState<TaskType | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [pptTemplates, setPptTemplates] = useState<PptTemplateItem[]>([]);
   const [reportTemplates, setReportTemplates] = useState<PptTemplateItem[]>([]);
   const [wechatTemplates, setWechatTemplates] = useState<PptTemplateItem[]>([]);
+  const [pptStyles, setPptStyles] = useState<PptStyleItem[]>(BUILTIN_PPT_STYLES);
+  const [customStyleName, setCustomStyleName] = useState<string>("");
 
   const [requirementForm] = Form.useForm();
   const [settingForm] = Form.useForm();
+  const selectedTemplateChoice = Form.useWatch("templateChoice", settingForm);
+  const selectedPptTemplate = useMemo(
+    () => pptTemplates.find((item) => item.style_value === selectedTemplateChoice || item.name === selectedTemplateChoice) || null,
+    [pptTemplates, selectedTemplateChoice],
+  );
 
   async function reloadTemplates() {
     try {
@@ -119,7 +192,7 @@ export default function TaskCreatePage() {
         getJson<ApiEnvelope<{ items: PptTemplateItem[] }>>("/v1/tasks/templates/report"),
         getJson<ApiEnvelope<{ items: PptTemplateItem[] }>>("/v1/tasks/templates/wechat_post"),
       ]);
-      setPptTemplates(pptRes.data.items ?? []);
+      setPptTemplates((pptRes.data.items ?? []).filter((item) => item.is_valid !== false));
       setReportTemplates(reportRes.data.items ?? []);
       setWechatTemplates(wechatRes.data.items ?? []);
     } catch {
@@ -134,6 +207,7 @@ export default function TaskCreatePage() {
       language: "zh-CN",
       pages: 10,
       style: "academic_simple",
+      templateChoice: "system_default",
       audience: "General stakeholders",
       tone: "professional",
       length: "medium",
@@ -152,7 +226,61 @@ export default function TaskCreatePage() {
 
   useEffect(() => {
     void reloadTemplates();
+    try {
+      const saved = JSON.parse(localStorage.getItem(PPT_STYLE_STORAGE_KEY) || "[]") as PptStyleItem[];
+      if (Array.isArray(saved) && saved.length) {
+        setPptStyles([...BUILTIN_PPT_STYLES, ...saved.filter((item) => item?.name && item?.description)]);
+      }
+    } catch {
+      setPptStyles(BUILTIN_PPT_STYLES);
+    }
   }, []);
+
+  function saveCustomPptStyle(style: PptStyleItem) {
+    const trimmed = { name: style.name.trim(), description: style.description.trim() };
+    if (!trimmed.name || !trimmed.description) return;
+    const custom = pptStyles.filter((item) => !BUILTIN_PPT_STYLES.some((builtin) => builtin.name === item.name));
+    const nextCustom = [trimmed, ...custom.filter((item) => item.name !== trimmed.name)].slice(0, 20);
+    localStorage.setItem(PPT_STYLE_STORAGE_KEY, JSON.stringify(nextCustom));
+    setPptStyles([...BUILTIN_PPT_STYLES, ...nextCustom]);
+  }
+
+  async function ensurePptStyleGuide(styleName: string): Promise<string> {
+    const name = (styleName || "academic_simple").trim();
+    const existing = pptStyles.find((item) => item.name === name);
+    if (existing?.description) return existing.description;
+    const res = await postJson<ApiEnvelope<{ style_name: string; description: string }>>("/v1/tasks/ppt/styles/infer", {
+      user_id: auth.userId,
+      style_name: name,
+      requirement,
+    });
+    const generated = {
+      name: res.data.style_name || name,
+      description: res.data.description || `采用${name}风格生成PPT内容。`,
+    };
+    saveCustomPptStyle(generated);
+    return generated.description;
+  }
+
+  function applyTaskTypeChange(nextType: string) {
+    const normalized = (nextType || "").trim();
+    setInferredTaskType(normalized || "generic_task");
+    const current = settingForm.getFieldsValue() as SettingValues;
+    const nextSettings: Partial<SettingValues> = {
+      ...settingInitialValues,
+      language: current.language || settingInitialValues.language,
+    };
+    if (normalized === "template_generation") {
+      nextSettings.templateTarget = current.templateTarget || inferTemplateTargetFromFile(selectedFile);
+      nextSettings.templateName = current.templateName || fallbackTemplateName(requirement, selectedFile);
+    }
+    if (normalized === "ppt") {
+      nextSettings.templateChoice = current.templateChoice || settingInitialValues.templateChoice;
+      nextSettings.pages = current.pages || settingInitialValues.pages;
+      nextSettings.style = current.style || settingInitialValues.style;
+    }
+    settingForm.setFieldsValue(nextSettings);
+  }
 
   async function onInfer(values: { requirement: string }) {
     setError(null);
@@ -167,7 +295,33 @@ export default function TaskCreatePage() {
       await reloadTemplates();
       setRequirement(values.requirement);
       setInferredTaskType(taskType);
-      settingForm.setFieldsValue(settingInitialValues);
+      const nextSettings: Partial<SettingValues> = { ...settingInitialValues };
+      if (taskType === "template_generation") {
+        const fallbackTarget = inferTemplateTargetFromFile(selectedFile);
+        nextSettings.templateTarget = fallbackTarget;
+        nextSettings.templateName = fallbackTemplateName(values.requirement, selectedFile);
+        try {
+          const fileHint = selectedFile
+            ? `\n\n[Uploaded File]\nName=${selectedFile.name}\nExtension=${selectedFile.name.split(".").pop() || ""}\nMimeType=${selectedFile.type || ""}`
+            : "";
+          const inferred = await postJson<ApiEnvelope<InferTemplateSettingsData>>("/v1/tasks/template-generation/infer-settings", {
+            requirement: `${values.requirement}${fileHint}`,
+            user_id: auth.userId
+          });
+          const data = inferred.data || {};
+          nextSettings.templateTarget = normalizeTemplateTarget(
+            data.templateTarget ?? data.templateType ?? data.template_target,
+            fallbackTarget
+          );
+          nextSettings.templateName = String(data.templateName ?? data.template_name ?? "").trim() || nextSettings.templateName;
+          if (data.language === "zh-CN" || data.language === "en-US") {
+            nextSettings.language = data.language;
+          }
+        } catch {
+          // Keep deterministic defaults so the required fields are still editable and non-empty.
+        }
+      }
+      settingForm.setFieldsValue(nextSettings);
       setStep("setting");
     } catch (e) {
       setError(String(e));
@@ -177,28 +331,38 @@ export default function TaskCreatePage() {
   async function onStart(values: SettingValues) {
     setError(null);
     setMessage(null);
+    setIsSubmitting(true);
     if (!auth.userId) {
       setError("Please login first.");
+      setIsSubmitting(false);
       return;
     }
     if (!inferredTaskType) {
       setError("Task type is not inferred yet.");
+      setIsSubmitting(false);
       return;
     }
-    if ((inferredTaskType === "data_analysis" || inferredTaskType === "code_doc") && !selectedFile) {
-      setError("Data Analysis and Code Documentation tasks require a source file upload.");
+    if ((inferredTaskType === "data_analysis" || inferredTaskType === "code_doc" || inferredTaskType === "template_generation") && !selectedFile) {
+      setError("This task type requires a source file upload.");
+      setIsSubmitting(false);
       return;
     }
-    const finalRequirement = buildFinalRequirement(requirement, inferredTaskType, values);
 
     try {
+      const effectiveValues = { ...values };
+      if (inferredTaskType === "ppt") {
+        effectiveValues.style = (values.style || "academic_simple").trim();
+        effectiveValues.styleGuide = await ensurePptStyleGuide(effectiveValues.style);
+      }
+      const finalRequirement = buildFinalRequirement(requirement, inferredTaskType, effectiveValues);
       const createRes = await postJson<ApiEnvelope<CreateTaskData>>("/v1/tasks", {
         user_id: auth.userId,
         user_requirement: finalRequirement,
         task_type: inferredTaskType,
-        pages: inferredTaskType === "ppt" ? values.pages ?? 10 : 10,
-        style: inferredTaskType === "ppt" ? values.style ?? "academic_simple" : "academic_simple",
-        language: values.language
+        pages: inferredTaskType === "ppt" ? effectiveValues.pages ?? 10 : 10,
+        style: inferredTaskType === "ppt" ? effectiveValues.style ?? "academic_simple" : "academic_simple",
+        template_choice: effectiveValues.templateChoice ?? null,
+        language: effectiveValues.language
       });
       const taskId = createRes.data.task_id;
       setTask((prev) => ({ ...prev, activeTaskId: taskId, activeTaskStatus: createRes.data.status }));
@@ -209,9 +373,8 @@ export default function TaskCreatePage() {
         title: requirement,
       });
       setSelectedRunningTaskId(taskId);
-      navigate(`/tasks/running/${encodeURIComponent(taskId)}`);
 
-      void (async () => {
+      const runTask = async () => {
         if (selectedFile) {
           await postFile(`/v1/tasks/${taskId}/upload`, selectedFile);
           await postJson(`/v1/tasks/${taskId}/parse`, { force: false });
@@ -227,41 +390,97 @@ export default function TaskCreatePage() {
           taskType: inferredTaskType,
           title: requirement,
         });
-      })().catch((runErr) => {
+        return runRes;
+      };
+
+      navigate(`/tasks/running/${encodeURIComponent(taskId)}`);
+      void runTask().catch((runErr) => {
         setError(String(runErr));
       });
     } catch (e) {
       setError(String(e));
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   function renderTaskSpecificSettings() {
     if (!inferredTaskType) return null;
     if (inferredTaskType === "ppt") {
-      const styleOptions = [
-        { label: "Academic Simple", value: "academic_simple" },
-        { label: "Academic Report", value: "academic_report" },
-      ];
-      const templateOptions = pptTemplates.map((t) => ({ label: t.name, value: t.style_value }));
+      const selectedTemplatePreviews = selectedPptTemplate?.sample_preview_images?.length
+        ? selectedPptTemplate.sample_preview_images
+        : selectedPptTemplate?.preview_images || [];
+      const styleOptions = pptStyles.map((item) => ({
+        label: item.name,
+        value: item.name,
+        title: item.description,
+      }));
+      const templateOptions = pptTemplates
+        .filter((t) => t.is_valid !== false)
+        .map((t) => ({
+          label: t.schema_version ? `${t.name} (${t.schema_version})` : t.name,
+          value: t.style_value,
+        }));
       return (
         <>
           <Form.Item label="Pages" name="pages" rules={[{ required: true }]}>
             <InputNumber min={5} max={30} style={{ width: 240 }} />
           </Form.Item>
           <Form.Item label="Style" name="style" rules={[{ required: true }]}>
-            <Select
-              style={{ width: 280 }}
-              options={styleOptions}
-            />
+            <Space.Compact>
+              <Select
+                showSearch
+                style={{ width: 280 }}
+                options={styleOptions}
+                optionFilterProp="label"
+                placeholder="Select a style"
+              />
+              <Input
+                style={{ width: 220 }}
+                value={customStyleName}
+                onChange={(e) => setCustomStyleName(e.target.value)}
+                placeholder="Custom style"
+              />
+              <Button
+                onClick={async () => {
+                  const name = customStyleName.trim();
+                  if (!name) return;
+                  try {
+                    await ensurePptStyleGuide(name);
+                    settingForm.setFieldValue("style", name);
+                    setCustomStyleName("");
+                  } catch (e) {
+                    setError(String(e));
+                  }
+                }}
+              >
+                Add
+              </Button>
+            </Space.Compact>
           </Form.Item>
-          <Form.Item label="Template Choice" name="templateChoice">
+          <Form.Item label="Template Choice" name="templateChoice" rules={[{ required: true, message: "Please select a PPT template." }]}>
             <Select
-              allowClear
               style={{ width: 320 }}
               options={templateOptions}
               placeholder="Select validated PPT template"
             />
           </Form.Item>
+          {selectedTemplatePreviews.length ? (
+            <div style={{ marginBottom: 16 }}>
+              <Space wrap align="start">
+                {selectedTemplatePreviews.slice(0, 1).map((img) => (
+                  <Space key={img.url} direction="vertical" size={4}>
+                    <AuthImage
+                      src={img.url}
+                      alt={`${selectedPptTemplate?.name || "template"} page ${img.page}`}
+                      style={{ width: 220, height: 124, objectFit: "contain", border: "1px solid #e5e7eb" }}
+                    />
+                    <Typography.Text type="secondary">Page {img.page}</Typography.Text>
+                  </Space>
+                ))}
+              </Space>
+            </div>
+          ) : null}
         </>
       );
     }
@@ -346,6 +565,21 @@ export default function TaskCreatePage() {
         </>
       );
     }
+    if (inferredTaskType === "paper_assistant") {
+      return (
+        <>
+          <Form.Item label="Paper Stage" name="paperStage">
+            <Select options={[{ label: "Drafting", value: "drafting" }, { label: "Revision", value: "revision" }, { label: "Submission polishing", value: "submission_polishing" }]} />
+          </Form.Item>
+          <Form.Item label="Citation Style" name="citationStyle">
+            <Select options={[{ label: "APA", value: "apa" }, { label: "IEEE", value: "ieee" }, { label: "MLA", value: "mla" }, { label: "Chicago", value: "chicago" }]} />
+          </Form.Item>
+          <Form.Item label="Tone" name="tone">
+            <Select options={[{ label: "Academic", value: "academic" }, { label: "Concise", value: "concise" }, { label: "Formal", value: "formal" }]} />
+          </Form.Item>
+        </>
+      );
+    }
     if (inferredTaskType === "template_generation") {
       return (
         <>
@@ -359,17 +593,12 @@ export default function TaskCreatePage() {
       );
     }
     return (
-      <>
-        <Form.Item label="Paper Stage" name="paperStage">
-          <Select options={[{ label: "Drafting", value: "drafting" }, { label: "Revision", value: "revision" }, { label: "Submission polishing", value: "submission_polishing" }]} />
-        </Form.Item>
-        <Form.Item label="Citation Style" name="citationStyle">
-          <Select options={[{ label: "APA", value: "apa" }, { label: "IEEE", value: "ieee" }, { label: "MLA", value: "mla" }, { label: "Chicago", value: "chicago" }]} />
-        </Form.Item>
-        <Form.Item label="Tone" name="tone">
-          <Select options={[{ label: "Academic", value: "academic" }, { label: "Concise", value: "concise" }, { label: "Formal", value: "formal" }]} />
-        </Form.Item>
-      </>
+      <Alert
+        type="info"
+        showIcon
+        message="This is a custom task type. The system will run it with the general task workflow."
+        style={{ marginBottom: 12 }}
+      />
     );
   }
 
@@ -406,9 +635,9 @@ export default function TaskCreatePage() {
         <>
           <Space style={{ marginBottom: 12 }}>
             <Typography.Text>Detected Task Type:</Typography.Text>
-            <Tag color="blue">{taskTypeLabel[inferredTaskType]}</Tag>
+            <Tag color="blue">{getTaskTypeLabel(inferredTaskType)}</Tag>
           </Space>
-          {(inferredTaskType === "data_analysis" || inferredTaskType === "code_doc") && !selectedFile && (
+          {(inferredTaskType === "data_analysis" || inferredTaskType === "code_doc" || inferredTaskType === "template_generation") && !selectedFile && (
             <Alert
               type="warning"
               showIcon
@@ -417,13 +646,33 @@ export default function TaskCreatePage() {
             />
           )}
           <Form form={settingForm} layout="vertical" onFinish={onStart} initialValues={settingInitialValues}>
+            <Form.Item label="Task Type" required>
+              <AutoComplete
+                value={inferredTaskType}
+                options={taskTypeOptions}
+                onChange={(value) => setInferredTaskType(value)}
+                onSelect={(value) => applyTaskTypeChange(value)}
+                onBlur={() => applyTaskTypeChange(inferredTaskType)}
+                filterOption={(input, option) => {
+                  const needle = input.toLowerCase();
+                  return (
+                    String(option?.value || "").toLowerCase().includes(needle) ||
+                    String(option?.label || "").toLowerCase().includes(needle)
+                  );
+                }}
+                placeholder="Select or type task type"
+                style={{ maxWidth: 360 }}
+              />
+            </Form.Item>
             <Form.Item label="Language" name="language" rules={[{ required: true }]}>
               <Select options={[{ label: "Chinese", value: "zh-CN" }, { label: "English", value: "en-US" }]} />
             </Form.Item>
             {renderTaskSpecificSettings()}
             <Space>
-              <Button onClick={() => setStep("requirement")}>Back</Button>
-              <Button htmlType="submit" type="primary">Create + Run</Button>
+              <Button onClick={() => setStep("requirement")} disabled={isSubmitting}>Back</Button>
+              <Button htmlType="submit" type="primary" loading={isSubmitting}>
+                {inferredTaskType === "template_generation" ? "Create Template" : "Create + Run"}
+              </Button>
             </Space>
           </Form>
         </>

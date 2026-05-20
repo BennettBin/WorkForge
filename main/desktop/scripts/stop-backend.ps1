@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $workspaceRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$pidFile = Join-Path $workspaceRoot "storage\logs\backend.pid"
+$pidFile = Join-Path $workspaceRoot "logs\backend.pid"
 
 function Stop-IfRunning {
     param(

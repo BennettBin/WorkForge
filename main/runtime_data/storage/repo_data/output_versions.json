@@ -1,22 +1,202 @@
 [
   {
-    "output_id": "output_6f8a08fd3b22",
-    "task_id": "task_634776d51304",
+    "output_id": "output_4afeb5e823be",
+    "task_id": "task_adb30e60201d",
     "version": 1,
-    "file_type": "md",
-    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\outputs\\task_634776d51304\\v1.md",
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\outputs\\task_adb30e60201d\\v1.pptx",
     "source_run_id": null,
     "checksum": null,
-    "created_at": "2026-05-08T01:10:43.682466Z"
+    "created_at": "2026-05-19T21:35:47.686848Z"
   },
   {
-    "output_id": "output_16f79e90fe48",
-    "task_id": "task_52423f8ca9ca",
+    "output_id": "output_4fa1bc243c5b",
+    "task_id": "task_c54c65eb7652",
     "version": 1,
-    "file_type": "md",
-    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\outputs\\task_52423f8ca9ca\\v1.md",
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\outputs\\task_c54c65eb7652\\v1.pptx",
     "source_run_id": null,
     "checksum": null,
-    "created_at": "2026-05-10T02:46:09.540554Z"
+    "created_at": "2026-05-19T21:48:16.248098Z"
+  },
+  {
+    "output_id": "output_0ea366b901c1",
+    "task_id": "task_c54c65eb7652",
+    "version": 2,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\outputs\\task_c54c65eb7652\\v2.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-19T21:50:34.329370Z"
+  },
+  {
+    "output_id": "output_44401831fe41",
+    "task_id": "task_c54c65eb7652",
+    "version": 3,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\outputs\\task_c54c65eb7652\\v3.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-19T21:54:14.814441Z"
+  },
+  {
+    "output_id": "output_d30608440450",
+    "task_id": "task_1d59df469895",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\outputs\\task_1d59df469895\\v1.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-19T23:40:39.157489Z"
+  },
+  {
+    "output_id": "output_89282c4987c6",
+    "task_id": "task_fd92a71caa05",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\ppt1\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-19T23:47:20.745206Z"
+  },
+  {
+    "output_id": "output_faa00c8579c7",
+    "task_id": "task_6066ba086f9d",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\ppt1_20260519195821\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-19T23:58:21.492802Z"
+  },
+  {
+    "output_id": "output_26150012b194",
+    "task_id": "task_c8d3b8e9dd8b",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\ppt1_20260519200413\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T00:04:13.720158Z"
+  },
+  {
+    "output_id": "output_2eac6314a960",
+    "task_id": "task_59ab6fa4fe7c",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\ppt1\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T01:45:26.807122Z"
+  },
+  {
+    "output_id": "output_d9b0338508bf",
+    "task_id": "task_3ff00befe3e7",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\ppt2\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T01:51:30.113165Z"
+  },
+  {
+    "output_id": "output_125329d69872",
+    "task_id": "task_97a6362f405b",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\outputs\\task_97a6362f405b\\v1.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T01:53:18.984556Z"
+  },
+  {
+    "output_id": "output_4a622caef0ba",
+    "task_id": "task_fa3c2ee7282c",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\ppt1_20260519215922\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T01:59:22.534277Z"
+  },
+  {
+    "output_id": "output_daf6386ed9d4",
+    "task_id": "task_e11ba8b56ab5",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\academic_presentation_template\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T02:00:58.164942Z"
+  },
+  {
+    "output_id": "output_2ac0ec8235d6",
+    "task_id": "task_c0dd2848d78e",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\group_meeting_report_ppt\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T02:09:10.000852Z"
+  },
+  {
+    "output_id": "output_73bf4d6f4178",
+    "task_id": "task_77b18148ce6e",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\college_meeting_template\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T02:21:17.435851Z"
+  },
+  {
+    "output_id": "output_9e46c41f0699",
+    "task_id": "task_c46359e2edaa",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\group_discussion_ppt\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T02:22:55.216149Z"
+  },
+  {
+    "output_id": "output_b84f264c99a8",
+    "task_id": "task_e807b1176aa8",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\zu_hui_hui_bao\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T02:28:12.216890Z"
+  },
+  {
+    "output_id": "output_fd2e47e0f775",
+    "task_id": "task_a054c3c5d087",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\group_meeting_report\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T02:35:13.950311Z"
+  },
+  {
+    "output_id": "output_831019fabcdc",
+    "task_id": "task_30e11d70667c",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\group_meeting_report_20260519223911\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T02:39:11.108397Z"
+  },
+  {
+    "output_id": "output_0b9e9a08e871",
+    "task_id": "task_edb16e914dcf",
+    "version": 1,
+    "file_type": "pptx",
+    "file_path": "D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\group_meeting_presentation\\template.pptx",
+    "source_run_id": null,
+    "checksum": null,
+    "created_at": "2026-05-20T02:44:39.085130Z"
   }
 ]

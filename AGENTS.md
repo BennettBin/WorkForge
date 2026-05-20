@@ -42,13 +42,6 @@ Pull requests should include a summary, linked issue or task, test results, and 
 
 Do not commit `.env`, credentials, datasets, generated outputs, checkpoints, or virtual environments. `.gitignore` already excludes these paths; document required variable names without secret values.
 
-## Attentions
-
-Before writing any code, you must read `develop_guide/architecture.md` in its entirety; furthermore, `develop_guide/architecture.md` must be updated upon the completion of any major feature or project milestone, and whenever script/module architecture changes.
-Before writing any code, you must read `develop_guide/product_design.md` in its entirety.
-During development, after every completed implementation step, you must append a new record to `develop_guide/process.md` including completion time and completed content.
-Whenever adding/updating/removing scripts, modules, or major service boundaries, you must update `develop_guide/architecture.md` to reflect current architecture and the purpose of each script/module.
-
 ### Skill Runtime Enforcement (Mandatory)
 
 For every new or updated Skill, agents must implement an executable runtime chain, not only a documentation description.

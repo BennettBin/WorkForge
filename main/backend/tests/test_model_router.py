@@ -2,6 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from app.models.entities import LLMProviderConfig
+from app.services.llm_provider.provider_defaults import VllmConfig
 from app.services.model_router import ModelRouter
 from app.services.repository_factory import build_repository_bundle
 
@@ -12,7 +13,7 @@ def test_model_router_uses_system_default_vllm_without_user_config():
         router = ModelRouter(repos)
         decision = router.pick("u-1", "generation")
         assert decision.provider_type == "vllm"
-        assert decision.model_name == "Qwen/Qwen2.5-7B-Instruct"
+        assert decision.model_name == VllmConfig().chat_model
         assert decision.base_url == "http://127.0.0.1:8000/v1"
         assert decision.source == "system_default"
 
@@ -93,5 +94,5 @@ def test_model_router_falls_back_when_user_default_is_invalid():
         router = ModelRouter(repos)
         decision = router.pick("u-1", "review")
         assert decision.provider_type == "vllm"
-        assert decision.model_name == "Qwen/Qwen2.5-7B-Instruct"
+        assert decision.model_name == VllmConfig().chat_model
         assert decision.source == "system_default"

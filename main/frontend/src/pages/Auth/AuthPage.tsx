@@ -35,7 +35,6 @@ export default function AuthPage() {
       <Space direction="vertical" style={{ width: "100%" }}>
         {message && <Alert type="success" message={message} />}
         {error && <Alert type="error" message={error} />}
-        <Alert type="info" message="Default admin: account admin / password 123456" />
       </Space>
       <Form layout="vertical" onFinish={onLogin} initialValues={{ account: "admin", password: "123456" }}>
         <Form.Item label="Username" name="account" rules={[{ required: true }]}>

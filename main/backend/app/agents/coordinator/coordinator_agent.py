@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 import json
+import re
 from typing import Optional
 
 from app.services.llm_runtime import LLMTextGenerator
@@ -21,13 +23,13 @@ class CoordinatorAgent:
 
     _TASK_TYPES = {"ppt", "report", "wechat_post", "data_analysis", "code_doc", "paper_assistant", "generic_task", "template_generation"}
     _KEYWORD_RULES: list[tuple[str, list[str]]] = [
-        ("template_generation", ["模板生成", "生成模板", "template generation", "build template", "模板构建", "模板提取"]),
-        ("report", ["report", "报告", "analysis report", "汇报文档"]),
-        ("wechat_post", ["公众号", "wechat", "推文", "公号"]),
-        ("data_analysis", ["data", "csv", "统计", "数据分析", "回归"]),
-        ("code_doc", ["readme", "api doc", "技术文档", "代码文档"]),
-        ("paper_assistant", ["paper", "论文", "abstract", "投稿"]),
-        ("ppt", ["ppt", "slides", "presentation", "演示", "汇报ppt", "幻灯片"]),
+        ("template_generation", ["template generation", "build template", "extract template", "\u6a21\u677f\u751f\u6210", "\u751f\u6210\u6a21\u677f", "\u6a21\u677f\u63d0\u53d6", "\u521b\u5efa\u6a21\u677f"]),
+        ("wechat_post", ["wechat", "wechat post", "\u516c\u4f17\u53f7", "\u63a8\u6587", "\u516c\u53f7", "\u5c0f\u7ea2\u4e66"]),
+        ("data_analysis", ["data analysis", "csv", "excel", "xlsx", "\u6570\u636e\u5206\u6790", "\u7edf\u8ba1", "\u56de\u5f52", "\u8868\u683c\u5206\u6790"]),
+        ("code_doc", ["readme", "api doc", "code doc", "\u6280\u672f\u6587\u6863", "\u4ee3\u7801\u6587\u6863", "\u63a5\u53e3\u6587\u6863"]),
+        ("paper_assistant", ["paper", "abstract", "thesis", "\u8bba\u6587", "\u6458\u8981", "\u6295\u7a3f", "\u5b66\u672f"]),
+        ("ppt", ["ppt", "powerpoint", "slides", "presentation", "\u6f14\u793a", "\u6c47\u62a5ppt", "\u5e7b\u706f\u7247", "\u6f14\u793a\u6587\u7a3f"]),
+        ("report", ["report", "analysis report", "\u62a5\u544a", "\u5206\u6790\u62a5\u544a", "\u6c47\u62a5\u6587\u6863", "\u6587\u6863"]),
     ]
 
     def infer_task_type(self, requirement: str, user_id: Optional[str] = None) -> str:
@@ -40,11 +42,35 @@ class CoordinatorAgent:
         return "generic_task"
 
     def _infer_task_type_by_keywords(self, requirement: str) -> Optional[str]:
-        text = (requirement or "").lower()
+        text = self._normalize_match_text(requirement)
+        if not text:
+            return None
+        tokens = [
+            self._normalize_match_text(token)
+            for token in re.findall(r"[A-Za-z0-9\u4e00-\u9fff]+", requirement or "")
+        ]
+        if ("template" in text or "\u6a21\u677f" in text) and any(k in text for k in ["ppt", "powerpoint", "\u5e7b\u706f\u7247", "\u6f14\u793a\u6587\u7a3f"]):
+            return "template_generation"
+        best_type: Optional[str] = None
+        best_score = 0.0
         for task_type, keywords in self._KEYWORD_RULES:
-            if any(k in text for k in keywords):
-                return task_type
+            for keyword in keywords:
+                key = self._normalize_match_text(keyword)
+                if not key:
+                    continue
+                if key in text:
+                    return task_type
+                score = max([SequenceMatcher(None, text, key).ratio()] + [SequenceMatcher(None, token, key).ratio() for token in tokens])
+                if score > best_score:
+                    best_type = task_type
+                    best_score = score
+        if best_type is not None and best_score >= 0.72:
+            return best_type
         return None
+
+    @staticmethod
+    def _normalize_match_text(text: str) -> str:
+        return re.sub(r"[\s_\-]+", "", (text or "").strip().lower())
 
     def _infer_task_type_by_llm(self, requirement: str, user_id: Optional[str], keyword_hint: Optional[str]) -> Optional[str]:
         if not (requirement or "").strip() or not user_id:
@@ -58,9 +84,11 @@ class CoordinatorAgent:
             "Classify the following user request into exactly one task type.\n"
             "Allowed task_type: ppt, report, wechat_post, data_analysis, code_doc, paper_assistant, generic_task, template_generation.\n"
             "Rules:\n"
-            "1) If intent is unclear or not covered, return generic_task.\n"
-            "2) Return strict JSON only: {\"task_type\":\"...\"}\n"
-            f"Keyword-matching result: {keyword_hint if keyword_hint else 'NO_KEYWORD_MATCH'}\n"
+            "1) Use the keyword/fuzzy candidate as the first-pass result, then verify it against the full user requirement.\n"
+            "2) If the candidate conflicts with the requirement, choose the requirement.\n"
+            "3) If intent is unclear or not covered, return generic_task.\n"
+            "4) Return strict JSON only: {\"task_type\":\"...\"}\n"
+            f"Keyword/fuzzy candidate: {keyword_hint if keyword_hint else 'NO_KEYWORD_MATCH'}\n"
             f"User requirement:\n{requirement.strip()[:3000]}"
         )
         try:
@@ -105,8 +133,8 @@ class CoordinatorAgent:
             "Constraints:\n"
             "1) templateType must be one of: ppt, wechat_post, report.\n"
             "2) language must be one of: zh-CN, en-US.\n"
-            "3) If not found, return empty string for that field.\n"
-            "4) Do not invent values.\n"
+            "3) If templateType is not named, infer it from uploaded file metadata or file format hints when available.\n"
+            "4) If templateName is missing, generate a concise snake_case name from the requirement or file name.\n"
             f"User requirement:\n{requirement.strip()[:3000]}"
         )
         try:

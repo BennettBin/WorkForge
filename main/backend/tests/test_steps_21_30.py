@@ -103,6 +103,7 @@ def test_step21_to_step30_core_flows():
                 json={
                     "user_id": user_id,
                     "user_requirement": "Generate 10 slides",
+                    "template_choice": "system_default",
                     "pages": 10,
                     "style": "academic_simple",
                     "language": "zh-CN",
@@ -272,6 +273,7 @@ def test_revision_without_page_index_can_auto_select_multiple_slides():
                 json={
                     "user_id": user_id,
                     "user_requirement": "Generate 8 slides about AI governance",
+                    "template_choice": "system_default",
                     "pages": 8,
                     "style": "academic_simple",
                     "language": "en-US",

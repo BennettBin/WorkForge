@@ -1,8 +1,8 @@
-import { Button, Card, List, Progress, Select, Space, Tag, Tooltip, Typography } from "antd";
+import { Alert, Button, Card, List, Progress, Select, Space, Tag, Tooltip, Typography } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { getJson, getWsBaseUrl } from "../../api/http";
+import { getBaseUrl, getJson, getWsBaseUrl } from "../../api/http";
 import { useAppStore } from "../../store/appStore";
 import { ApiEnvelope } from "../../types/api";
 
@@ -11,6 +11,11 @@ type TaskData = {
   agent_runs: Array<{ run_id: string; agent_name: string; status: string; output?: string }>;
   events: Array<{ event_id: string; stage: string; message: string; created_at?: string }>;
   skill_calls: Array<{ skill_call_id: string; skill_name: string; input?: string; output?: string; created_at?: string }>;
+};
+
+type TemplatePreviewData = {
+  template_file?: { name?: string; download_url?: string; size_bytes?: number };
+  preview_images?: Array<{ page: number; url: string; size_bytes: number; data_url?: string }>;
 };
 
 type ChatItem = {
@@ -36,6 +41,66 @@ function shortText(text: string, max = 160): string {
   return `${text.slice(0, max)}...`;
 }
 
+function templatePreviewCacheKey(taskId: string): string {
+  return `wf_template_preview_${taskId}`;
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Failed to read image blob."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function loadReadyTemplatePreview(taskId: string, onStep?: (message: string) => void): Promise<TemplatePreviewData> {
+  const token = localStorage.getItem("wf_token") || "";
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    try {
+      onStep?.("Checking template preview metadata and screenshot.");
+      const res = await getJson<ApiEnvelope<TemplatePreviewData>>(`/v1/tasks/${taskId}/template-preview`);
+      const previewData = { ...res.data };
+      const previewImages = (previewData.preview_images || []).slice(0, 1);
+      if (previewImages.length === 0) {
+        throw new Error("Template preview image is not ready.");
+      }
+      onStep?.("Downloading template preview screenshot.");
+      for (const image of previewImages) {
+        const imageRes = await fetch(`${getBaseUrl()}${image.url}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!imageRes.ok) {
+          throw new Error(`Template preview image failed: ${imageRes.status}`);
+        }
+        image.data_url = await blobToDataUrl(await imageRes.blob());
+      }
+      if (!previewImages[0]?.data_url) {
+        throw new Error("Template preview image data is not ready.");
+      }
+      onStep?.("Template preview screenshot is ready.");
+      return previewData;
+    } catch (err) {
+      lastError = err;
+      await sleep(1000);
+    }
+  }
+  throw lastError || new Error("Template preview image is not ready.");
+}
+
+function progressForStatus(status: string): number {
+  if (status === "completed" || status === "revision_completed") return 100;
+  if (status === "idle") return 0;
+  if (status === "requires_user_completion") return 80;
+  if (status.startsWith("failed")) return 100;
+  return 60;
+}
+
 export default function TaskRunningPage() {
   const navigate = useNavigate();
   const { taskId: routeTaskId } = useParams<{ taskId?: string }>();
@@ -54,11 +119,14 @@ export default function TaskRunningPage() {
   const [activeUsers, setActiveUsers] = useState<number>(0);
   const [requirement, setRequirement] = useState<string>("");
   const [taskType, setTaskType] = useState<string>("");
+  const [isPreparingTemplatePreview, setIsPreparingTemplatePreview] = useState<boolean>(false);
+  const [previewPreparationSteps, setPreviewPreparationSteps] = useState<string[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const activeUsersWsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectAttemptRef = useRef<number>(0);
   const logPanelRef = useRef<HTMLDivElement | null>(null);
+  const templatePreviewNavigatingRef = useRef<string | null>(null);
 
   const currentTaskId = useMemo(
     () => routeTaskId || task.selectedRunningTaskId || task.activeTaskId || null,
@@ -74,6 +142,8 @@ export default function TaskRunningPage() {
     }
     return base;
   }, [task.runningTasks, currentTaskId, taskType, status]);
+  const isTemplateGenerationCompleted =
+    taskType === "template_generation" && (status === "completed" || status === "revision_completed");
 
   async function refresh(targetTaskId: string) {
     const res = await getJson<ApiEnvelope<TaskData>>(`/v1/tasks/${targetTaskId}`);
@@ -113,6 +183,15 @@ export default function TaskRunningPage() {
       sortKey: evt.created_at ? Date.parse(evt.created_at) || 0 : 0,
     });
   }
+  previewPreparationSteps.forEach((step, index) => {
+    chatItems.push({
+      id: `preview_step_${index}`,
+      role: "system",
+      title: "System Event / preparing_preview",
+      content: step,
+      sortKey: Date.now() + index,
+    });
+  });
   for (const call of skillCalls) {
     if (call.skill_name === "llm_text_generation" || call.skill_name === "llm_text_generation_failed") {
       const inObj = parseJsonSafe(call.input);
@@ -239,15 +318,43 @@ export default function TaskRunningPage() {
   useEffect(() => {
     if (!currentTaskId) return;
     if (status === "completed" || status === "revision_completed") {
-      removeRunningTask(currentTaskId);
-      navigate(taskType === "template_generation" ? "/template-preview" : "/result");
+      if (!taskType) return;
+      if (taskType !== "template_generation") {
+        removeRunningTask(currentTaskId);
+        navigate(`/result?taskId=${encodeURIComponent(currentTaskId)}`);
+        return;
+      }
+      if (templatePreviewNavigatingRef.current === currentTaskId) return;
+      templatePreviewNavigatingRef.current = currentTaskId;
+      void (async () => {
+        setIsPreparingTemplatePreview(true);
+        setTask((prev) => ({ ...prev, activeTaskId: currentTaskId, activeTaskStatus: "preparing_preview" }));
+        upsertRunningTask({
+          taskId: currentTaskId,
+          status: "preparing_preview",
+          taskType,
+          title: requirement,
+        });
+        setPreviewPreparationSteps(["Template generation completed. Preparing preview before opening the preview page."]);
+        const addPreviewStep = (step: string) => {
+          setPreviewPreparationSteps((prev) => (prev[prev.length - 1] === step ? prev : [...prev, step].slice(-6)));
+        };
+        const previewData = await loadReadyTemplatePreview(currentTaskId, addPreviewStep);
+        addPreviewStep("Preview cache is ready. Opening template preview page.");
+        sessionStorage.setItem(templatePreviewCacheKey(currentTaskId), JSON.stringify(previewData));
+        removeRunningTask(currentTaskId);
+        navigate(`/template-preview?taskId=${encodeURIComponent(currentTaskId)}`);
+      })().catch(() => {
+        setIsPreparingTemplatePreview(false);
+        templatePreviewNavigatingRef.current = null;
+      });
     }
-  }, [status, navigate, taskType, currentTaskId, removeRunningTask]);
+  }, [status, navigate, taskType, currentTaskId, removeRunningTask, upsertRunningTask, requirement]);
 
   useEffect(() => {
     if (!currentTaskId) return;
     if (status !== "requires_user_completion") return;
-    if (taskType !== "template_generation" && taskType !== "ppt") return;
+    if (taskType !== "template_generation") return;
     navigate(`/template-generation/recovery?taskId=${encodeURIComponent(currentTaskId)}`);
   }, [status, taskType, currentTaskId, navigate]);
 
@@ -285,7 +392,23 @@ export default function TaskRunningPage() {
             navigate(`/tasks/running/${encodeURIComponent(value)}`);
           }}
         />
-        <Progress percent={status === "completed" ? 100 : status === "idle" ? 0 : 60} />
+        {status === "requires_user_completion" && taskType === "template_generation" ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="Template generation requires user completion"
+            description="The template bundle failed validation. Review the missing items, fill the suggested values, and resume the template build."
+            action={
+              <Button size="small" onClick={() => navigate(`/template-generation/recovery?taskId=${encodeURIComponent(currentTaskId)}`)}>
+                Open Recovery
+              </Button>
+            }
+          />
+        ) : null}
+        <Progress
+          percent={isTemplateGenerationCompleted ? 95 : progressForStatus(status)}
+          status={status.startsWith("failed") ? "exception" : (status === "requires_user_completion" || isTemplateGenerationCompleted || isPreparingTemplatePreview) ? "active" : undefined}
+        />
         <Button onClick={() => refresh(currentTaskId)}>Refresh</Button>
       </Space>
 

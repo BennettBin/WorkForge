@@ -102,12 +102,23 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
 
   function hydrateRunningTasks(tasks: RunningTask[]) {
     setTask((prev) => {
+      const preserved = prev.runningTasks.filter(
+        (x) =>
+          !tasks.some((task) => task.taskId === x.taskId) &&
+          (x.status === "preparing_preview" ||
+            (x.taskType === "template_generation" && (x.status === "completed" || x.status === "revision_completed")) ||
+            (x.taskId === prev.activeTaskId &&
+              (prev.activeTaskStatus === "preparing_preview" ||
+                ((prev.activeTaskStatus === "completed" || prev.activeTaskStatus === "revision_completed") &&
+                  x.taskType === "template_generation"))))
+      );
+      const merged = [...preserved, ...tasks];
       const currentSelected = prev.selectedRunningTaskId;
-      const selectedStillExists = currentSelected ? tasks.some((x) => x.taskId === currentSelected) : false;
-      const fallbackSelected = selectedStillExists ? currentSelected : (tasks[0]?.taskId ?? null);
+      const selectedStillExists = currentSelected ? merged.some((x) => x.taskId === currentSelected) : false;
+      const fallbackSelected = selectedStillExists ? currentSelected : (merged[0]?.taskId ?? null);
       return {
         ...prev,
-        runningTasks: tasks.slice(0, 10),
+        runningTasks: merged.slice(0, 10),
         selectedRunningTaskId: fallbackSelected,
       };
     });

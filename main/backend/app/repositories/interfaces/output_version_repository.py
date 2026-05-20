@@ -15,3 +15,7 @@ class OutputVersionRepository(ABC):
     @abstractmethod
     def list_versions(self, task_id: str) -> list[OutputFile]:
         raise NotImplementedError
+
+    @abstractmethod
+    def delete_by_task(self, task_id: str) -> int:
+        raise NotImplementedError

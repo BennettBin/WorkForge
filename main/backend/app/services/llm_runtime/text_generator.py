@@ -36,6 +36,8 @@ class LLMTextGenerator:
             "vllm",
             "local_transformers",
         }:
+            if ptype == "vllm":
+                return self._vllm_chat(base_url, model_name, prompt, api_key, timeout_seconds)
             return self._openai_compatible_chat(base_url, model_name, prompt, api_key, timeout_seconds)
         raise LLMInvokeError(f"Unsupported provider_type for LLM generation: {provider_type}")
 
@@ -131,15 +133,104 @@ class LLMTextGenerator:
         api_key: Optional[str],
         timeout_seconds: int,
     ) -> str:
-        # HuggingFace provider in WorkForge is executed through a vLLM OpenAI-compatible server
-        # that serves locally downloaded HF models.
-        return self._openai_compatible_chat(
-            base_url=base_url,
-            model_name=model_name,
-            prompt=prompt,
-            api_key=api_key,
-            timeout_seconds=timeout_seconds,
-        )
+        # vLLM serves OpenAI-compatible API. The model passed by UI may be:
+        # 1) exact served model id
+        # 2) local path used to launch vLLM
+        # We resolve to a served id via /models and retry automatically.
+        if not base_url:
+            raise LLMInvokeError("[vLLM] Base URL is required for request.")
+        models_url = f"{base_url.rstrip('/')}/models"
+        chat_url = f"{base_url.rstrip('/')}/chat/completions"
+        try:
+            resolved_model = self._resolve_vllm_model_name(base_url, model_name, api_key, timeout_seconds)
+        except LLMInvokeError as exc:
+            self._raise_vllm_error(exc, url=models_url)
+        try:
+            return self._openai_compatible_chat(
+                base_url=base_url,
+                model_name=resolved_model,
+                prompt=prompt,
+                api_key=api_key,
+                timeout_seconds=timeout_seconds,
+            )
+        except LLMInvokeError as exc:
+            message = str(exc).lower()
+            # One more retry with first available model when requested model is rejected.
+            if ("model" in message and ("not found" in message or "does not exist" in message or "invalid" in message)):
+                fallback_model = self._resolve_vllm_model_name(base_url, "", api_key, timeout_seconds)
+                try:
+                    return self._openai_compatible_chat(
+                        base_url=base_url,
+                        model_name=fallback_model,
+                        prompt=prompt,
+                        api_key=api_key,
+                        timeout_seconds=timeout_seconds,
+                    )
+                except LLMInvokeError as retry_exc:
+                    self._raise_vllm_error(retry_exc, url=chat_url)
+            self._raise_vllm_error(exc, url=chat_url)
+
+    def _resolve_vllm_model_name(
+        self,
+        base_url: str,
+        requested_model_name: str,
+        api_key: Optional[str],
+        timeout_seconds: int,
+    ) -> str:
+        url = f"{base_url.rstrip('/')}/models"
+        headers: dict[str, str] = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        data = self._get_json(url, headers=headers, timeout_seconds=timeout_seconds)
+        rows = data.get("data", []) if isinstance(data, dict) else []
+        model_ids: list[str] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            model_id = str(row.get("id", "")).strip()
+            if model_id:
+                model_ids.append(model_id)
+        if not model_ids:
+            raise LLMInvokeError("vLLM /models returned no model ids.")
+
+        requested = (requested_model_name or "").strip()
+        if not requested:
+            return model_ids[0]
+
+        req_l = requested.lower()
+        # exact id
+        for m in model_ids:
+            if m.lower() == req_l:
+                return m
+        # basename match for local paths (Windows/Unix)
+        req_base = requested.replace("\\", "/").split("/")[-1].lower()
+        for m in model_ids:
+            m_base = m.replace("\\", "/").split("/")[-1].lower()
+            if m_base == req_base:
+                return m
+        # contains match
+        for m in model_ids:
+            if req_l in m.lower() or m.lower() in req_l:
+                return m
+        # If no match, keep requested value first; caller may still succeed depending on server aliasing.
+        return requested
+
+    def _get_json(self, url: str, headers: dict[str, str], timeout_seconds: int):
+        req = request.Request(url=url, method="GET")
+        for k, v in headers.items():
+            req.add_header(k, v)
+        try:
+            with request.urlopen(req, timeout=timeout_seconds) as resp:
+                text = resp.read().decode("utf-8", errors="ignore")
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore")
+            raise LLMInvokeError(f"LLM HTTPError {exc.code}: {detail[:300]}") from exc
+        except Exception as exc:
+            raise LLMInvokeError(f"LLM request failed: {exc}") from exc
+        try:
+            return json.loads(text)
+        except Exception as exc:
+            raise LLMInvokeError(f"LLM response is not valid JSON: {text[:300]}") from exc
 
     def _post_json(self, url: str, body: dict, headers: dict[str, str], timeout_seconds: int):
         payload = json.dumps(body).encode("utf-8")
@@ -159,3 +250,26 @@ class LLMTextGenerator:
             return json.loads(text)
         except Exception as exc:
             raise LLMInvokeError(f"LLM response is not valid JSON: {text[:300]}") from exc
+
+    def _raise_vllm_error(self, exc: LLMInvokeError, url: str):
+        raw = str(exc)
+        lower = raw.lower()
+        code = "REQUEST_FAILED"
+        if "10061" in lower or "actively refused" in lower or "connection refused" in lower:
+            code = "CONNECTION_REFUSED"
+        elif "timed out" in lower or "timeout" in lower:
+            code = "TIMEOUT"
+        elif "httperror 401" in lower or "httperror 403" in lower:
+            code = "UNAUTHORIZED"
+        elif "httperror 404" in lower:
+            code = "BAD_BASE_URL"
+        elif "model not found" in lower or "does not exist" in lower or "invalid model" in lower:
+            code = "MODEL_NOT_FOUND"
+        elif "not valid json" in lower:
+            code = "INVALID_JSON"
+
+        advice = (
+            "Check vLLM is running, verify base_url includes /v1, verify host:port, "
+            "and verify --served-model-name matches configured model_name."
+        )
+        raise LLMInvokeError(f"[vLLM] {code} at {url}: {raw}. {advice}") from exc

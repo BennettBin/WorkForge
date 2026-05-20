@@ -11,3 +11,7 @@ class TaskEventRepository(ABC):
     @abstractmethod
     def list_by_task(self, task_id: str) -> list[TaskEvent]:
         raise NotImplementedError
+
+    @abstractmethod
+    def delete_by_task(self, task_id: str) -> int:
+        raise NotImplementedError

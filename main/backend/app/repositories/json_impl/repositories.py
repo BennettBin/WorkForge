@@ -66,6 +66,14 @@ class JsonTaskRepository(TaskRepository):
     def list_by_user(self, user_id: str) -> list[Task]:
         return [Task.model_validate(row) for row in self.store.read_all() if row["user_id"] == user_id]
 
+    def delete(self, task_id: str) -> bool:
+        rows = self.store.read_all()
+        kept = [row for row in rows if row["task_id"] != task_id]
+        if len(kept) == len(rows):
+            return False
+        self.store.write_all(kept)
+        return True
+
 
 class JsonFileRepository(FileRepository):
     def __init__(self, data_dir: Path):
@@ -88,6 +96,14 @@ class JsonFileRepository(FileRepository):
 
     def list_by_task(self, task_id: str) -> list[FileRecord]:
         return [FileRecord.model_validate(row) for row in self.store.read_all() if row["task_id"] == task_id]
+
+    def delete_by_task(self, task_id: str) -> int:
+        rows = self.store.read_all()
+        kept = [row for row in rows if row["task_id"] != task_id]
+        deleted = len(rows) - len(kept)
+        if deleted:
+            self.store.write_all(kept)
+        return deleted
 
 
 class JsonProviderConfigRepository(ProviderConfigRepository):
@@ -153,6 +169,14 @@ class JsonOutputVersionRepository(OutputVersionRepository):
         versions = [OutputFile.model_validate(row) for row in self.store.read_all() if row["task_id"] == task_id]
         return sorted(versions, key=lambda v: v.version)
 
+    def delete_by_task(self, task_id: str) -> int:
+        rows = self.store.read_all()
+        kept = [row for row in rows if row["task_id"] != task_id]
+        deleted = len(rows) - len(kept)
+        if deleted:
+            self.store.write_all(kept)
+        return deleted
+
 
 class JsonAgentRunRepository(AgentRunRepository):
     def __init__(self, data_dir: Path):
@@ -167,6 +191,14 @@ class JsonAgentRunRepository(AgentRunRepository):
     def list_by_task(self, task_id: str) -> list[AgentRun]:
         return [AgentRun.model_validate(row) for row in self.store.read_all() if row["task_id"] == task_id]
 
+    def delete_by_task(self, task_id: str) -> int:
+        rows = self.store.read_all()
+        kept = [row for row in rows if row["task_id"] != task_id]
+        deleted = len(rows) - len(kept)
+        if deleted:
+            self.store.write_all(kept)
+        return deleted
+
 
 class JsonSkillCallRepository(SkillCallRepository):
     def __init__(self, data_dir: Path):
@@ -180,6 +212,14 @@ class JsonSkillCallRepository(SkillCallRepository):
 
     def list_by_task(self, task_id: str) -> list[SkillCall]:
         return [SkillCall.model_validate(row) for row in self.store.read_all() if row["task_id"] == task_id]
+
+    def delete_by_task(self, task_id: str) -> int:
+        rows = self.store.read_all()
+        kept = [row for row in rows if row["task_id"] != task_id]
+        deleted = len(rows) - len(kept)
+        if deleted:
+            self.store.write_all(kept)
+        return deleted
 
 
 class JsonUserRepository(UserRepository):
@@ -261,6 +301,14 @@ class JsonTaskEventRepository(TaskEventRepository):
     def list_by_task(self, task_id: str) -> list[TaskEvent]:
         rows = [TaskEvent.model_validate(r) for r in self.store.read_all() if r["task_id"] == task_id]
         return sorted(rows, key=lambda r: r.created_at)
+
+    def delete_by_task(self, task_id: str) -> int:
+        rows = self.store.read_all()
+        kept = [row for row in rows if row["task_id"] != task_id]
+        deleted = len(rows) - len(kept)
+        if deleted:
+            self.store.write_all(kept)
+        return deleted
 
 
 class JsonUserSettingsRepository(UserSettingsRepository):

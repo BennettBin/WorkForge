@@ -19,7 +19,18 @@ class PPTTaskAgent:
         for i in range(2, pages):
             outline.append({"page": i, "kind": "content", "title": f"Section {i-1}", "bullets": [parsed_text[:120] or requirement[:120] or "Content"]})
         outline.append({"page": pages, "kind": "summary", "title": "Summary", "bullets": ["Key takeaways"]})
-        slides = [{"page": row["page"], "kind": row["kind"], "title": row["title"], "bullets": row["bullets"], "speaker_notes": ""} for row in outline]
+        slides = [
+            {
+                "index": row["page"],
+                "page": row["page"],
+                "kind": row["kind"],
+                "title": row["title"],
+                "bullets": row["bullets"],
+                "notes": "",
+                "speaker_notes": "",
+            }
+            for row in outline
+        ]
         return PPTTaskArtifacts(outline=outline, slides=slides, review_passed=True, review_issues=[])
 
     def execute(
@@ -31,6 +42,7 @@ class PPTTaskAgent:
         knowledge_search_fn=None,
         llm_generate_fn=None,
         no_source_file: bool = False,
+        template_constraints: Optional[dict[str, Any]] = None,
         skill_execute_fn: Optional[Callable[[str, dict[str, Any]], dict[str, Any]]] = None,
     ) -> PPTTaskArtifacts:
         if skill_execute_fn is None:
@@ -57,6 +69,7 @@ class PPTTaskAgent:
                     "knowledge_search_fn": knowledge_search_fn,
                     "llm_generate_fn": llm_generate_fn,
                     "no_source_file": no_source_file,
+                    "template_constraints": template_constraints if isinstance(template_constraints, dict) else {},
                 },
             )
         except Exception:

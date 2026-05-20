@@ -23,6 +23,7 @@ type ProviderItem = {
   model_name: string;
   chat_model?: string;
   embedding_model?: string;
+  has_api_key?: boolean;
   is_default: boolean;
 };
 
@@ -30,11 +31,20 @@ type ProviderDefaultResponse = {
   item: ProviderItem | null;
 };
 
+type ProviderTestResult = {
+  status: string;
+  message: string;
+  error_code?: string;
+  reachable?: boolean;
+  model_found?: boolean;
+};
+
 type ProviderConfigPreset = {
   label: string;
   providerType: ProviderType;
   baseUrlExample: string;
   modelExample: string;
+  modelOptions?: string[];
   needsApiKey: boolean;
   needsChatModel: boolean;
   needsEmbeddingModel: boolean;
@@ -54,7 +64,7 @@ const OLLAMA_DEFAULT = {
 };
 
 const VLLM_DEFAULT = {
-  model_name: "Qwen/Qwen2.5-7B-Instruct",
+  model_name: "D:\\pycharm\\LLMs\\Qwen3.5-9B-Base",
   base_url: "http://127.0.0.1:8000/v1",
 };
 
@@ -63,48 +73,52 @@ const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
     label: "Deepseek API",
     providerType: "deepseek_api",
     baseUrlExample: "https://api.deepseek.com",
-    modelExample: "qwen3:8b",
+    modelExample: "deepseek-v4-flash",
+    modelOptions: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"],
     needsApiKey: true,
     needsChatModel: false,
     needsEmbeddingModel: false,
-    defaultValues: { display_name: "Deepseek API", base_url: "https://api.deepseek.com", model_name: "qwen3:8b" },
+    defaultValues: { display_name: "Deepseek API", base_url: "https://api.deepseek.com", model_name: "deepseek-v4-flash" },
   },
   openai_api: {
     label: "OpenAI API",
     providerType: "openai_api",
     baseUrlExample: "https://api.openai.com/v1",
-    modelExample: "qwen3:8b",
+    modelExample: "gpt-4.1-mini",
+    modelOptions: ["gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini", "gpt-4o"],
     needsApiKey: true,
     needsChatModel: false,
     needsEmbeddingModel: false,
-    defaultValues: { display_name: "OpenAI API", base_url: "https://api.openai.com/v1", model_name: "qwen3:8b" },
+    defaultValues: { display_name: "OpenAI API", base_url: "https://api.openai.com/v1", model_name: "gpt-4.1-mini" },
   },
   anthropic_api: {
     label: "Anthropic API",
     providerType: "anthropic_api",
     baseUrlExample: "https://api.anthropic.com/v1",
-    modelExample: "qwen3:8b",
+    modelExample: "claude-3-7-sonnet-latest",
+    modelOptions: ["claude-3-7-sonnet-latest", "claude-3-5-sonnet-latest", "claude-3-5-haiku-latest"],
     needsApiKey: true,
     needsChatModel: false,
     needsEmbeddingModel: false,
     defaultValues: {
       display_name: "Anthropic API",
       base_url: "https://api.anthropic.com/v1",
-      model_name: "qwen3:8b",
+      model_name: "claude-3-7-sonnet-latest",
     },
   },
   qwen_api: {
     label: "Qwen API",
     providerType: "qwen_api",
     baseUrlExample: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    modelExample: "qwen3:8b",
+    modelExample: "qwen-plus",
+    modelOptions: ["qwen-plus", "qwen-max", "qwen-turbo", "qwen-long"],
     needsApiKey: true,
     needsChatModel: false,
     needsEmbeddingModel: false,
     defaultValues: {
       display_name: "Qwen API",
       base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      model_name: "qwen3:8b",
+      model_name: "qwen-plus",
     },
   },
   vllm: {
@@ -152,7 +166,7 @@ const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
     },
   },
   local_llm: {
-    label: "本地LLM调用",
+    label: "Local LLM",
     providerType: "local_llm",
     baseUrlExample: "http://127.0.0.1:8001/v1",
     modelExample: "qwen3:8b",
@@ -184,7 +198,9 @@ export default function ModelSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderItem[]>([]);
   const [currentProviderId, setCurrentProviderId] = useState<string | null>(null);
+  const [currentProviderHasApiKey, setCurrentProviderHasApiKey] = useState<boolean>(false);
   const [maxParallelTasks, setMaxParallelTasks] = useState<number>(10);
+  const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
   const [form] = Form.useForm();
 
   const providerType: ProviderType = Form.useWatch("provider_type", form) ?? "vllm";
@@ -213,9 +229,9 @@ export default function ModelSettingsPage() {
       base_url: values.base_url || null,
       model_name: values.model_name || values.chat_model || null,
       chat_model: values.chat_model || null,
-      embedding_model: values.embedding_model || null,
+      embedding_model: values.provider_type === "ollama" ? values.embedding_model || null : null,
       api_key: values.api_key || null,
-      is_default: !!values.is_default
+      is_default: !!values.is_default,
     });
     await loadDefaultProvider(true);
     await loadProviders();
@@ -238,6 +254,7 @@ export default function ModelSettingsPage() {
     const item = res.data.item;
     if (!item) {
       setCurrentProviderId(null);
+      setCurrentProviderHasApiKey(false);
       form.setFieldsValue({
         provider_type: "vllm",
         ...PROVIDER_PRESETS.vllm.defaultValues,
@@ -250,6 +267,7 @@ export default function ModelSettingsPage() {
       return;
     }
     setCurrentProviderId(item.provider_id);
+    setCurrentProviderHasApiKey(!!item.has_api_key);
     form.setFieldsValue({
       provider_type: item.provider_type,
       display_name: item.display_name,
@@ -272,7 +290,6 @@ export default function ModelSettingsPage() {
     } catch (e) {
       const msg = String(e);
       if (msg.includes("HTTP 404")) {
-        // Backward compatibility: older backend may not expose this endpoint yet.
         setMaxParallelTasks(10);
         return;
       }
@@ -297,22 +314,56 @@ export default function ModelSettingsPage() {
 
   async function testCurrentConfig() {
     const values = await form.validateFields();
-    const res = await postJson<ApiEnvelope<{ status: string; message: string }>>("/v1/providers/test", {
+    const res = await postJson<ApiEnvelope<{ status: string; message: string; error_code?: string; reachable?: boolean; model_found?: boolean }>>("/v1/providers/test", {
       provider_type: values.provider_type,
       base_url: values.base_url || null,
+      api_key: values.api_key || null,
       model_name: values.model_name || values.chat_model || null,
-      chat_model: values.chat_model || null
+      chat_model: values.chat_model || null,
     });
-    setMessage(`Test ${res.data.status}: ${res.data.message}`);
+    setTestResult(res.data);
+    const extra = [
+      res.data.error_code ? `error_code=${res.data.error_code}` : "",
+      typeof res.data.reachable === "boolean" ? `reachable=${String(res.data.reachable)}` : "",
+      typeof res.data.model_found === "boolean" ? `model_found=${String(res.data.model_found)}` : "",
+    ].filter(Boolean).join(", ");
+    setMessage(`Test ${res.data.status}: ${res.data.message}${extra ? ` (${extra})` : ""}`);
   }
 
   return (
     <Card>
       <Typography.Title level={4}>Model Settings</Typography.Title>
+
       <Space direction="vertical" style={{ width: "100%" }}>
         {message && <Alert type="success" message={message} />}
         {error && <Alert type="error" message={error} />}
+        {testResult && (
+          <Alert
+            type={testResult.status === "ok" ? "success" : "warning"}
+            showIcon
+            message={`Connection Test: ${testResult.status}`}
+            description={
+              <div>
+                <div>{testResult.message}</div>
+                <div>
+                  {typeof testResult.reachable === "boolean" ? `reachable=${String(testResult.reachable)} ` : ""}
+                  {typeof testResult.model_found === "boolean" ? `model_found=${String(testResult.model_found)} ` : ""}
+                  {testResult.error_code ? `error_code=${testResult.error_code}` : ""}
+                </div>
+              </div>
+            }
+          />
+        )}
+        {testResult?.error_code === "CONNECTION_REFUSED" && (
+          <Alert
+            type="warning"
+            showIcon
+            message="vLLM Connection Refused"
+            description="请检查 vLLM 进程是否已启动；确认 host/port 与 Base URL 一致；确认防火墙已放行该端口。"
+          />
+        )}
       </Space>
+
       <Form
         form={form}
         layout="vertical"
@@ -334,39 +385,46 @@ export default function ModelSettingsPage() {
               embedding_model: changedPreset.defaultValues.embedding_model || null,
               api_key: null,
             });
+            setCurrentProviderHasApiKey(false);
           }
         }}
       >
         <Form.Item label="Provider" name="provider_type" initialValue="vllm">
-          <Select
-            options={Object.values(PROVIDER_PRESETS).map((x) => ({ label: x.label, value: x.providerType }))}
-          />
+          <Select options={Object.values(PROVIDER_PRESETS).map((x) => ({ label: x.label, value: x.providerType }))} />
         </Form.Item>
         <Form.Item
-          label={requiredLabel("Display Name", "必填。示例：Deepseek API / Ollama Local")}
+          label={requiredLabel("Display Name", "Required. Example: Deepseek API / Ollama Local")}
           name="display_name"
           rules={[{ required: true, message: "Display Name is required." }]}
         >
           <Input placeholder={preset.defaultValues.display_name} />
         </Form.Item>
         <Form.Item
-          label={requiredLabel("Base URL", `必填。示例：${preset.baseUrlExample}`)}
+          label={requiredLabel("Base URL", `Required. Example: ${preset.baseUrlExample}`)}
           name="base_url"
           rules={[{ required: true, message: "Base URL is required." }]}
         >
           <Input placeholder={preset.baseUrlExample} />
         </Form.Item>
+        {providerType === "vllm" && (
+          <Alert
+            type="info"
+            showIcon
+            message="vLLM"
+            description="Base URL must be like http://<host>:<port>/v1. Model Name should match one id returned by /models (or your served-model-name)."
+          />
+        )}
         {preset.needsChatModel ? (
           <>
             <Form.Item
-              label={requiredLabel("Chat Model", "必填。示例：qwen3:8b")}
+              label={requiredLabel("Chat Model", "Required. Example: qwen3:8b")}
               name="chat_model"
               rules={[{ required: true, message: "Chat Model is required." }]}
             >
               <Input placeholder={OLLAMA_DEFAULT.chat_model} />
             </Form.Item>
             <Form.Item
-              label={requiredLabel("Embedding Model", "必填。示例：qwen3-embedding:8b")}
+              label={requiredLabel("Embedding Model", "Required. Example: qwen3-embedding:8b")}
               name="embedding_model"
               rules={[{ required: true, message: "Embedding Model is required." }]}
             >
@@ -375,20 +433,39 @@ export default function ModelSettingsPage() {
           </>
         ) : (
           <Form.Item
-            label={requiredLabel("Model Name", `必填。示例：${preset.modelExample}`)}
+            label={requiredLabel("Model Name", `Required. Example: ${preset.modelExample}`)}
             name="model_name"
             rules={[{ required: true, message: "Model Name is required." }]}
           >
-            <Input placeholder={preset.modelExample} />
+            {preset.modelOptions ? (
+              <Select
+                showSearch
+                placeholder={preset.modelExample}
+                options={preset.modelOptions.map((item) => ({ label: item, value: item }))}
+              />
+            ) : (
+              <Input placeholder={preset.modelExample} />
+            )}
           </Form.Item>
         )}
         {preset.needsApiKey && (
           <Form.Item
-            label={requiredLabel("API Key", "必填。示例：sk-xxxx / hf_xxxx")}
+            label={requiredLabel("API Key", "Required. Example: sk-xxxx / hf_xxxx")}
             name="api_key"
-            rules={[{ required: true, message: "API Key is required." }]}
+            rules={[
+              {
+                validator: (_, value) => {
+                  const hasValue = Boolean(String(value || "").trim());
+                  if (hasValue || currentProviderHasApiKey) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error("API Key is required."));
+                },
+              },
+            ]}
+            extra={currentProviderHasApiKey ? "API Key already saved for this provider. Leave blank to keep current key." : undefined}
           >
-            <Input.Password placeholder="请输入 API Key" />
+            <Input.Password placeholder={currentProviderHasApiKey ? "Leave empty to keep saved key" : "Enter API Key"} />
           </Form.Item>
         )}
         <Form.Item name="is_default" valuePropName="checked">
@@ -403,6 +480,7 @@ export default function ModelSettingsPage() {
           <Button onClick={loadProviders}>Load Providers</Button>
         </Space>
       </Form>
+
       <Typography.Title level={5}>Saved Providers</Typography.Title>
       <List
         dataSource={providers}
@@ -413,6 +491,7 @@ export default function ModelSettingsPage() {
           </List.Item>
         )}
       />
+
       <Typography.Title level={5} style={{ marginTop: 20 }}>Task Concurrency</Typography.Title>
       <Space>
         <Typography.Text>Max Parallel Tasks</Typography.Text>

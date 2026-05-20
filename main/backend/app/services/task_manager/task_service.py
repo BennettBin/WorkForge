@@ -1,13 +1,15 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import re
+import shutil
+import subprocess
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from fastapi import UploadFile
 
@@ -26,7 +28,7 @@ from app.config import settings
 from app.models.entities import AgentRun, FileRecord, OutputFile, SkillCall, Task, TaskEvent, UserSettings
 from app.models.requests import CreateTaskRequest
 from app.prompts import NO_SOURCE_FILE_SYSTEM_INSTRUCTION
-from app.services.export_engine import PptxExportError, PptxExporter
+from app.services.export_engine import PptxExportError, TemplateScriptRunner
 from app.services.file_parser.parser import ParseError, parse_file
 from app.services.llm_runtime import LLMInvokeError, LLMTextGenerator
 from app.services.llm_provider.provider_defaults import OllamaConfig
@@ -45,6 +47,7 @@ TEMPLATE_META_FILENAME = "template.meta.json"
 TEMPLATE_PARAMS_FILENAME = "template.params.json"
 TEMPLATE_RENDER_SCRIPT_FILENAME = "render_from_template.py"
 TEMPLATE_PPT_FILENAME = "template.pptx"
+TEMPLATE_RULES_FILENAME = "template.rules.json"
 
 
 def _utc_now() -> datetime:
@@ -93,21 +96,99 @@ class TaskService:
         if task_type == "auto":
             coordinator = CoordinatorAgent(ModelRouter(self.repos))
             task_type = coordinator.infer_task_type(req.user_requirement, user_id=req.user_id)
+        explicit_template_choice = self._normalize_template_choice_value(req.template_choice or "")
+        embedded_template_choice = self._normalize_template_choice_value(self._extract_task_setting(req.user_requirement, "TemplateChoice") or "")
+        style_template_choice = self._template_choice_from_style(req.style)
+        template_choice = explicit_template_choice or embedded_template_choice or style_template_choice
+        user_requirement = req.user_requirement
+        if task_type == "ppt" and not self._is_ppt_template_extract_request(req.user_requirement):
+            if not template_choice:
+                template_choice = "system_default"
+            self._resolve_template_bundle(template_choice)
+            user_requirement = self._bind_task_setting(req.user_requirement, "TemplateChoice", template_choice)
         task = Task(
             task_id=new_id("task"),
             user_id=req.user_id,
             task_type=task_type,
-            user_requirement=req.user_requirement,
+            user_requirement=user_requirement,
             status="created",
+            template_id=template_choice or None,
+            template_choice=template_choice or None,
             requested_pages=req.pages,
             style=req.style,
             language=req.language,
             expires_at=_utc_now() + timedelta(days=7),
         )
         self.repos.tasks.create(task)
-        self._add_event(task.task_id, "created", "task created")
+        event_message = "task created"
+        if template_choice:
+            event_message += f" template_choice={template_choice}"
+        self._add_event(task.task_id, "created", event_message)
         self._snapshot_excel()
         return task
+
+    def delete_task_history(self, task_id: str, user_id: str) -> dict[str, Any]:
+        task = self.repos.tasks.get_by_id(task_id)
+        if task is None or task.user_id != user_id:
+            raise ValueError("Task not found.")
+
+        files = self.repos.files.list_by_task(task_id)
+        outputs = self.repos.outputs.list_versions(task_id)
+        paths_to_remove: list[Path] = []
+        dirs_to_remove = [
+            self.storage_root / "uploads" / task_id,
+            self.storage_root / "parsed" / task_id,
+            self.storage_root / "outputs" / task_id,
+            self.storage_root / "versions" / task_id,
+            self.storage_root / "vectors" / task_id,
+        ]
+        for record in files:
+            paths_to_remove.append(Path(record.file_path))
+            if record.parsed_text_path:
+                paths_to_remove.append(Path(record.parsed_text_path))
+        for output in outputs:
+            paths_to_remove.append(Path(output.file_path))
+
+        removed_files = 0
+        removed_dirs = 0
+        for path in paths_to_remove:
+            if self._remove_storage_file(path):
+                removed_files += 1
+        for path in dirs_to_remove:
+            if self._remove_storage_dir(path):
+                removed_dirs += 1
+
+        deleted = {
+            "files": self.repos.files.delete_by_task(task_id),
+            "outputs": self.repos.outputs.delete_by_task(task_id),
+            "agent_runs": self.repos.agent_runs.delete_by_task(task_id),
+            "skill_calls": self.repos.skill_calls.delete_by_task(task_id),
+            "events": self.repos.task_events.delete_by_task(task_id),
+            "task": self.repos.tasks.delete(task_id),
+            "disk_files": removed_files,
+            "disk_dirs": removed_dirs,
+        }
+        self._snapshot_excel()
+        return {"task_id": task_id, "deleted": deleted}
+
+    def _is_within_storage(self, path: Path) -> bool:
+        try:
+            path.resolve().relative_to(self.storage_root.resolve())
+            return True
+        except ValueError:
+            return False
+
+    def _remove_storage_file(self, path: Path) -> bool:
+        if not self._is_within_storage(path) or not path.exists() or not path.is_file():
+            return False
+        path.unlink()
+        return True
+
+    def _remove_storage_dir(self, path: Path) -> bool:
+        if not self._is_within_storage(path) or not path.exists() or not path.is_dir():
+            return False
+        shutil.rmtree(path)
+        return True
 
     def upload_file(self, task_id: str, upload: UploadFile) -> FileRecord:
         task = self.repos.tasks.get_by_id(task_id)
@@ -144,6 +225,9 @@ class TaskService:
         self.repos.files.create(record)
         self.repos.tasks.update_status(task_id, "file_uploaded")
         self._add_event(task_id, "file_uploaded", f"file uploaded: {record.file_name}")
+        if task.task_type == "template_generation" and suffix in {"ppt", "pptx"}:
+            preview_images = self._ensure_uploaded_ppt_template_preview_images(task_id, file_path)
+            self._add_event(task_id, "file_uploaded", f"uploaded_template_preview_ready images={len(preview_images)}")
         self._snapshot_excel()
         return record
 
@@ -286,16 +370,50 @@ class TaskService:
             matched = finder_result.get("matched_skills", []) if isinstance(finder_result, dict) else []
             template_skill_name = matched[0] if matched else "ppt_template_generation"
             templates_root = Path(__file__).resolve().parents[2] / "templates" / "ppt"
-            extraction = skill_executor.execute(
-                template_skill_name,
-                {
-                    "source_pptx_path": str(source_file.resolve()),
-                    "templates_root": str(templates_root.resolve()),
-                    "template_name": self._extract_template_name(task.user_requirement) or source_file.stem,
-                    "force_invalid_bundle": str(self._extract_task_setting(task.user_requirement, "ForceInvalidBundle") or "").strip().lower() in {"1", "true", "yes"},
-                },
+            template_llm_generate = self._build_aux_llm_generate_fn(
+                task_id=task_id,
+                user_id=task.user_id,
+                stage="planning",
+                audit_name="ppt_template_generation_llm",
+                timeout_seconds=default_cfg.timeout_seconds if default_cfg and default_cfg.timeout_seconds else 180,
             )
+            extraction_payload = {
+                "source_pptx_path": str(source_file.resolve()),
+                "templates_root": str(templates_root.resolve()),
+                "template_name": self._extract_template_name(task.user_requirement) or source_file.stem,
+                "overwrite": str(self._extract_task_setting(task.user_requirement, "OverwriteTemplate") or "").strip().lower() in {"1", "true", "yes"},
+                "force_invalid_bundle": str(self._extract_task_setting(task.user_requirement, "ForceInvalidBundle") or "").strip().lower() in {"1", "true", "yes"},
+                "llm_generate_fn": template_llm_generate,
+            }
+            try:
+                extraction = skill_executor.execute(template_skill_name, extraction_payload)
+            except Exception as exc:
+                safe_payload = {k: ("<callable>" if callable(v) else v) for k, v in extraction_payload.items()}
+                self._add_skill_call(task_id, f"{template_skill_name}_failed", safe_payload, {"error": str(exc)[:500]}, 1)
+                self.repos.tasks.update_status(task_id, "failed_generation")
+                self._add_agent_run(task_id, "PPTTaskAgent", "failed", f"template_extraction_failed={str(exc)[:300]}")
+                self._add_event(task_id, "failed_generation", f"template_extraction_failed={str(exc)[:200]}")
+                self._snapshot_excel()
+                raise ValueError(f"Template extraction failed: {exc}") from exc
             self._add_skill_call(task_id, template_skill_name, {"source_pptx_path": str(source_file.resolve()), "template_name": extraction.get("template_name", "")}, extraction, 1)
+            validation_audit = {
+                "template_name": extraction.get("template_name", ""),
+                "ok": str(extraction.get("status", "completed")) != "requires_user_completion",
+                "missing_files": extraction.get("missing_items", []),
+                "errors": extraction.get("validation_errors", []),
+            }
+            self._add_skill_call(task_id, "template_bundle_validation", {"template_name": extraction.get("template_name", "")}, validation_audit, 1)
+            self._add_event(
+                task_id,
+                "planning",
+                (
+                    "template_bundle_validation;"
+                    f"template_name={extraction.get('template_name', '')};"
+                    f"ok={validation_audit['ok']};"
+                    f"missing_files={len(validation_audit['missing_files'])};"
+                    f"validation_errors={len(validation_audit['errors'])}"
+                ),
+            )
             if str(extraction.get("status", "completed")) == "requires_user_completion":
                 recovery_payload = {
                     "task_id": task_id,
@@ -310,9 +428,22 @@ class TaskService:
                     "validation_errors": extraction.get("validation_errors", []),
                     "suggested_values": extraction.get("suggested_values", {}),
                     "resume_token": extraction.get("resume_token", ""),
+                    "resume_attempt": 0,
+                    "bundle_validation": validation_audit,
                 }
                 self._write_template_recovery_payload(task_id, recovery_payload)
                 self.repos.tasks.update_status(task_id, "requires_user_completion")
+                self._add_agent_run(
+                    task_id,
+                    "PPTTaskAgent",
+                    "failed",
+                    (
+                        "template_requires_user_completion;"
+                        f"template_name={recovery_payload.get('template_name', '')};"
+                        f"missing_items={len(recovery_payload.get('missing_items', []))};"
+                        f"validation_errors={len(recovery_payload.get('validation_errors', []))}"
+                    ),
+                )
                 self._add_event(task_id, "requires_user_completion", f"template_generation_requires_user_completion:{json.dumps(recovery_payload, ensure_ascii=False)}")
                 self._snapshot_excel()
                 return {"task_id": task_id, "status": "requires_user_completion", **recovery_payload}
@@ -362,10 +493,12 @@ class TaskService:
                 self._snapshot_excel()
                 raise ValueError("Parsed text is empty.")
 
-        if (task.style or "").strip() or (self._extract_task_setting(task.user_requirement, "TemplateChoice") or "").strip():
+        template_choice = self._get_task_template_choice(task)
+        template_constraints: dict[str, Any] = {}
+        if template_choice:
+            template_constraints = self._load_template_constraints_for_task(task)
             template_ctx = self._load_template_context_for_task(task)
             if template_ctx:
-                template_choice = (self._extract_task_setting(task.user_requirement, "TemplateChoice") or "").strip()
                 effective_requirement = f"{effective_requirement}\n\n[Template Context]\n{template_ctx}"
                 self._add_event(task_id, "planning", f"template_context_loaded style={task.style};template_choice={template_choice or 'none'}")
 
@@ -521,7 +654,11 @@ class TaskService:
             provider_type = str(generation_decision.provider_type or "").strip()
             model_name = str(generation_decision.model_name or "").strip()
             base_url = generation_decision.base_url.strip() if isinstance(generation_decision.base_url, str) else generation_decision.base_url
-            api_key = (default_cfg.api_key_encrypted or "").strip() if default_cfg and default_cfg.api_key_encrypted else None
+            api_key = (
+                (default_cfg.api_key_encrypted or "").strip()
+                if generation_decision.source == "user_default" and default_cfg and default_cfg.api_key_encrypted
+                else None
+            )
             if not provider_type:
                 raise LLMInvokeError("Provider type is empty in generation decision.")
             if not model_name:
@@ -595,6 +732,7 @@ class TaskService:
                 knowledge_search_fn=execute_knowledge_search if can_use_knowledge_search else None,
                 llm_generate_fn=llm_generate,
                 no_source_file=no_source_file,
+                template_constraints=template_constraints,
                 skill_execute_fn=skill_execute,
             )
             duration_outline = int((time.perf_counter() - start_outline) * 1000)
@@ -619,6 +757,7 @@ class TaskService:
                     knowledge_search_fn=execute_knowledge_search if can_use_knowledge_search else None,
                     llm_generate_fn=None,
                     no_source_file=no_source_file,
+                    template_constraints=template_constraints,
                     skill_execute_fn=skill_execute,
                 )
             except Exception:
@@ -680,10 +819,7 @@ class TaskService:
         slides_path.write_text(json.dumps(artifacts.slides, ensure_ascii=False, indent=2), encoding="utf-8")
 
         try:
-            exporter = PptxExporter()
-            template_bundle = self._resolve_selected_template_bundle(task)
-            template_path = Path(str(template_bundle["template_file"])) if template_bundle else None
-            exported = exporter.export(artifacts.slides, output_path, template_path=template_path, template_bundle=template_bundle)
+            exported = self._render_ppt_with_template(task=task, task_id=task_id, slides=artifacts.slides, output_path=output_path)
             if not exported.exists():
                 raise PptxExportError(f"Export finished but output file missing: {exported}")
         except PptxExportError as exc:
@@ -803,10 +939,7 @@ class TaskService:
         slides_path.write_text(json.dumps(slides, ensure_ascii=False, indent=2), encoding="utf-8")
         outline_path.write_text(json.dumps([], ensure_ascii=False, indent=2), encoding="utf-8")
 
-        exporter = PptxExporter()
-        template_bundle = self._resolve_selected_template_bundle(task)
-        template_path = Path(str(template_bundle["template_file"])) if template_bundle else None
-        exported = exporter.export(slides, output_path, template_path=template_path, template_bundle=template_bundle)
+        exported = self._render_ppt_with_template(task=task, task_id=task_id, slides=slides, output_path=output_path)
 
         output = OutputFile(
             output_id=new_id("output"),
@@ -1170,6 +1303,18 @@ class TaskService:
                 new_bullets = prev_bullets
             if not new_bullets:
                 new_bullets = prev_bullets[:5] if prev_bullets else [instruction[:120]]
+            if sum(len(str(b)) for b in new_bullets) > 900:
+                fitted_bullets: list[str] = []
+                remaining_chars = 840
+                for bullet in new_bullets[:5]:
+                    text = str(bullet).strip()
+                    if not text or remaining_chars <= 0:
+                        continue
+                    if len(text) > remaining_chars:
+                        text = text[: max(1, remaining_chars - 3)].rstrip() + "..."
+                    fitted_bullets.append(text)
+                    remaining_chars -= len(text)
+                new_bullets = fitted_bullets or [str(new_bullets[0])[:180]]
             notes = str(revised_payload.get("notes", target_slide.get("notes", ""))).strip()[:1000]
             placeholders_raw = revised_payload.get("image_placeholders", [])
             placeholders: list[dict[str, str]] = []
@@ -1187,6 +1332,7 @@ class TaskService:
             target_slide["bullets"] = new_bullets
             target_slide["notes"] = notes
             target_slide["image_placeholders"] = placeholders
+            target_slide.pop("texts", None)
             slides[target_idx - 1] = target_slide
             revised_pages.append(target_idx)
 
@@ -1209,10 +1355,7 @@ class TaskService:
         new_slides_path.write_text(json.dumps(slides, ensure_ascii=False, indent=2), encoding="utf-8")
         new_outline_path.write_text(json.dumps([], ensure_ascii=False, indent=2), encoding="utf-8")
 
-        exporter = PptxExporter()
-        template_bundle = self._resolve_selected_template_bundle(task)
-        template_path = Path(str(template_bundle["template_file"])) if template_bundle else None
-        exported = exporter.export(slides, output_path, template_path=template_path, template_bundle=template_bundle)
+        exported = self._render_ppt_with_template(task=task, task_id=task_id, slides=slides, output_path=output_path)
         output = OutputFile(
             output_id=new_id("output"),
             task_id=task_id,
@@ -1246,12 +1389,15 @@ class TaskService:
         templates_dir = Path(__file__).resolve().parents[2] / "templates" / "ppt"
         if not templates_dir.exists():
             return None
+        def is_valid_bundle(template_file: Path) -> bool:
+            return bool(validate_template_bundle(template_file.parent).get("ok", False))
+
         style_name = (style or "").strip()
         if style_name:
             exact = templates_dir / style_name / TEMPLATE_PPT_FILENAME
-            if exact.exists() and exact.is_file():
+            if exact.exists() and exact.is_file() and is_valid_bundle(exact):
                 return exact
-        template_files = [p for p in templates_dir.glob(f"**/{TEMPLATE_PPT_FILENAME}") if p.is_file()]
+        template_files = [p for p in templates_dir.glob(f"**/{TEMPLATE_PPT_FILENAME}") if p.is_file() and is_valid_bundle(p)]
         if not template_files:
             return None
         style_key = self._normalize_style_key(style)
@@ -1302,31 +1448,63 @@ class TaskService:
         }
 
     def _resolve_selected_template_path(self, task: Task) -> Optional[Path]:
-        template_choice = (self._extract_task_setting(task.user_requirement, "TemplateChoice") or "").strip()
-        if template_choice:
-            bundle = self._resolve_template_bundle(template_choice)
-            return Path(bundle["template_file"])
-        return self._resolve_template_path(task.style)
+        template_choice = self._require_task_template_choice(task)
+        bundle = self._resolve_template_bundle(template_choice)
+        return Path(bundle["template_file"])
 
     def _resolve_selected_template_bundle(self, task: Task) -> Optional[dict[str, Any]]:
-        template_choice = (self._extract_task_setting(task.user_requirement, "TemplateChoice") or "").strip()
-        if template_choice:
-            return self._resolve_template_bundle(template_choice)
-        style_path = self._resolve_template_path(task.style)
-        if not style_path:
-            return None
-        bundle_dir = style_path.parent
-        validation = validate_template_bundle(bundle_dir)
-        if not bool(validation.get("ok", False)):
-            return None
-        return {
-            "template_name": bundle_dir.name,
-            "bundle_dir": bundle_dir,
-            "template_file": style_path,
-            "meta_path": bundle_dir / TEMPLATE_META_FILENAME,
-            "rules_path": bundle_dir / BUNDLE_RULES_FILENAME,
-            "script_path": bundle_dir / TEMPLATE_RENDER_SCRIPT_FILENAME,
+        template_choice = self._require_task_template_choice(task)
+        return self._resolve_template_bundle(template_choice)
+
+    def _read_required_json_object(self, path: Path, *, label: str) -> dict[str, Any]:
+        if not path.exists() or not path.is_file():
+            raise PptxExportError(f"Template {label} missing: {path}")
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise PptxExportError(f"Template {label} parse failed: {path}: {exc}") from exc
+        if not isinstance(data, dict):
+            raise PptxExportError(f"Template {label} must be a JSON object: {path}")
+        return data
+
+    def _render_ppt_with_template(self, *, task: Task, task_id: str, slides: list[dict[str, Any]], output_path: Path) -> Path:
+        template_bundle = self._resolve_selected_template_bundle(task)
+        if not template_bundle:
+            raise PptxExportError("Template bundle not found for PPT task.")
+        template_dir = Path(str(template_bundle["bundle_dir"]))
+        script_path = Path(str(template_bundle["script_path"]))
+        payload: dict[str, Any] = {
+            "render_template": True,
+            "task_id": task_id,
+            "slides": slides,
+            "template_name": str(template_bundle.get("template_name", template_dir.name)),
+            "template_dir": str(template_dir.resolve()),
+            "output_pptx_path": str(output_path.resolve()),
+            "timeout_seconds": max(1, int(settings.default_task_timeout_seconds)),
         }
+        self._add_event(task_id, "exporting", f"template_script_render_started script={script_path.name}")
+        started = time.perf_counter()
+        try:
+            result = SkillExecutor.create_default().execute("ppt_generation", payload)
+            self._add_skill_call(
+                task_id,
+                "ppt_generation_template_render",
+                {k: v for k, v in payload.items() if k != "slides"} | {"slides": len(slides)},
+                {
+                    "output_path": result.get("output_path", ""),
+                    "renderer": result.get("renderer", ""),
+                    "slides": len(result.get("slides", [])) if isinstance(result.get("slides", []), list) else 0,
+                },
+                max(1, int((time.perf_counter() - started) * 1000)),
+            )
+            exported = Path(str(result.get("output_path", ""))).resolve()
+        except Exception as exc:
+            self._add_event(task_id, "failed_export", f"template_script_render_failed={str(exc)[:200]}")
+            raise PptxExportError(f"Template script render failed: {exc}") from exc
+        if not exported.exists():
+            raise PptxExportError(f"Template script render finished but output missing: {exported}")
+        self._add_event(task_id, "exporting", f"template_script_render_succeeded script={script_path.name}")
+        return exported
 
     def _load_template_context(self, style: str) -> str:
         path = self._resolve_template_path(style)
@@ -1351,7 +1529,7 @@ class TaskService:
         return "\n".join(parts).strip()
 
     def _load_template_context_for_task(self, task: Task) -> str:
-        template_choice = (self._extract_task_setting(task.user_requirement, "TemplateChoice") or "").strip()
+        template_choice = self._get_task_template_choice(task)
         if template_choice:
             bundle = self._resolve_template_bundle(template_choice)
             parts: list[str] = []
@@ -1370,7 +1548,48 @@ class TaskService:
                 except Exception:
                     pass
             return "\n".join(parts).strip()
-        return self._load_template_context(task.style)
+        return ""
+
+    def _load_template_constraints_for_task(self, task: Task) -> dict[str, Any]:
+        template_choice = self._get_task_template_choice(task)
+        if not template_choice:
+            return {}
+        bundle = self._resolve_template_bundle(template_choice)
+        constraints: dict[str, Any] = {
+            "template_choice": template_choice,
+            "template_name": str(bundle.get("template_name", template_choice)),
+            "meta": {},
+            "rules": {},
+        }
+        meta_path = Path(bundle["meta_path"])
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                if isinstance(meta, dict):
+                    constraints["meta"] = meta
+            except Exception:
+                pass
+        rules_path = Path(bundle["rules_path"])
+        if rules_path.exists():
+            try:
+                rules = json.loads(rules_path.read_text(encoding="utf-8"))
+                if isinstance(rules, dict):
+                    constraints["rules"] = rules
+            except Exception:
+                pass
+        meta_obj = constraints.get("meta", {}) if isinstance(constraints.get("meta"), dict) else {}
+        rules_obj = constraints.get("rules", {}) if isinstance(constraints.get("rules"), dict) else {}
+        constraints["style_mode"] = (
+            (meta_obj.get("render", {}) or {}).get("style_mode")
+            if isinstance(meta_obj.get("render", {}), dict)
+            else None
+        ) or rules_obj.get("style_mode")
+        constraints["slot_binding"] = meta_obj.get("slot_binding", {}) if isinstance(meta_obj, dict) else {}
+        constraints["render"] = {
+            **((meta_obj.get("render", {}) or {}) if isinstance(meta_obj.get("render", {}), dict) else {}),
+            **((rules_obj.get("render", {}) or {}) if isinstance(rules_obj.get("render", {}), dict) else {}),
+        }
+        return constraints
 
     def _normalize_style_key(self, value: str) -> str:
         return "".join((ch.lower() if ch.isalnum() else "_") for ch in (value or "")).strip("_")
@@ -1399,7 +1618,7 @@ class TaskService:
                     return value or None
         return None
 
-    def list_ppt_templates(self) -> list[dict[str, Any]]:
+    def list_ppt_templates(self, include_invalid: bool = False) -> list[dict[str, Any]]:
         templates_dir = Path(__file__).resolve().parents[2] / "templates" / "ppt"
         if not templates_dir.exists():
             return []
@@ -1408,7 +1627,8 @@ class TaskService:
             if not bundle_dir.is_dir():
                 continue
             validation = validate_template_bundle(bundle_dir)
-            if not bool(validation.get("ok", False)):
+            is_valid = bool(validation.get("ok", False))
+            if not is_valid and not include_invalid:
                 continue
             template_name = bundle_dir.name
             pptx = bundle_dir / TEMPLATE_PPT_FILENAME
@@ -1419,6 +1639,7 @@ class TaskService:
                     meta = json.loads(meta_path.read_text(encoding="utf-8"))
                 except Exception:
                     meta = {}
+            preview_count = 1 if pptx.exists() else 0
             items.append(
                 {
                     "name": template_name,
@@ -1426,18 +1647,301 @@ class TaskService:
                     "file_path": str(pptx.resolve()),
                     "metadata_file": str(meta_path.resolve()) if meta_path.exists() else None,
                     "metadata": meta,
-                    "is_valid": True,
-                    "missing_files": [],
+                    "is_valid": is_valid,
+                    "missing_files": list(validation.get("missing_files", [])),
+                    "forbidden_files": list(validation.get("forbidden_files", [])),
+                    "validation_errors": list(validation.get("errors", [])),
                     "schema_version": str(meta.get("schema_version", TEMPLATE_SCHEMA_VERSION)),
+                    "preview_images": [
+                        {
+                            "page": idx + 1,
+                            "url": f"/v1/tasks/ppt/templates/{template_name}/preview/{idx + 1}",
+                        }
+                        for idx in range(preview_count)
+                    ],
+                    "sample_preview_images": [
+                        {
+                            "page": idx + 1,
+                            "url": f"/v1/tasks/ppt/templates/{template_name}/sample-preview/{idx + 1}",
+                        }
+                        for idx in range(preview_count)
+                    ],
                 }
             )
         items.sort(key=lambda x: str(x.get("name", "")))
         return items
 
-    def list_templates(self, template_type: str) -> list[dict[str, Any]]:
+    def _pptx_slide_count(self, pptx: Path) -> int:
+        if not pptx.exists():
+            return 0
+        try:
+            from pptx import Presentation
+
+            return len(Presentation(str(pptx)).slides)
+        except Exception:
+            return 1
+
+    def get_ppt_template_preview_image(self, template_name: str, page: int) -> Path:
+        safe_name = self._normalize_template_choice_value(template_name) or "system_default"
+        templates_dir = Path(__file__).resolve().parents[2] / "templates" / "ppt"
+        template_dir = templates_dir / safe_name
+        try:
+            template_dir.resolve().relative_to(templates_dir.resolve())
+        except ValueError:
+            raise ValueError("Invalid template name.")
+        if page < 1:
+            raise ValueError("Invalid preview page.")
+        images = self._ensure_ppt_template_preview_images(template_dir)
+        index = page - 1
+        if index < 0 or index >= len(images):
+            raise ValueError("Template preview page not found.")
+        return images[index]
+
+    def get_ppt_template_sample_preview_image(self, template_name: str, page: int) -> Path:
+        safe_name = self._normalize_template_choice_value(template_name) or "system_default"
+        templates_dir = Path(__file__).resolve().parents[2] / "templates" / "ppt"
+        template_dir = templates_dir / safe_name
+        try:
+            template_dir.resolve().relative_to(templates_dir.resolve())
+        except ValueError:
+            raise ValueError("Invalid template name.")
+        meta_path = template_dir / TEMPLATE_META_FILENAME
+        meta: dict[str, Any] = {}
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except Exception:
+                meta = {}
+        images = self._ensure_ppt_template_sample_preview_images(template_dir, meta)
+        index = page - 1
+        if index < 0 or index >= len(images):
+            raise ValueError("Template sample preview page not found.")
+        return images[index]
+
+    def _ensure_ppt_template_preview_images(self, template_dir: Path) -> list[Path]:
+        pptx = template_dir / TEMPLATE_PPT_FILENAME
+        if not pptx.exists():
+            return []
+        preview_dir = template_dir / "preview_images"
+        return self._render_pptx_preview_images(pptx, preview_dir)
+
+    def _ensure_uploaded_ppt_template_preview_images(self, task_id: str, source_ppt: Path) -> list[Path]:
+        if source_ppt.suffix.lower() not in {".ppt", ".pptx"} or not source_ppt.exists():
+            return []
+        preview_dir = self.storage_root / "uploads" / task_id / "source_preview_images"
+        return self._render_pptx_preview_images(source_ppt, preview_dir)
+
+    def _get_uploaded_ppt_template_preview_images(self, task_id: str) -> list[Path]:
+        files = self.repos.files.list_by_task(task_id)
+        if not files:
+            return []
+        source_ppt = Path(files[0].file_path)
+        return self._ensure_uploaded_ppt_template_preview_images(task_id, source_ppt)
+
+    def _ensure_ppt_template_sample_preview_images(self, template_dir: Path, meta: dict[str, Any]) -> list[Path]:
+        sample_dir = template_dir / "sample_preview"
+        sample_pptx = sample_dir / "sample.pptx"
+        script = template_dir / TEMPLATE_RENDER_SCRIPT_FILENAME
+        template_pptx = template_dir / TEMPLATE_PPT_FILENAME
+        if not script.exists() or not template_pptx.exists():
+            return []
+        if not sample_pptx.exists() or sample_pptx.stat().st_mtime < script.stat().st_mtime or sample_pptx.stat().st_mtime < template_pptx.stat().st_mtime:
+            sample_dir.mkdir(parents=True, exist_ok=True)
+            rules = self._read_json_file(template_dir / TEMPLATE_RULES_FILENAME)
+            payload = {
+                "task_id": "template_sample",
+                "template_name": str(meta.get("template_name") or template_dir.name),
+                "slides": self._sample_slides_for_template(meta),
+            }
+            try:
+                TemplateScriptRunner().render(
+                    script_path=script,
+                    payload=payload,
+                    output_path=str(sample_pptx),
+                    template_path=str(template_pptx),
+                    meta=meta,
+                    rules=rules,
+                    timeout_seconds=60,
+                )
+            except Exception:
+                return []
+        return self._render_pptx_preview_images(sample_pptx, template_dir / "sample_preview_images")
+
+    def _sample_slides_for_template(self, meta: dict[str, Any]) -> list[dict[str, Any]]:
+        groups = meta.get("text_slots", []) if isinstance(meta, dict) else []
+        rows = groups if isinstance(groups, list) and groups else [
+            {"slide_kind": "cover", "slots": [{"slot_id": "cover_title", "content_key": "page_title"}]},
+            {"slide_kind": "content", "slots": [{"slot_id": "content_title", "content_key": "page_title"}, {"slot_id": "content_body", "content_key": "main_content"}]},
+            {"slide_kind": "summary", "slots": [{"slot_id": "summary_title", "content_key": "page_title"}]},
+        ]
+        samples: list[dict[str, Any]] = []
+        for idx, group in enumerate(rows[:3], start=1):
+            if not isinstance(group, dict):
+                continue
+            kind = str(group.get("slide_kind") or ("cover" if idx == 1 else "summary" if idx == len(rows[:3]) else "content"))
+            texts: dict[str, str] = {}
+            for slot in group.get("slots", []) if isinstance(group.get("slots", []), list) else []:
+                if not isinstance(slot, dict):
+                    continue
+                slot_id = str(slot.get("slot_id", "")).strip()
+                if not slot_id:
+                    continue
+                key = str(slot.get("content_key", "")).strip()
+                role = str(slot.get("role", "")).strip().lower()
+                if key == "page_title" or role == "title":
+                    texts[slot_id] = "样例标题"
+                elif key == "remarks":
+                    texts[slot_id] = "本页备注示例"
+                else:
+                    texts[slot_id] = "这里展示本页主要内容"
+            samples.append(
+                {
+                    "index": idx,
+                    "kind": kind,
+                    "title": "样例标题",
+                    "bullets": ["这里展示本页主要内容", "第二条样例内容"],
+                    "texts": texts,
+                    "notes": "样例备注",
+                    "image_placeholders": [{"label": "样例图片位置", "source": "template sample"}],
+                }
+            )
+        return samples or [{"index": 1, "kind": "content", "title": "样例标题", "bullets": ["这里展示本页主要内容"], "texts": {}}]
+
+    def _read_json_file(self, path: Path) -> dict[str, Any]:
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _render_pptx_preview_images(self, pptx: Path, preview_dir: Path) -> list[Path]:
+        if not pptx.exists():
+            return []
+        preview_dir.mkdir(parents=True, exist_ok=True)
+        marker = preview_dir / ".powerpoint_export.ok"
+        existing = sorted(preview_dir.glob("slide_*.png"))
+        if marker.exists() and existing and all(p.stat().st_mtime >= pptx.stat().st_mtime for p in existing):
+            return existing[:1]
+        exported = self._export_pptx_screenshots_with_powerpoint(pptx, preview_dir)
+        if exported:
+            marker.write_text(str(time.time()), encoding="utf-8")
+            return exported
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            from pptx import Presentation
+        except Exception:
+            return []
+        existing = sorted(preview_dir.glob("slide_*.png"))
+        if existing and all(p.stat().st_mtime >= pptx.stat().st_mtime for p in existing):
+            return existing[:1]
+        for old in existing:
+            try:
+                old.unlink()
+            except Exception:
+                pass
+        prs = Presentation(str(pptx))
+        slide_w = max(1, int(prs.slide_width))
+        slide_h = max(1, int(prs.slide_height))
+        target_w = 960
+        target_h = max(1, int(target_w * slide_h / slide_w))
+        sx = target_w / slide_w
+        sy = target_h / slide_h
+        font = self._preview_font(ImageFont, 22)
+        small_font = self._preview_font(ImageFont, 14)
+        output: list[Path] = []
+        for index, slide in enumerate(list(prs.slides)[:1], start=1):
+            image = Image.new("RGB", (target_w, target_h), "white")
+            draw = ImageDraw.Draw(image)
+            for shape in slide.shapes:
+                left = int(float(getattr(shape, "left", 0)) * sx)
+                top = int(float(getattr(shape, "top", 0)) * sy)
+                width = max(1, int(float(getattr(shape, "width", 0)) * sx))
+                height = max(1, int(float(getattr(shape, "height", 0)) * sy))
+                box = (left, top, left + width, top + height)
+                try:
+                    if int(getattr(shape, "shape_type", 0)) == 13 and getattr(shape, "image", None):
+                        from io import BytesIO
+
+                        pic = Image.open(BytesIO(shape.image.blob)).convert("RGB")
+                        pic.thumbnail((width, height))
+                        px = left + max(0, (width - pic.width) // 2)
+                        py = top + max(0, (height - pic.height) // 2)
+                        image.paste(pic, (px, py))
+                        continue
+                except Exception:
+                    pass
+                text = ""
+                try:
+                    text = str(shape.text or "").strip()
+                except Exception:
+                    text = ""
+                if text:
+                    draw.rectangle(box, outline=(210, 216, 224), width=1)
+                    draw.multiline_text((left + 6, top + 4), text[:220], fill=(30, 41, 59), font=font, spacing=4)
+                elif width > 8 and height > 8:
+                    try:
+                        draw.rectangle(box, outline=(235, 238, 242), width=1)
+                    except Exception:
+                        pass
+            draw.text((target_w - 86, target_h - 24), f"Slide {index}", fill=(100, 116, 139), font=small_font)
+            out = preview_dir / f"slide_{index:03d}.png"
+            image.save(out)
+            output.append(out)
+        return output
+
+    def _export_pptx_screenshots_with_powerpoint(self, pptx: Path, preview_dir: Path) -> list[Path]:
+        target = preview_dir / "slide_001.png"
+        for old in preview_dir.glob("slide_*.png"):
+            try:
+                old.unlink()
+            except Exception:
+                pass
+        script = (
+            "$ErrorActionPreference='Stop';"
+            f"$pptx={json.dumps(str(pptx.resolve()))};"
+            f"$out={json.dumps(str(target.resolve()))};"
+            "$app=New-Object -ComObject PowerPoint.Application;"
+            "$presentation=$null;"
+            "try {"
+            "$presentation=$app.Presentations.Open($pptx, $true, $false, $false);"
+            "$presentation.Slides.Item(1).Export($out, 'PNG', 1280, 720);"
+            "} finally {"
+            "if ($presentation -ne $null) { $presentation.Close(); }"
+            "$app.Quit();"
+            "}"
+        )
+        try:
+            completed = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+                cwd=str(preview_dir),
+                capture_output=True,
+                text=True,
+                timeout=90,
+            )
+        except Exception:
+            return []
+        if completed.returncode != 0:
+            return []
+        return [target] if target.exists() else []
+
+    def _preview_font(self, image_font: Any, size: int) -> Any:
+        for candidate in (
+            "C:/Windows/Fonts/msyh.ttc",
+            "C:/Windows/Fonts/simhei.ttf",
+            "C:/Windows/Fonts/arial.ttf",
+        ):
+            try:
+                return image_font.truetype(candidate, size)
+            except Exception:
+                pass
+        return image_font.load_default()
+
+    def list_templates(self, template_type: str, include_invalid: bool = False) -> list[dict[str, Any]]:
         normalized = (template_type or "").strip().lower()
         if normalized == "ppt":
-            return self.list_ppt_templates()
+            return self.list_ppt_templates(include_invalid=include_invalid)
         templates_dir = Path(__file__).resolve().parents[2] / "templates" / normalized
         if not templates_dir.exists():
             return []
@@ -1944,6 +2448,13 @@ class TaskService:
         skill_executor = SkillExecutor.create_default()
         planning_decision = ModelRouter(self.repos).pick(task.user_id, "planning")
         default_cfg = self.repos.providers.get_default_for_user(task.user_id)
+        template_llm_generate = self._build_aux_llm_generate_fn(
+            task_id=task_id,
+            user_id=task.user_id,
+            stage="planning",
+            audit_name="template_generation_llm",
+            timeout_seconds=default_cfg.timeout_seconds if default_cfg and default_cfg.timeout_seconds else 180,
+        )
 
         def skill_execute(skill_name: str, payload: dict[str, Any]) -> dict[str, Any]:
             effective_payload = dict(payload)
@@ -1954,29 +2465,60 @@ class TaskService:
                 effective_payload.setdefault("base_url", planning_decision.base_url or "")
                 effective_payload.setdefault("model_name", planning_decision.model_name or "")
                 effective_payload.setdefault("api_key", (default_cfg.api_key_encrypted if default_cfg and default_cfg.api_key_encrypted else ""))
+            if skill_name in {"ppt_template_generation", "template_generation"}:
+                effective_payload.setdefault("llm_generate_fn", template_llm_generate)
+            safe_payload = {
+                k: ("<callable>" if callable(v) else v)
+                for k, v in effective_payload.items()
+            }
             started = time.perf_counter()
-            output = skill_executor.execute(skill_name, effective_payload)
-            self._add_skill_call(
-                task_id,
-                skill_name,
-                effective_payload,
-                output,
-                max(1, int((time.perf_counter() - started) * 1000)),
-            )
-            return output
+            try:
+                output = skill_executor.execute(skill_name, effective_payload)
+                self._add_skill_call(
+                    task_id,
+                    skill_name,
+                    safe_payload,
+                    output,
+                    max(1, int((time.perf_counter() - started) * 1000)),
+                )
+                return output
+            except Exception as exc:
+                self._add_skill_call(
+                    task_id,
+                    f"{skill_name}_failed",
+                    safe_payload,
+                    {"error": str(exc)[:500]},
+                    max(1, int((time.perf_counter() - started) * 1000)),
+                )
+                raise
 
         templates_root = Path(__file__).resolve().parents[2] / "templates"
         agent = TemplateGenerationTaskAgent()
-        result = agent.execute(
-            requirement=task.user_requirement,
-            parsed_text=parsed_text,
-            source_file_path=source_file_path,
-            templates_root=str(templates_root.resolve()),
-            skill_execute_fn=skill_execute,
-        )
+        try:
+            result = agent.execute(
+                requirement=task.user_requirement,
+                parsed_text=parsed_text,
+                source_file_path=source_file_path,
+                templates_root=str(templates_root.resolve()),
+                skill_execute_fn=skill_execute,
+            )
+        except Exception as exc:
+            self.repos.tasks.update_status(task_id, "failed_generation")
+            self._add_agent_run(task_id, "TemplateGenerationTaskAgent", "failed", str(exc)[:300])
+            self._add_event(task_id, "failed_generation", f"template_generation_failed={str(exc)[:200]}")
+            self._snapshot_excel()
+            raise ValueError(f"Template generation failed: {exc}") from exc
         self._add_agent_run(task_id, "TemplateGenerationTaskAgent", "completed", f"type={result.template_type};name={result.template_name}")
         if result.status == "requires_user_completion":
             self.repos.tasks.update_status(task_id, "requires_user_completion")
+            validation_audit = {
+                "template_name": result.template_name,
+                "template_type": result.template_type,
+                "ok": False,
+                "missing_files": result.missing_items,
+                "missing_fields": result.missing_fields,
+                "errors": result.validation_errors,
+            }
             recovery_payload = {
                 "task_id": task_id,
                 "template_type": result.template_type,
@@ -1985,11 +2527,31 @@ class TaskService:
                 "template_file": result.template_file,
                 "metadata_file": result.metadata_file,
                 "params_file": result.params_file,
+                "rules_file": result.rules_file,
                 "render_script": result.render_script,
+                "recovery_file": result.recovery_file,
+                "missing_items": result.missing_items,
                 "missing_fields": result.missing_fields,
+                "validation_errors": result.validation_errors,
                 "suggested_values": result.suggested_values,
+                "resume_token": result.resume_token,
+                "resume_attempt": 0,
+                "bundle_validation": validation_audit,
             }
             self._write_template_recovery_payload(task_id, recovery_payload)
+            self._add_skill_call(task_id, "template_bundle_validation", {"template_name": result.template_name, "template_type": result.template_type}, validation_audit, 1)
+            self._add_event(
+                task_id,
+                "planning",
+                (
+                    "template_bundle_validation;"
+                    f"template_name={result.template_name};"
+                    f"ok=False;"
+                    f"missing_items={len(result.missing_items)};"
+                    f"missing_fields={len(result.missing_fields)};"
+                    f"validation_errors={len(result.validation_errors)}"
+                ),
+            )
             self._add_event(task_id, "requires_user_completion", f"template_generation_requires_user_completion:{json.dumps(recovery_payload, ensure_ascii=False)}")
             self._snapshot_excel()
             return {"task_id": task_id, "status": "requires_user_completion", **recovery_payload}
@@ -2017,6 +2579,9 @@ class TaskService:
             file_path=str(output_path.resolve()),
         )
         self.repos.outputs.create(out)
+        if source_file_path:
+            preview_images = self._ensure_uploaded_ppt_template_preview_images(task_id, Path(source_file_path))
+            self._add_event(task_id, "exporting", f"uploaded_template_preview_ready images={len(preview_images)}")
         self.repos.tasks.update_status(task_id, "completed")
         self._add_event(task_id, "completed", f"template_generated type={result.template_type};name={result.template_name}")
         self._clear_template_recovery_payload(task_id)
@@ -2056,12 +2621,22 @@ class TaskService:
             raise ValueError("Invalid resume token.")
         resume_attempt = int(recovery.get("resume_attempt", 0) or 0) + 1
         recovery["resume_attempt"] = resume_attempt
+        self._add_event(
+            task_id,
+            "revision_requested",
+            (
+                "template_generation_resume_started;"
+                f"template_name={recovery.get('template_name', '')};"
+                f"resume_attempt={resume_attempt};"
+                f"filled_fields={len(user_filled_fields or {})}"
+            ),
+        )
         template_dir = Path(str(recovery.get("template_dir", "")))
         meta_path = Path(str(recovery.get("metadata_file", ""))) if recovery.get("metadata_file") else (template_dir / BUNDLE_META_FILENAME)
         rules_path = Path(str(recovery.get("rules_file", ""))) if recovery.get("rules_file") else (template_dir / BUNDLE_RULES_FILENAME)
-        if not meta_path.exists():
-            raise ValueError("Recovery metadata file not found.")
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if not template_dir.exists():
+            raise ValueError("Recovery template directory not found.")
+        meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {"schema_version": TEMPLATE_SCHEMA_VERSION, "template_type": "ppt"}
         updates = user_filled_fields or {}
         for key, value in updates.items():
             if not str(value).strip():
@@ -2071,7 +2646,7 @@ class TaskService:
                     rules_path.write_text(json.dumps({"schema_version": "v1", "rules": []}, ensure_ascii=False, indent=2), encoding="utf-8")
                 rules = json.loads(rules_path.read_text(encoding="utf-8"))
                 rules_key = key[len("rules.") :]
-                rules_value: Any = value
+                rules_value: Any = self._coerce_recovery_value(value)
                 if rules_key == "rules":
                     try:
                         parsed = json.loads(str(value))
@@ -2082,10 +2657,23 @@ class TaskService:
                 self._set_nested_key(rules, rules_key, rules_value)
                 rules_path.write_text(json.dumps(rules, ensure_ascii=False, indent=2), encoding="utf-8")
             else:
-                self._set_nested_key(meta, key, value)
+                meta_key = str(key)
+                if meta_key.startswith("meta."):
+                    meta_key = meta_key[len("meta.") :]
+                self._set_nested_key(meta, meta_key, self._coerce_recovery_value(value))
         meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
+        template_dir_recovery = template_dir / "template.recovery.json"
+        if template_dir_recovery.exists():
+            template_dir_recovery.unlink()
         validation = validate_template_bundle(template_dir)
+        self._add_skill_call(
+            task_id,
+            "template_bundle_validation",
+            {"template_name": recovery.get("template_name", template_dir.name), "resume_attempt": resume_attempt},
+            validation,
+            1,
+        )
         self._add_event(
             task_id,
             "planning",
@@ -2099,7 +2687,19 @@ class TaskService:
         )
         if not bool(validation.get("ok", False)):
             recovery["missing_items"] = validation.get("missing_files", [])
+            recovery["missing_fields"] = validation.get("missing_files", [])
             recovery["validation_errors"] = validation.get("errors", [])
+            recovery["bundle_validation"] = {
+                "template_name": recovery.get("template_name", template_dir.name),
+                "ok": False,
+                "missing_files": validation.get("missing_files", []),
+                "errors": validation.get("errors", []),
+                "resume_attempt": resume_attempt,
+            }
+            recovery["suggested_values"] = self._suggest_template_recovery_values(
+                missing_items=[str(x) for x in validation.get("missing_files", [])],
+                validation_errors=[str(x) for x in validation.get("errors", [])],
+            )
             self._write_template_recovery_payload(task_id, recovery)
             task = self.repos.tasks.update_status(task_id, "requires_user_completion")
             self._add_event(
@@ -2130,6 +2730,20 @@ class TaskService:
             except Exception:
                 rules_count = 0
         self._clear_template_recovery_payload(task_id)
+        output_path = Path(str(recovery.get("template_file") or (template_dir / BUNDLE_META_FILENAME))).with_name(TEMPLATE_PPT_FILENAME)
+        if not output_path.exists():
+            candidate = Path(str(recovery.get("template_file", "")))
+            if candidate.exists():
+                output_path = candidate
+        if output_path.exists() and self.repos.outputs.get_latest(task_id) is None:
+            out = OutputFile(
+                output_id=new_id("output"),
+                task_id=task_id,
+                version=1,
+                file_type="pptx",
+                file_path=str(output_path.resolve()),
+            )
+            self.repos.outputs.create(out)
         task = self.repos.tasks.update_status(task_id, "completed")
         self._add_event(
             task_id,
@@ -2142,7 +2756,13 @@ class TaskService:
             ),
         )
         self._snapshot_excel()
-        return {"task_id": task_id, "status": task.status if task else "completed"}
+        return {
+            "task_id": task_id,
+            "status": task.status if task else "completed",
+            "template_name": recovery.get("template_name", template_dir.name),
+            "resume_attempt": resume_attempt,
+            "applied_rules": rules_count,
+        }
 
     def complete_template_generation_recovery(self, task_id: str, fields: dict[str, str]) -> dict[str, Any]:
         # Backward-compatible alias for previous frontend route.
@@ -2189,6 +2809,48 @@ class TaskService:
             curr = curr[part]
         if isinstance(curr, dict):
             curr[parts[-1]] = value
+
+    def _coerce_recovery_value(self, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        if not text:
+            return value
+        try:
+            return json.loads(text)
+        except Exception:
+            return value
+
+    def _suggest_template_recovery_values(self, *, missing_items: list[str], validation_errors: list[str]) -> dict[str, str]:
+        suggestions: dict[str, str] = {}
+        for item in missing_items:
+            if item == BUNDLE_RULES_FILENAME:
+                suggestions["rules.schema_version"] = TEMPLATE_SCHEMA_VERSION
+                suggestions["rules.rules"] = '[{"name":"text_overflow","action":"shrink"}]'
+            else:
+                suggestions[item] = f"Please provide valid {item}."
+        for err in validation_errors:
+            if "meta.slide_size.aspect_ratio" in err:
+                suggestions["slide_size.aspect_ratio"] = "16:9"
+            if "meta.layout_map.cover" in err:
+                suggestions["layout_map.cover"] = "Title Slide"
+            if "meta.layout_map.content" in err:
+                suggestions["layout_map.content"] = "Title and Content"
+            if "meta.layout_map.summary" in err:
+                suggestions["layout_map.summary"] = "Title and Content"
+            if "meta.text_style.title.font" in err:
+                suggestions["text_style.title.font"] = "auto"
+            if "meta.text_style.title.size_pt" in err:
+                suggestions["text_style.title.size_pt"] = "32"
+            if "meta.text_style.body.font" in err:
+                suggestions["text_style.body.font"] = "auto"
+            if "meta.text_style.body.size_pt" in err:
+                suggestions["text_style.body.size_pt"] = "18"
+            if "rules.schema_version" in err:
+                suggestions["rules.schema_version"] = TEMPLATE_SCHEMA_VERSION
+            if "rules.rules" in err:
+                suggestions["rules.rules"] = '[{"name":"text_overflow","action":"shrink"}]'
+        return suggestions
 
     def _nested_key_has_value(self, data: dict[str, Any], key: str) -> bool:
         parts = [p for p in str(key).split(".") if p]
@@ -2345,28 +3007,119 @@ class TaskService:
         self._add_skill_call(task_id, "skill_registry_resolve", {"task_type": task_type, "stage": stage}, {"count": len(selected)}, 1)
         return selected
 
+    def _build_aux_llm_generate_fn(
+        self,
+        *,
+        task_id: str,
+        user_id: str,
+        stage: str,
+        audit_name: str,
+        timeout_seconds: int = 180,
+    ) -> Callable[[str], str]:
+        decision = ModelRouter(self.repos).pick(user_id, stage)  # type: ignore[arg-type]
+        default_cfg = self.repos.providers.get_default_for_user(user_id)
+        effective_timeout = max(1, int(timeout_seconds or 180))
+        llm_runtime = LLMTextGenerator()
+        self._add_event(
+            task_id,
+            "model_selecting",
+            (
+                f"{audit_name}_target="
+                f"{decision.provider_type}/{decision.model_name};"
+                f"source={decision.source};timeout={effective_timeout}s"
+            ),
+        )
+
+        def llm_generate(prompt: str) -> str:
+            provider_type = str(decision.provider_type or "").strip()
+            model_name = str(decision.model_name or "").strip()
+            base_url = decision.base_url.strip() if isinstance(decision.base_url, str) else decision.base_url
+            api_key = (default_cfg.api_key_encrypted or "").strip() if default_cfg and default_cfg.api_key_encrypted else None
+            if not provider_type:
+                raise LLMInvokeError("Provider type is empty in auxiliary model decision.")
+            if not model_name:
+                raise LLMInvokeError("Model name is empty in auxiliary model decision.")
+            if not (prompt or "").strip():
+                raise LLMInvokeError("Prompt is empty.")
+            self._add_event(
+                task_id,
+                "generating",
+                f"{audit_name}_start provider={provider_type};model={model_name};timeout={effective_timeout}s",
+            )
+            started = time.perf_counter()
+            try:
+                text = llm_runtime.generate(
+                    provider_type=provider_type,
+                    base_url=base_url,
+                    model_name=model_name,
+                    prompt=prompt,
+                    api_key=api_key,
+                    timeout_seconds=effective_timeout,
+                )
+            except Exception as exc:
+                self._add_event(
+                    task_id,
+                    "generating",
+                    f"{audit_name}_failed provider={provider_type};model={model_name};reason={str(exc)[:160]}",
+                )
+                self._add_skill_call(
+                    task_id,
+                    f"{audit_name}_failed",
+                    {
+                        "provider_type": provider_type,
+                        "model_name": model_name,
+                        "prompt_len": len(prompt),
+                        "prompt": prompt[:8000],
+                    },
+                    {"error": str(exc)[:300]},
+                    max(1, int((time.perf_counter() - started) * 1000)),
+                )
+                raise
+            duration_ms = max(1, int((time.perf_counter() - started) * 1000))
+            self._add_event(
+                task_id,
+                "generating",
+                f"{audit_name}_succeeded provider={provider_type};model={model_name};latency_ms={duration_ms}",
+            )
+            self._add_skill_call(
+                task_id,
+                audit_name,
+                {
+                    "provider_type": provider_type,
+                    "model_name": model_name,
+                    "prompt_len": len(prompt),
+                    "prompt": prompt[:8000],
+                },
+                {"text_len": len(text), "text": text[:12000]},
+                duration_ms,
+            )
+            return text
+
+        return llm_generate
+
     def _build_vector_index_service(self, user_id: str) -> VectorIndexService:
         cfg = self.repos.providers.get_default_for_user(user_id)
-        if cfg is not None and str(cfg.provider_type).strip().lower() == "ollama":
-            embedding_model = (cfg.embedding_model or cfg.model_name or "").strip()
+        if cfg is not None:
+            provider_type = str(cfg.provider_type or "").strip().lower()
+            embedding_model = (cfg.embedding_model or cfg.model_name or cfg.chat_model or "").strip()
             if embedding_model:
                 return VectorIndexService(
                     self.storage_root,
                     embedding_runtime_config={
-                        "provider_type": "ollama",
-                        "base_url": (cfg.base_url or "").strip() or "http://localhost:11434",
+                        "provider_type": provider_type,
+                        "base_url": (cfg.base_url or "").strip(),
                         "embedding_model": embedding_model,
                         "api_key": (cfg.api_key_encrypted or "").strip() if cfg.api_key_encrypted else "",
                         "timeout_seconds": cfg.timeout_seconds or 8,
                     },
                 )
-        default_ollama = OllamaConfig()
+        default_decision = ModelRouter(self.repos).pick(user_id, "planning")
         return VectorIndexService(
             self.storage_root,
             embedding_runtime_config={
-                "provider_type": "ollama",
-                "base_url": default_ollama.base_url,
-                "embedding_model": default_ollama.embedding_model,
+                "provider_type": default_decision.provider_type,
+                "base_url": default_decision.base_url or "",
+                "embedding_model": default_decision.model_name,
                 "timeout_seconds": 8,
             },
         )
@@ -2481,6 +3234,66 @@ class TaskService:
                 return value
         return None
 
+    def _get_task_template_choice(self, task: Task) -> str:
+        explicit = self._normalize_template_choice_value(task.template_choice or "")
+        if explicit:
+            return explicit
+        legacy = self._normalize_template_choice_value(self._extract_task_setting(task.user_requirement, "TemplateChoice") or "")
+        return legacy
+
+    def _normalize_template_choice_value(self, value: str) -> str:
+        raw = (value or "").strip().strip('"').strip("'")
+        if not raw:
+            return ""
+        templates_dir = Path(__file__).resolve().parents[2] / "templates" / "ppt"
+        normalized = raw.replace("\\", "/").rstrip("/")
+        candidate_path = Path(raw)
+        if candidate_path.is_absolute():
+            try:
+                resolved = candidate_path.resolve()
+                resolved.relative_to(templates_dir.resolve())
+                return resolved.name
+            except Exception:
+                return candidate_path.name
+        if "/" in normalized:
+            return Path(normalized).name
+        return raw
+
+    def _template_choice_from_style(self, style: str) -> str:
+        candidate = self._normalize_template_choice_value(style or "")
+        if not candidate:
+            return ""
+        templates_dir = Path(__file__).resolve().parents[2] / "templates" / "ppt"
+        bundle_dir = templates_dir / candidate
+        if bundle_dir.exists() and bundle_dir.is_dir():
+            return candidate
+        return ""
+
+    def _require_task_template_choice(self, task: Task) -> str:
+        template_choice = self._get_task_template_choice(task)
+        if not template_choice:
+            raise ValueError("PPT template choice is required. Please select a valid TemplateChoice.")
+        return template_choice
+
+    def _bind_task_setting(self, requirement_text: str, key: str, value: str) -> str:
+        marker = f"{key}="
+        replacement = f"{key}={value}"
+        lines = (requirement_text or "").splitlines()
+        replaced = False
+        bound_lines: list[str] = []
+        for line in lines:
+            if line.strip().startswith(marker):
+                if not replaced:
+                    bound_lines.append(replacement)
+                    replaced = True
+                continue
+            bound_lines.append(line)
+        if not replaced:
+            if bound_lines and bound_lines[-1].strip():
+                bound_lines.append("")
+            bound_lines.append(replacement)
+        return "\n".join(bound_lines).strip()
+
 
 def build_task_service(repos: RepositoryBundle) -> TaskService:
     return TaskService(repos=repos, storage_root=settings.data_dir)
@@ -2525,4 +3338,3 @@ def recover_interrupted_running_tasks(repos: RepositoryBundle) -> int:
             )
         )
     return changed
-

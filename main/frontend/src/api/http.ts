@@ -71,6 +71,14 @@ export async function putJson<T>(url: string, body: unknown): Promise<T> {
   return parseResponse<T>(response);
 }
 
+export async function deleteJson<T>(url: string): Promise<T> {
+  const response = await fetch(`${BASE_URL}${url}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...authHeader() },
+  });
+  return parseResponse<T>(response);
+}
+
 export async function postFile<T>(url: string, file: File): Promise<T> {
   const form = new FormData();
   form.append("upload", file);

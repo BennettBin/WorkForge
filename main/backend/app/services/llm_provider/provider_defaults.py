@@ -10,6 +10,6 @@ class OllamaConfig(BaseModel):
 
 
 class VllmConfig(BaseModel):
-    chat_model: str = os.getenv("WORKFORGE_VLLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+    chat_model: str = os.getenv("WORKFORGE_VLLM_MODEL", r"D:\pycharm\LLMs\Qwen3.5-9B-Base")
     base_url: str = os.getenv("WORKFORGE_VLLM_BASE_URL", "http://127.0.0.1:8000/v1")
     api_key: str = os.getenv("WORKFORGE_VLLM_API_KEY", "")

@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "provider_id": "provider_05b5c1c98f89",
+    "user_id": "user_302248131f27",
+    "provider_type": "deepseek_api",
+    "display_name": "Deepseek API",
+    "base_url": "https://api.deepseek.com",
+    "api_key_encrypted": "123456",
+    "model_name": "deepseek-v4-flash",
+    "chat_model": "deepseek-v4-flash",
+    "embedding_model": "qwen3-embedding:8b",
+    "temperature": null,
+    "max_tokens": null,
+    "timeout_seconds": null,
+    "streaming_enabled": false,
+    "is_default": true,
+    "created_at": "2026-05-20T03:00:16.400164Z",
+    "updated_at": "2026-05-20T03:00:16.405690+00:00"
+  }
+]

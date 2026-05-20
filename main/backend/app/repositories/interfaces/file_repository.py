@@ -15,3 +15,7 @@ class FileRepository(ABC):
     @abstractmethod
     def list_by_task(self, task_id: str) -> list[FileRecord]:
         raise NotImplementedError
+
+    @abstractmethod
+    def delete_by_task(self, task_id: str) -> int:
+        raise NotImplementedError

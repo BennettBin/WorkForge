@@ -36,14 +36,18 @@ class AuthService:
 
     def ensure_admin_account(self, email: str, username: str, password: str) -> User:
         normalized_email = email.strip().lower()
+        normalized_username = username.strip()
         existing = self.repos.users.get_by_email(normalized_email)
         if existing is not None:
             return existing
+        existing_by_username = self.repos.users.get_by_username(normalized_username)
+        if existing_by_username is not None:
+            return existing_by_username
 
         admin = User(
             user_id=new_id("user"),
             email=normalized_email,
-            username=username.strip(),
+            username=normalized_username,
             password_hash=_hash_password(password),
         )
         self.repos.users.create(admin)

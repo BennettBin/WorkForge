@@ -1,5 +1,6 @@
 import { Alert, Button, Card, Form, Input, InputNumber, List, Select, Space, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { downloadFile, getJson, postJson } from "../../api/http";
 import { useAppStore } from "../../store/appStore";
 import { ApiEnvelope } from "../../types/api";
@@ -10,17 +11,24 @@ type TaskItem = {
   status: string;
   task_type?: string;
   user_requirement?: string;
+  updated_at?: string;
 };
 
 export default function ResultPreviewPage() {
-  const { task, auth, setTask } = useAppStore();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const routeTaskId = searchParams.get("taskId");
+  const { task, auth, setTask, upsertRunningTask, setSelectedRunningTaskId } = useAppStore();
   const [versions, setVersions] = useState<VersionItem[]>([]);
   const [completedTasks, setCompletedTasks] = useState<TaskItem[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const effectiveTaskId = useMemo(() => selectedTaskId || task.activeTaskId, [selectedTaskId, task.activeTaskId]);
+  const effectiveTaskId = useMemo(
+    () => routeTaskId || selectedTaskId || task.activeTaskId,
+    [routeTaskId, selectedTaskId, task.activeTaskId]
+  );
 
   useEffect(() => {
     loadCompletedTasks().catch((e) => setError(String(e)));
@@ -32,9 +40,18 @@ export default function ResultPreviewPage() {
     const done = (res.data.items || []).filter((x) =>
       ["completed", "revision_completed"].includes(String(x.status || "").toLowerCase())
     );
+    done.sort((a, b) => {
+      const at = Date.parse(a.updated_at || "") || 0;
+      const bt = Date.parse(b.updated_at || "") || 0;
+      return bt - at;
+    });
     setCompletedTasks(done);
-    if (!selectedTaskId && done.length > 0) {
-      const preferred = task.activeTaskId && done.some((x) => x.task_id === task.activeTaskId) ? task.activeTaskId : done[0].task_id;
+    if (done.length > 0) {
+      const preferred =
+        (routeTaskId && done.some((x) => x.task_id === routeTaskId) && routeTaskId) ||
+        (selectedTaskId && done.some((x) => x.task_id === selectedTaskId) && selectedTaskId) ||
+        (task.activeTaskId && done.some((x) => x.task_id === task.activeTaskId) && task.activeTaskId) ||
+        done[0].task_id;
       setSelectedTaskId(preferred);
       setTask((prev) => ({ ...prev, activeTaskId: preferred }));
     }
@@ -49,6 +66,11 @@ export default function ResultPreviewPage() {
     setVersions(res.data.items);
   }
 
+  useEffect(() => {
+    if (!effectiveTaskId) return;
+    loadVersions().catch((e) => setError(String(e)));
+  }, [effectiveTaskId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function downloadLatest() {
     if (!effectiveTaskId) return;
     const res = await getJson<ApiEnvelope<{ file_path: string; exists: boolean; download_url: string }>>(
@@ -61,17 +83,22 @@ export default function ResultPreviewPage() {
   async function onRevision(values: { page_index?: number; instruction: string }) {
     if (!effectiveTaskId) return;
     setError(null);
-    try {
-      const payload = {
-        page_index: values.page_index ?? null,
-        instruction: values.instruction,
-      };
-      const res = await postJson<ApiEnvelope<{ new_version: number; revised_pages?: number[] }>>(`/v1/tasks/${effectiveTaskId}/revisions`, payload);
-      setMessage(`Revision done. New version: v${res.data.new_version}`);
-      await loadVersions();
-    } catch (e) {
-      setError(String(e));
-    }
+    const taskId = effectiveTaskId;
+    const payload = {
+      page_index: values.page_index ?? null,
+      instruction: values.instruction,
+    };
+    const selectedTask = completedTasks.find((item) => item.task_id === taskId);
+    setTask((prev) => ({ ...prev, activeTaskId: taskId, activeTaskStatus: "revision_requested" }));
+    upsertRunningTask({
+      taskId,
+      status: "revision_requested",
+      taskType: selectedTask?.task_type || "",
+      title: selectedTask?.user_requirement || taskId,
+    });
+    setSelectedRunningTaskId(taskId);
+    void postJson<ApiEnvelope<{ new_version: number; revised_pages?: number[] }>>(`/v1/tasks/${taskId}/revisions`, payload);
+    navigate(`/tasks/running/${encodeURIComponent(taskId)}`);
   }
 
   async function onRollback(values: { target_version: number }) {

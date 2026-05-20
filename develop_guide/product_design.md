@@ -797,41 +797,7 @@ Coordinator Agent 是系统总控 Agent。
 
 ---
 
-## 10.3 第三层：Sub Agents
 
-Sub Agent 只负责明确的局部任务。
-
-### PPT 任务中的 Sub Agents
-
-- Outline Agent：负责 PPT 大纲；
-- Content Agent：负责每页内容；
-- Design Agent：负责视觉布局；
-- Chart Agent：负责图表；
-- Speaker Notes Agent：负责演讲稿；
-- Review Agent：负责质量检查；
-- Export Agent：负责生成 PPTX。
-
-### 报告任务中的 Sub Agents
-
-- Structure Agent；
-- Summary Agent；
-- Section Writing Agent；
-- Table Agent；
-- Formatting Agent；
-- Review Agent；
-- Export Agent。
-
-### 数据分析任务中的 Sub Agents
-
-- Data Loading Agent；
-- Data Cleaning Agent；
-- Statistics Agent；
-- Plot Agent；
-- Interpretation Agent；
-- Code Review Agent；
-- Export Agent。
-
----
 
 ## 11. 标准任务执行流程
 
@@ -852,9 +818,7 @@ Sub Agent 只负责明确的局部任务。
   ↓
 Skill 检索与调用
   ↓
-Sub Agents 执行
-  ↓
-Task Agent 汇总
+内容生成与汇总
   ↓
 质量审查
   ↓
@@ -884,6 +848,8 @@ Task Agent 汇总
 每个 Skill 建议采用以下 Markdown 格式：
 
 ```markdown
+# MetaData
+
 # Skill Name
 
 ## Purpose
@@ -1960,53 +1926,4 @@ workforge-ai/
 - 封面图 prompt。
 
 ---
-
-## 24. 需要进一步明确的问题
-
-后续正式开发前，需要继续明确以下问题：
-
-1. 第一版 MVP 是否只聚焦 PDF / DOCX 到 PPTX？
-2. 用户是否需要登录系统？
-3. 文件是否长期保存？
-4. 是否支持用户删除历史文件？
-5. Agent 的中间输出展示到什么粒度？
-6. 是否允许用户查看完整执行日志？
-7. 模板是否允许用户自定义？
-8. Skill 是否允许用户自定义或上传？
-9. 输出文件是否需要支持在线预览？
-10. 是否需要任务队列和异步执行？
-11. 是否需要接入数据库保存任务历史？
-12. 是否需要支持多人协作？
-13. 第一版支持哪些 LLM Provider？
-14. API Key 是只保存在本地，还是加密保存到数据库？
-15. 是否允许同一个任务不同阶段使用不同模型？
-16. 是否需要支持模型调用成本统计？
-
----
-
-## 25. 当前阶段最优先事项
-
-建议当前阶段优先完成以下内容：
-
-1. 确定产品名称和定位；
-2. 固定第一版 MVP 功能范围；
-3. 明确第一个任务类型的完整工作流；
-4. 设计 Skill 文件格式；
-5. 设计 Task Agent 和 Sub Agent 的职责；
-6. 搭建前后端项目结构；
-7. 实现 LLM Provider 配置层，至少支持 OpenAI-compatible API 和 Ollama；
-8. 实现文件上传和解析；
-9. 实现第一个任务的生成和导出；
-9. 实现前端任务执行状态展示；
-10. 实现用户反馈后的局部修改。
-
----
-
-## 26. 项目最终描述
-
-WorkForge AI 是一个基于 Harness 框架的多 Agent 智能办公生产系统。
-
-它通过任务路由、模板选择、Skill 按需调用、多 Agent 协作、质量审查和版本化修改机制，将用户上传的参考文件和自然语言需求转化为可交付的办公成果，包括 PPT、报告、论文辅助文本、公众号推文、数据分析图表和代码文档。
-
-系统的目标不是简单聊天，而是完成从需求理解到最终文件生成的完整工作流。
 

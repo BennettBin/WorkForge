@@ -302,4 +302,10 @@ class VectorIndexService:
                 "timeout_seconds": timeout_seconds,
                 "api_key": api_key,
             }
+        if provider_type or model:
+            return {
+                "type": "lexical",
+                "provider_type": provider_type or "lexical",
+                "model": model,
+            }
         return {"type": "lexical"}

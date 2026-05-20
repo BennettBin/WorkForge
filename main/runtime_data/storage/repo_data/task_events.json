@@ -1,261 +1,2732 @@
 [
   {
-    "event_id": "evt_2be35db84958",
-    "task_id": "task_95dbc482c973",
+    "event_id": "evt_6e34afe8051b",
+    "task_id": "task_6b140c371468",
     "stage": "created",
     "message": "task created",
-    "created_at": "2026-05-08T01:05:13.649813Z"
+    "created_at": "2026-05-14T02:21:35.711065Z"
   },
   {
-    "event_id": "evt_7373524fa241",
-    "task_id": "task_95dbc482c973",
+    "event_id": "evt_b08f1f592786",
+    "task_id": "task_6b140c371468",
     "stage": "planning",
-    "message": "start report planning",
-    "created_at": "2026-05-08T01:05:14.147205Z"
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-14T02:21:36.733174Z"
   },
   {
-    "event_id": "evt_d424f977cc7b",
-    "task_id": "task_95dbc482c973",
-    "stage": "skill_selecting",
-    "message": "selected_skills=base_prompt,knowledge_search,report_outline,report_quality_check",
-    "created_at": "2026-05-08T01:05:14.169204Z"
-  },
-  {
-    "event_id": "evt_15fdb778dfef",
-    "task_id": "task_95dbc482c973",
-    "stage": "generating",
-    "message": "llm_generation_target=ollama/qwen3:8b;timeout=180s",
-    "created_at": "2026-05-08T01:05:14.174835Z"
-  },
-  {
-    "event_id": "evt_696e44389259",
-    "task_id": "task_95dbc482c973",
-    "stage": "failed_review",
-    "message": "Missing report section: summary | Missing report section: findings | Missing report section: recommendations",
-    "created_at": "2026-05-08T01:05:43.058696Z"
-  },
-  {
-    "event_id": "evt_c9fc0cd9d122",
-    "task_id": "task_634776d51304",
-    "stage": "created",
-    "message": "task created",
-    "created_at": "2026-05-08T01:10:13.870557Z"
-  },
-  {
-    "event_id": "evt_8d63d61fae43",
-    "task_id": "task_634776d51304",
+    "event_id": "evt_859c8ca5caec",
+    "task_id": "task_6b140c371468",
     "stage": "planning",
-    "message": "start wechat_post planning",
-    "created_at": "2026-05-08T01:10:13.997886Z"
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-14T02:21:36.748161Z"
   },
   {
-    "event_id": "evt_f58cca8e1048",
-    "task_id": "task_634776d51304",
+    "event_id": "evt_90e11ab4946c",
+    "task_id": "task_6b140c371468",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-14T02:21:36.756188Z"
+  },
+  {
+    "event_id": "evt_a7500b136150",
+    "task_id": "task_6b140c371468",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-14T02:21:37.334973Z"
+  },
+  {
+    "event_id": "evt_b08050a5e788",
+    "task_id": "task_6b140c371468",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-14T02:21:37.356983Z"
+  },
+  {
+    "event_id": "evt_02e60746e2ac",
+    "task_id": "task_6b140c371468",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个ppt介绍一下苹果公司\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nPages=10\nStyle=academic_simple\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-14T02:21:37.381983Z"
+  },
+  {
+    "event_id": "evt_1dde166c2fbe",
+    "task_id": "task_6b140c371468",
     "stage": "skill_selecting",
-    "message": "selected_skills=base_prompt,knowledge_search,wechat_style_polish,wechat_title_ideas",
-    "created_at": "2026-05-08T01:10:14.059760Z"
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-14T02:21:37.464297Z"
   },
   {
-    "event_id": "evt_1728381fed73",
-    "task_id": "task_634776d51304",
+    "event_id": "evt_b8d8e1f7b50f",
+    "task_id": "task_6b140c371468",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-14T02:21:37.482157Z"
+  },
+  {
+    "event_id": "evt_f99e529ed752",
+    "task_id": "task_6b140c371468",
     "stage": "generating",
-    "message": "llm_generation_target=ollama/qwen3:8b;timeout=180s",
-    "created_at": "2026-05-08T01:10:14.074307Z"
+    "message": "start content generation",
+    "created_at": "2026-05-14T02:21:37.508254Z"
   },
   {
-    "event_id": "evt_d9ac4dccefdb",
-    "task_id": "task_634776d51304",
+    "event_id": "evt_f4f05fd5e006",
+    "task_id": "task_6b140c371468",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=vllm/D:\\pycharm\\LLMs\\Qwen3.5-9B-Base;timeout=600s;require_llm=False",
+    "created_at": "2026-05-14T02:21:37.525262Z"
+  },
+  {
+    "event_id": "evt_26ead82393ed",
+    "task_id": "task_6b140c371468",
+    "stage": "generating",
+    "message": "llm_call_start provider=vllm;model=D:\\pycharm\\LLMs\\Qwen3.5-9B-Base;timeout=600s",
+    "created_at": "2026-05-14T02:21:39.788182Z"
+  },
+  {
+    "event_id": "evt_1807aa53a93d",
+    "task_id": "task_6b140c371468",
+    "stage": "generating",
+    "message": "llm_call_failed provider=vllm;model=D:\\pycharm\\LLMs\\Qwen3.5-9B-Base;reason=LLM request failed: <urlopen error [WinError 10061] 由于目标计算机积极拒绝，无法连接。>",
+    "created_at": "2026-05-14T02:21:41.820807Z"
+  },
+  {
+    "event_id": "evt_da8f091ebca0",
+    "task_id": "task_6b140c371468",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-14T02:21:43.349782Z"
+  },
+  {
+    "event_id": "evt_b396505bf09d",
+    "task_id": "task_6b140c371468",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-14T02:21:43.371790Z"
+  },
+  {
+    "event_id": "evt_3a1cca0fc408",
+    "task_id": "task_6b140c371468",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-14T02:21:43.393782Z"
+  },
+  {
+    "event_id": "evt_cf230dc3c924",
+    "task_id": "task_6b140c371468",
     "stage": "completed",
-    "message": "output_version=1;task_type=wechat_post",
-    "created_at": "2026-05-08T01:10:43.692603Z"
+    "message": "output_version=1",
+    "created_at": "2026-05-14T02:21:43.787306Z"
   },
   {
-    "event_id": "evt_2cf1ef185502",
-    "task_id": "task_634776d51304",
-    "stage": "cache_cleared",
-    "message": "vector_cache_removed=False;files=0",
-    "created_at": "2026-05-08T01:19:13.104407Z"
-  },
-  {
-    "event_id": "evt_c4583260747c",
-    "task_id": "task_3ee39a82b376",
+    "event_id": "evt_0d6616881cca",
+    "task_id": "task_f616df13d071",
     "stage": "created",
     "message": "task created",
-    "created_at": "2026-05-08T01:41:16.103103Z"
+    "created_at": "2026-05-14T02:23:13.692065Z"
   },
   {
-    "event_id": "evt_8ef6cad1db81",
-    "task_id": "task_42c64b673d03",
-    "stage": "created",
-    "message": "task created",
-    "created_at": "2026-05-08T02:41:52.041285Z"
-  },
-  {
-    "event_id": "evt_1267df6ed254",
-    "task_id": "task_52b445c99a41",
-    "stage": "created",
-    "message": "task created",
-    "created_at": "2026-05-08T02:45:45.897136Z"
-  },
-  {
-    "event_id": "evt_c2363cd487f0",
-    "task_id": "task_52b445c99a41",
-    "stage": "file_uploaded",
-    "message": "file uploaded: cate_NetProfitMargin2_treated.xlsx",
-    "created_at": "2026-05-08T02:45:46.001156Z"
-  },
-  {
-    "event_id": "evt_dd0de9d31f73",
-    "task_id": "task_52b445c99a41",
-    "stage": "file_parsed",
-    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_52b445c99a41\\file_405a93b87d64.txt",
-    "created_at": "2026-05-08T02:50:24.061822Z"
-  },
-  {
-    "event_id": "evt_df58a2acb25c",
-    "task_id": "task_52b445c99a41",
-    "stage": "file_parsed",
-    "message": "vector_cache_ready chunks=105;type=ollama;model=qwen3-embedding:8b",
-    "created_at": "2026-05-08T02:50:24.063822Z"
-  },
-  {
-    "event_id": "evt_b5496e666d18",
-    "task_id": "task_52b445c99a41",
+    "event_id": "evt_7eb165fb0098",
+    "task_id": "task_f616df13d071",
     "stage": "planning",
-    "message": "start report planning",
-    "created_at": "2026-05-08T02:50:24.174914Z"
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-14T02:23:13.906963Z"
   },
   {
-    "event_id": "evt_b2c8a614dff2",
-    "task_id": "task_52b445c99a41",
-    "stage": "skill_selecting",
-    "message": "selected_skills=base_prompt,knowledge_search,report_outline,report_quality_check",
-    "created_at": "2026-05-08T02:50:24.249797Z"
-  },
-  {
-    "event_id": "evt_110f38c55c54",
-    "task_id": "task_52b445c99a41",
-    "stage": "generating",
-    "message": "llm_generation_target=ollama/qwen3:8b;timeout=180s",
-    "created_at": "2026-05-08T02:50:24.263315Z"
-  },
-  {
-    "event_id": "evt_f566a78fdc36",
-    "task_id": "task_52b445c99a41",
-    "stage": "failed_review",
-    "message": "Missing report section: summary | Missing report section: findings | Missing report section: recommendations",
-    "created_at": "2026-05-08T02:51:05.220014Z"
-  },
-  {
-    "event_id": "evt_d2fddc999c33",
-    "task_id": "task_9752a55c6513",
-    "stage": "created",
-    "message": "task created",
-    "created_at": "2026-05-08T02:56:47.687475Z"
-  },
-  {
-    "event_id": "evt_618e19d057d1",
-    "task_id": "task_9752a55c6513",
-    "stage": "file_uploaded",
-    "message": "file uploaded: cate_NetProfitMargin2_treated.xlsx",
-    "created_at": "2026-05-08T02:56:47.799546Z"
-  },
-  {
-    "event_id": "evt_c4b9109df4da",
-    "task_id": "task_9752a55c6513",
-    "stage": "file_parsed",
-    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_9752a55c6513\\file_8ad64a7389b0.txt",
-    "created_at": "2026-05-08T03:01:26.670020Z"
-  },
-  {
-    "event_id": "evt_6796190aed8f",
-    "task_id": "task_9752a55c6513",
-    "stage": "file_parsed",
-    "message": "vector_cache_ready chunks=105;type=ollama;model=qwen3-embedding:8b",
-    "created_at": "2026-05-08T03:01:26.673142Z"
-  },
-  {
-    "event_id": "evt_85cbeedf4b3e",
-    "task_id": "task_9752a55c6513",
+    "event_id": "evt_02f4f7f21127",
+    "task_id": "task_f616df13d071",
     "stage": "planning",
-    "message": "start report planning",
-    "created_at": "2026-05-08T03:01:26.806080Z"
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-14T02:23:13.922196Z"
   },
   {
-    "event_id": "evt_5aa1c143ac10",
-    "task_id": "task_9752a55c6513",
-    "stage": "skill_selecting",
-    "message": "selected_skills=base_prompt,knowledge_search,report_outline,report_quality_check",
-    "created_at": "2026-05-08T03:01:26.863794Z"
-  },
-  {
-    "event_id": "evt_8bb44c45c42d",
-    "task_id": "task_9752a55c6513",
-    "stage": "generating",
-    "message": "llm_generation_target=ollama/qwen3:8b;timeout=180s",
-    "created_at": "2026-05-08T03:01:26.876853Z"
-  },
-  {
-    "event_id": "evt_7f1bdbeb9b14",
-    "task_id": "task_9752a55c6513",
-    "stage": "failed_review",
-    "message": "Missing report section: summary | Missing report section: findings | Missing report section: recommendations",
-    "created_at": "2026-05-08T03:02:03.287715Z"
-  },
-  {
-    "event_id": "evt_3a20f6ade456",
-    "task_id": "task_52423f8ca9ca",
-    "stage": "created",
-    "message": "task created",
-    "created_at": "2026-05-10T02:40:43.106885Z"
-  },
-  {
-    "event_id": "evt_57b361da9410",
-    "task_id": "task_52423f8ca9ca",
-    "stage": "file_uploaded",
-    "message": "file uploaded: cate_NetProfitMargin2_treated.xlsx",
-    "created_at": "2026-05-10T02:40:43.215837Z"
-  },
-  {
-    "event_id": "evt_b7bfabafcd65",
-    "task_id": "task_52423f8ca9ca",
-    "stage": "file_parsed",
-    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_52423f8ca9ca\\file_e6340364189c.txt",
-    "created_at": "2026-05-10T02:45:25.294924Z"
-  },
-  {
-    "event_id": "evt_54a49cfabda1",
-    "task_id": "task_52423f8ca9ca",
-    "stage": "file_parsed",
-    "message": "vector_cache_ready chunks=105;type=ollama;model=qwen3-embedding:8b",
-    "created_at": "2026-05-10T02:45:25.299453Z"
-  },
-  {
-    "event_id": "evt_698cccd13d85",
-    "task_id": "task_52423f8ca9ca",
+    "event_id": "evt_404c49e33f7d",
+    "task_id": "task_f616df13d071",
     "stage": "planning",
-    "message": "start report planning",
-    "created_at": "2026-05-10T02:45:25.486450Z"
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-14T02:23:13.930746Z"
   },
   {
-    "event_id": "evt_95132a397193",
-    "task_id": "task_52423f8ca9ca",
+    "event_id": "evt_580c8389acf9",
+    "task_id": "task_f616df13d071",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-14T02:23:14.454461Z"
+  },
+  {
+    "event_id": "evt_bad0a3a8bf8f",
+    "task_id": "task_f616df13d071",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-14T02:23:14.476595Z"
+  },
+  {
+    "event_id": "evt_bb8c7cf61dff",
+    "task_id": "task_f616df13d071",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个ppt介绍一下红薯\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nPages=10\nStyle=academic_simple\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-14T02:23:14.521632Z"
+  },
+  {
+    "event_id": "evt_ac982be19269",
+    "task_id": "task_f616df13d071",
     "stage": "skill_selecting",
-    "message": "selected_skills=base_prompt,knowledge_search,report_outline,report_quality_check",
-    "created_at": "2026-05-10T02:45:25.576971Z"
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-14T02:23:14.636297Z"
   },
   {
-    "event_id": "evt_db785d4ca77c",
-    "task_id": "task_52423f8ca9ca",
+    "event_id": "evt_eecdf26760a4",
+    "task_id": "task_f616df13d071",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-14T02:23:14.670299Z"
+  },
+  {
+    "event_id": "evt_24d0b4400330",
+    "task_id": "task_f616df13d071",
     "stage": "generating",
-    "message": "llm_generation_target=ollama/qwen3:8b;timeout=180s",
-    "created_at": "2026-05-10T02:45:25.604179Z"
+    "message": "start content generation",
+    "created_at": "2026-05-14T02:23:14.703568Z"
   },
   {
-    "event_id": "evt_5b7f32e2710a",
-    "task_id": "task_52423f8ca9ca",
+    "event_id": "evt_2b9b4af06200",
+    "task_id": "task_f616df13d071",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=600s;require_llm=False",
+    "created_at": "2026-05-14T02:23:14.728321Z"
+  },
+  {
+    "event_id": "evt_573ed32cc4e5",
+    "task_id": "task_f616df13d071",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-14T02:23:27.024742Z"
+  },
+  {
+    "event_id": "evt_f427cc276836",
+    "task_id": "task_f616df13d071",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=24991",
+    "created_at": "2026-05-14T02:23:52.018968Z"
+  },
+  {
+    "event_id": "evt_5ffa98d7f680",
+    "task_id": "task_f616df13d071",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-14T02:23:53.115832Z"
+  },
+  {
+    "event_id": "evt_e12144488eb8",
+    "task_id": "task_f616df13d071",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=40611",
+    "created_at": "2026-05-14T02:24:33.731886Z"
+  },
+  {
+    "event_id": "evt_6dd316aa3e9b",
+    "task_id": "task_f616df13d071",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-14T02:24:33.761716Z"
+  },
+  {
+    "event_id": "evt_a5b238b4a53d",
+    "task_id": "task_f616df13d071",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-14T02:24:33.766718Z"
+  },
+  {
+    "event_id": "evt_9cbc3300111e",
+    "task_id": "task_f616df13d071",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-14T02:24:33.771717Z"
+  },
+  {
+    "event_id": "evt_93d99ba4298b",
+    "task_id": "task_f616df13d071",
     "stage": "completed",
-    "message": "output_version=1;task_type=report",
-    "created_at": "2026-05-10T02:46:09.565528Z"
+    "message": "output_version=1",
+    "created_at": "2026-05-14T02:24:33.866716Z"
+  },
+  {
+    "event_id": "evt_7f2b5342adda",
+    "task_id": "task_6b140c371468",
+    "stage": "revision_requested",
+    "message": "page=auto",
+    "created_at": "2026-05-14T02:25:43.704772Z"
+  },
+  {
+    "event_id": "evt_d229a3577825",
+    "task_id": "task_6b140c371468",
+    "stage": "revision_planning",
+    "message": "page_not_provided; llm_will_identify_target_slides",
+    "created_at": "2026-05-14T02:25:43.740014Z"
+  },
+  {
+    "event_id": "evt_fe806816ce19",
+    "task_id": "task_6b140c371468",
+    "stage": "revision_planning",
+    "message": "target_pages=2,3,4,5,6,7,8,9,10",
+    "created_at": "2026-05-14T02:26:01.810302Z"
+  },
+  {
+    "event_id": "evt_6b5f3db2cbf1",
+    "task_id": "task_6b140c371468",
+    "stage": "revision_generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=90s",
+    "created_at": "2026-05-14T02:26:01.818325Z"
+  },
+  {
+    "event_id": "evt_a7345c4b920b",
+    "task_id": "task_6b140c371468",
+    "stage": "failed_generation",
+    "message": "interrupted_task_auto_closed_on_backend_restart",
+    "created_at": "2026-05-14T02:31:22.511010Z"
+  },
+  {
+    "event_id": "evt_77543e9f289b",
+    "task_id": "task_9a4c76d30063",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-14T02:33:29.357311Z"
+  },
+  {
+    "event_id": "evt_a489044fd80a",
+    "task_id": "task_9a4c76d30063",
+    "stage": "planning",
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-14T02:33:30.073040Z"
+  },
+  {
+    "event_id": "evt_dd9fb8d0ed5b",
+    "task_id": "task_9a4c76d30063",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-14T02:33:30.083043Z"
+  },
+  {
+    "event_id": "evt_f712078bc8bf",
+    "task_id": "task_9a4c76d30063",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-14T02:33:30.093037Z"
+  },
+  {
+    "event_id": "evt_223132490450",
+    "task_id": "task_9a4c76d30063",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-14T02:33:30.603851Z"
+  },
+  {
+    "event_id": "evt_6094b6709409",
+    "task_id": "task_9a4c76d30063",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-14T02:33:30.626183Z"
+  },
+  {
+    "event_id": "evt_9135e54d08b8",
+    "task_id": "task_9a4c76d30063",
+    "stage": "planning",
+    "message": "requirement_understood=做个ppt介绍红薯\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nPages=10\nStyle=academic_simple\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-14T02:33:30.656209Z"
+  },
+  {
+    "event_id": "evt_4ea91d9d1bc5",
+    "task_id": "task_9a4c76d30063",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-14T02:33:30.751440Z"
+  },
+  {
+    "event_id": "evt_c3c958556f2e",
+    "task_id": "task_9a4c76d30063",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-14T02:33:30.768446Z"
+  },
+  {
+    "event_id": "evt_653df5198247",
+    "task_id": "task_9a4c76d30063",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-14T02:33:30.792443Z"
+  },
+  {
+    "event_id": "evt_78d93702f068",
+    "task_id": "task_9a4c76d30063",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=600s;require_llm=False",
+    "created_at": "2026-05-14T02:33:30.803441Z"
+  },
+  {
+    "event_id": "evt_a55a5d7f8126",
+    "task_id": "task_9a4c76d30063",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-14T02:33:40.542924Z"
+  },
+  {
+    "event_id": "evt_b8a50d92f68b",
+    "task_id": "task_9a4c76d30063",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=25548",
+    "created_at": "2026-05-14T02:34:06.095732Z"
+  },
+  {
+    "event_id": "evt_b3499ab61fee",
+    "task_id": "task_9a4c76d30063",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-14T02:34:07.499789Z"
+  },
+  {
+    "event_id": "evt_3c55b7dd4ea3",
+    "task_id": "task_9a4c76d30063",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=37322",
+    "created_at": "2026-05-14T02:34:44.829221Z"
+  },
+  {
+    "event_id": "evt_257739cb5a27",
+    "task_id": "task_9a4c76d30063",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-14T02:34:44.870155Z"
+  },
+  {
+    "event_id": "evt_e306de4a6273",
+    "task_id": "task_9a4c76d30063",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-14T02:34:44.877379Z"
+  },
+  {
+    "event_id": "evt_e6f9eb77af49",
+    "task_id": "task_9a4c76d30063",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-14T02:34:44.885506Z"
+  },
+  {
+    "event_id": "evt_88638bf4f857",
+    "task_id": "task_9a4c76d30063",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-14T02:34:45.065444Z"
+  },
+  {
+    "event_id": "evt_74eefb0f29e8",
+    "task_id": "task_3aa601b68f00",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-14T02:35:38.767908Z"
+  },
+  {
+    "event_id": "evt_b5501f5b23c5",
+    "task_id": "task_3aa601b68f00",
+    "stage": "planning",
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-14T02:35:38.957334Z"
+  },
+  {
+    "event_id": "evt_66437efa5ab7",
+    "task_id": "task_3aa601b68f00",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-14T02:35:38.974334Z"
+  },
+  {
+    "event_id": "evt_f5d866dd1ac9",
+    "task_id": "task_3aa601b68f00",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-14T02:35:38.991340Z"
+  },
+  {
+    "event_id": "evt_27f9a05b7ae3",
+    "task_id": "task_3aa601b68f00",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-14T02:35:39.493730Z"
+  },
+  {
+    "event_id": "evt_3ccb98a736bf",
+    "task_id": "task_3aa601b68f00",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-14T02:35:39.521651Z"
+  },
+  {
+    "event_id": "evt_b91e068997d1",
+    "task_id": "task_3aa601b68f00",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个ppt介绍花生\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nPages=10\nStyle=academic_simple\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-14T02:35:39.540205Z"
+  },
+  {
+    "event_id": "evt_49cdee3f84de",
+    "task_id": "task_3aa601b68f00",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-14T02:35:39.574755Z"
+  },
+  {
+    "event_id": "evt_19340fd85ed4",
+    "task_id": "task_3aa601b68f00",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-14T02:35:39.593642Z"
+  },
+  {
+    "event_id": "evt_764938be8591",
+    "task_id": "task_3aa601b68f00",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-14T02:35:39.606697Z"
+  },
+  {
+    "event_id": "evt_ab0d5639d0a3",
+    "task_id": "task_3aa601b68f00",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=600s;require_llm=False",
+    "created_at": "2026-05-14T02:35:39.612702Z"
+  },
+  {
+    "event_id": "evt_d88e0f67e9ee",
+    "task_id": "task_3aa601b68f00",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-14T02:35:50.880584Z"
+  },
+  {
+    "event_id": "evt_e0adb8c809dd",
+    "task_id": "task_3aa601b68f00",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=19746",
+    "created_at": "2026-05-14T02:36:10.633265Z"
+  },
+  {
+    "event_id": "evt_fb4cec5d0576",
+    "task_id": "task_3aa601b68f00",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-14T02:36:13.584077Z"
+  },
+  {
+    "event_id": "evt_da7f7dbf460d",
+    "task_id": "task_3aa601b68f00",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=38303",
+    "created_at": "2026-05-14T02:36:51.892669Z"
+  },
+  {
+    "event_id": "evt_49d56efabd49",
+    "task_id": "task_3aa601b68f00",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-14T02:36:51.989761Z"
+  },
+  {
+    "event_id": "evt_d4f86967974c",
+    "task_id": "task_3aa601b68f00",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-14T02:36:52.007761Z"
+  },
+  {
+    "event_id": "evt_5cf472cc8573",
+    "task_id": "task_3aa601b68f00",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-14T02:36:52.028766Z"
+  },
+  {
+    "event_id": "evt_804877eec45e",
+    "task_id": "task_3aa601b68f00",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-14T02:36:52.346907Z"
+  },
+  {
+    "event_id": "evt_d6d15879c7fb",
+    "task_id": "task_da69c0bac888",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-14T02:37:26.601378Z"
+  },
+  {
+    "event_id": "evt_af342c31d668",
+    "task_id": "task_da69c0bac888",
+    "stage": "planning",
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-14T02:37:26.830459Z"
+  },
+  {
+    "event_id": "evt_07f4e3748c07",
+    "task_id": "task_da69c0bac888",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-14T02:37:26.844460Z"
+  },
+  {
+    "event_id": "evt_a6d517d1686f",
+    "task_id": "task_da69c0bac888",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-14T02:37:26.859462Z"
+  },
+  {
+    "event_id": "evt_e372a2a95e0e",
+    "task_id": "task_da69c0bac888",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-14T02:37:27.431632Z"
+  },
+  {
+    "event_id": "evt_f269cdc0d739",
+    "task_id": "task_da69c0bac888",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-14T02:37:27.445723Z"
+  },
+  {
+    "event_id": "evt_8e2af0ba99e3",
+    "task_id": "task_da69c0bac888",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个ppt介绍一下笔记本电脑的品牌\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nPages=10\nStyle=academic_simple\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-14T02:37:27.460338Z"
+  },
+  {
+    "event_id": "evt_a953bef615b8",
+    "task_id": "task_da69c0bac888",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-14T02:37:27.537481Z"
+  },
+  {
+    "event_id": "evt_9b426bd8a2f4",
+    "task_id": "task_da69c0bac888",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-14T02:37:27.549166Z"
+  },
+  {
+    "event_id": "evt_49873f887c11",
+    "task_id": "task_da69c0bac888",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-14T02:37:27.587731Z"
+  },
+  {
+    "event_id": "evt_dd998cc5de5d",
+    "task_id": "task_da69c0bac888",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=vllm/D:/pycharm/LLMs/Qwen3.5-9B-Base;timeout=600s;require_llm=False",
+    "created_at": "2026-05-14T02:37:27.603730Z"
+  },
+  {
+    "event_id": "evt_fb0e7a20950d",
+    "task_id": "task_da69c0bac888",
+    "stage": "generating",
+    "message": "llm_call_start provider=vllm;model=D:/pycharm/LLMs/Qwen3.5-9B-Base;timeout=600s",
+    "created_at": "2026-05-14T02:37:29.962127Z"
+  },
+  {
+    "event_id": "evt_9a6df1ec1096",
+    "task_id": "task_da69c0bac888",
+    "stage": "generating",
+    "message": "llm_call_failed provider=vllm;model=D:/pycharm/LLMs/Qwen3.5-9B-Base;reason=LLM request failed: <urlopen error [WinError 10061] 由于目标计算机积极拒绝，无法连接。>",
+    "created_at": "2026-05-14T02:37:32.026061Z"
+  },
+  {
+    "event_id": "evt_a90ceea69518",
+    "task_id": "task_da69c0bac888",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-14T02:37:33.351880Z"
+  },
+  {
+    "event_id": "evt_58ea2583061b",
+    "task_id": "task_da69c0bac888",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-14T02:37:33.373873Z"
+  },
+  {
+    "event_id": "evt_41124bd6ff3e",
+    "task_id": "task_da69c0bac888",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-14T02:37:33.405769Z"
+  },
+  {
+    "event_id": "evt_2fe04e4e44a4",
+    "task_id": "task_da69c0bac888",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-14T02:37:33.667151Z"
+  },
+  {
+    "event_id": "evt_6babbbcafd0e",
+    "task_id": "task_4c1067463854",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-14T03:22:24.037903Z"
+  },
+  {
+    "event_id": "evt_45605aeafe3e",
+    "task_id": "task_4c1067463854",
+    "stage": "planning",
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-14T03:22:24.808003Z"
+  },
+  {
+    "event_id": "evt_c79ec296eaa4",
+    "task_id": "task_4c1067463854",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-14T03:22:24.823946Z"
+  },
+  {
+    "event_id": "evt_5268637dc564",
+    "task_id": "task_4c1067463854",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-14T03:22:24.835926Z"
+  },
+  {
+    "event_id": "evt_310be9566272",
+    "task_id": "task_4c1067463854",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-14T03:22:25.461604Z"
+  },
+  {
+    "event_id": "evt_1f3771f65968",
+    "task_id": "task_4c1067463854",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-14T03:22:25.481454Z"
+  },
+  {
+    "event_id": "evt_7b71751d7438",
+    "task_id": "task_4c1067463854",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个ppt介绍一下土豆\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nPages=10\nStyle=academic_simple\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-14T03:22:25.509946Z"
+  },
+  {
+    "event_id": "evt_14e6d0fceb6a",
+    "task_id": "task_4c1067463854",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-14T03:22:25.597918Z"
+  },
+  {
+    "event_id": "evt_36ec65dc96bf",
+    "task_id": "task_4c1067463854",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-14T03:22:25.606757Z"
+  },
+  {
+    "event_id": "evt_14ffa0de64ef",
+    "task_id": "task_4c1067463854",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-14T03:22:25.633759Z"
+  },
+  {
+    "event_id": "evt_37d273194abe",
+    "task_id": "task_4c1067463854",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=vllm/D:\\pycharm\\LLMs\\Qwen3.5-9B-Base;timeout=600s;require_llm=False",
+    "created_at": "2026-05-14T03:22:25.651686Z"
+  },
+  {
+    "event_id": "evt_2e0db96f5798",
+    "task_id": "task_4c1067463854",
+    "stage": "generating",
+    "message": "llm_call_start provider=vllm;model=D:\\pycharm\\LLMs\\Qwen3.5-9B-Base;timeout=600s",
+    "created_at": "2026-05-14T03:22:27.869394Z"
+  },
+  {
+    "event_id": "evt_a05798671ec9",
+    "task_id": "task_4c1067463854",
+    "stage": "generating",
+    "message": "llm_call_failed provider=vllm;model=D:\\pycharm\\LLMs\\Qwen3.5-9B-Base;reason=[vLLM] CONNECTION_REFUSED at http://127.0.0.1:8000/v1/models: LLM request failed: <urlopen error [WinError 10061] 由于目标计算机积极拒绝，无法连接。>. Check vLLM is running, ver",
+    "created_at": "2026-05-14T03:22:29.924284Z"
+  },
+  {
+    "event_id": "evt_ef3b5cbcc30f",
+    "task_id": "task_4c1067463854",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-14T03:22:31.476464Z"
+  },
+  {
+    "event_id": "evt_aaf38cce83fe",
+    "task_id": "task_4c1067463854",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-14T03:22:31.493549Z"
+  },
+  {
+    "event_id": "evt_952401d0c26c",
+    "task_id": "task_4c1067463854",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-14T03:22:31.504171Z"
+  },
+  {
+    "event_id": "evt_306d3ca4dca9",
+    "task_id": "task_4c1067463854",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-14T03:22:31.729904Z"
+  },
+  {
+    "event_id": "evt_f14ec946b498",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-15T02:07:59.713907Z"
+  },
+  {
+    "event_id": "evt_bc1a69173ff8",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "planning",
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-15T02:08:00.697707Z"
+  },
+  {
+    "event_id": "evt_1634d96af2e2",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-15T02:08:00.715533Z"
+  },
+  {
+    "event_id": "evt_63d9d2baead9",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-15T02:08:00.728820Z"
+  },
+  {
+    "event_id": "evt_6d6593f3134d",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-15T02:08:01.645441Z"
+  },
+  {
+    "event_id": "evt_e2d0155dfca7",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-15T02:08:01.671085Z"
+  },
+  {
+    "event_id": "evt_921e4135ca3e",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个ppt介绍一下transformer\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nPages=10\nStyle=academic_simple\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-15T02:08:01.707013Z"
+  },
+  {
+    "event_id": "evt_dd1d5bc0f305",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-15T02:08:01.831543Z"
+  },
+  {
+    "event_id": "evt_6c7b7dcc5344",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-15T02:08:01.851990Z"
+  },
+  {
+    "event_id": "evt_79190c259237",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-15T02:08:01.886609Z"
+  },
+  {
+    "event_id": "evt_a2ecfece2a7e",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=vllm/D:\\pycharm\\LLMs\\Qwen3.5-9B-Base;timeout=600s;require_llm=False",
+    "created_at": "2026-05-15T02:08:01.898559Z"
+  },
+  {
+    "event_id": "evt_a0075044ad36",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "generating",
+    "message": "llm_call_start provider=vllm;model=D:\\pycharm\\LLMs\\Qwen3.5-9B-Base;timeout=600s",
+    "created_at": "2026-05-15T02:08:04.154143Z"
+  },
+  {
+    "event_id": "evt_5af0d9488524",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "generating",
+    "message": "llm_call_failed provider=vllm;model=D:\\pycharm\\LLMs\\Qwen3.5-9B-Base;reason=[vLLM] CONNECTION_REFUSED at http://127.0.0.1:8000/v1/models: LLM request failed: <urlopen error [WinError 10061] 由于目标计算机积极拒绝，无法连接。>. Check vLLM is running, ver",
+    "created_at": "2026-05-15T02:08:06.202498Z"
+  },
+  {
+    "event_id": "evt_7d8fd5a867af",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-15T02:08:07.933283Z"
+  },
+  {
+    "event_id": "evt_06ee788d9217",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-15T02:08:07.958748Z"
+  },
+  {
+    "event_id": "evt_fb6ac4120595",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-15T02:08:07.982982Z"
+  },
+  {
+    "event_id": "evt_4607c8a40e50",
+    "task_id": "task_7bb48537ebf5",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-15T02:08:08.285507Z"
+  },
+  {
+    "event_id": "evt_ce7f101245dc",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-15T02:08:56.358792Z"
+  },
+  {
+    "event_id": "evt_d6812110dc26",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "planning",
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-15T02:08:56.553375Z"
+  },
+  {
+    "event_id": "evt_82ae5836c718",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-15T02:08:56.575148Z"
+  },
+  {
+    "event_id": "evt_b17aa010d138",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-15T02:08:56.586376Z"
+  },
+  {
+    "event_id": "evt_3d5bef756bba",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-15T02:08:58.046481Z"
+  },
+  {
+    "event_id": "evt_a593fc64913f",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-15T02:08:58.101545Z"
+  },
+  {
+    "event_id": "evt_cb9386938612",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个ppt介绍一下英伟达这家公司\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nPages=10\nStyle=academic_simple\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。",
+    "created_at": "2026-05-15T02:08:58.146069Z"
+  },
+  {
+    "event_id": "evt_3a53b49f4acb",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-15T02:08:58.295835Z"
+  },
+  {
+    "event_id": "evt_e07617db8df1",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-15T02:08:58.331101Z"
+  },
+  {
+    "event_id": "evt_fc2422bc6ade",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-15T02:08:58.362160Z"
+  },
+  {
+    "event_id": "evt_6245a7f6c554",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=ollama/qwen3:8b;timeout=600s;require_llm=False",
+    "created_at": "2026-05-15T02:08:58.387507Z"
+  },
+  {
+    "event_id": "evt_8ac4129c5a8f",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-15T02:09:14.191089Z"
+  },
+  {
+    "event_id": "evt_d7848d83889d",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=25072",
+    "created_at": "2026-05-15T02:09:39.280239Z"
+  },
+  {
+    "event_id": "evt_c52fa826107e",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "generating",
+    "message": "llm_call_start provider=ollama;model=qwen3:8b;timeout=600s",
+    "created_at": "2026-05-15T02:09:40.850223Z"
+  },
+  {
+    "event_id": "evt_265c5a7d30cf",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=ollama;model=qwen3:8b;latency_ms=44638",
+    "created_at": "2026-05-15T02:10:25.492363Z"
+  },
+  {
+    "event_id": "evt_29e2d5594192",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-15T02:10:25.659352Z"
+  },
+  {
+    "event_id": "evt_f270f54eecb2",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-15T02:10:25.691936Z"
+  },
+  {
+    "event_id": "evt_1602afbb07e4",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-15T02:10:25.716457Z"
+  },
+  {
+    "event_id": "evt_148e96b57135",
+    "task_id": "task_67356ba3aaa3",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-15T02:10:25.984133Z"
+  },
+  {
+    "event_id": "evt_d2651ead7a42",
+    "task_id": "task_adb30e60201d",
+    "stage": "created",
+    "message": "task created template_choice=ppt1",
+    "created_at": "2026-05-19T21:35:08.849117Z"
+  },
+  {
+    "event_id": "evt_c7a21c6a4194",
+    "task_id": "task_adb30e60201d",
+    "stage": "planning",
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-19T21:35:09.007005Z"
+  },
+  {
+    "event_id": "evt_ed266cb498e4",
+    "task_id": "task_adb30e60201d",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-19T21:35:09.017329Z"
+  },
+  {
+    "event_id": "evt_a16a5cdda7b7",
+    "task_id": "task_adb30e60201d",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-19T21:35:09.028937Z"
+  },
+  {
+    "event_id": "evt_c68605a7c47f",
+    "task_id": "task_adb30e60201d",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-19T21:35:09.371202Z"
+  },
+  {
+    "event_id": "evt_47943eb1bf90",
+    "task_id": "task_adb30e60201d",
+    "stage": "planning",
+    "message": "template_context_loaded style=academic_simple;template_choice=ppt1",
+    "created_at": "2026-05-19T21:35:09.395010Z"
+  },
+  {
+    "event_id": "evt_620246c909d3",
+    "task_id": "task_adb30e60201d",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-19T21:35:09.405749Z"
+  },
+  {
+    "event_id": "evt_ef2aabfdecb1",
+    "task_id": "task_adb30e60201d",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个ppt介绍一下谷歌\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nTemplateChoice=ppt1\nPages=10\nStyle=academic_simple\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并总结，再基于检索结果完成回答与PPT制作。\n\n[Template Context]\nTemplateMeta={\"sch",
+    "created_at": "2026-05-19T21:35:09.419117Z"
+  },
+  {
+    "event_id": "evt_8538eedb3e17",
+    "task_id": "task_adb30e60201d",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-19T21:35:09.463303Z"
+  },
+  {
+    "event_id": "evt_d5e5b96adaca",
+    "task_id": "task_adb30e60201d",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-19T21:35:09.471111Z"
+  },
+  {
+    "event_id": "evt_1bd9055bea6e",
+    "task_id": "task_adb30e60201d",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-19T21:35:09.483156Z"
+  },
+  {
+    "event_id": "evt_12c176ca0d75",
+    "task_id": "task_adb30e60201d",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=deepseek_api/deepseek-v4-flash;timeout=600s;require_llm=False",
+    "created_at": "2026-05-19T21:35:09.492305Z"
+  },
+  {
+    "event_id": "evt_d8e39ebe0587",
+    "task_id": "task_adb30e60201d",
+    "stage": "generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=600s",
+    "created_at": "2026-05-19T21:35:13.181473Z"
+  },
+  {
+    "event_id": "evt_f181e8b4a323",
+    "task_id": "task_adb30e60201d",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=deepseek_api;model=deepseek-v4-flash;latency_ms=9741",
+    "created_at": "2026-05-19T21:35:22.928364Z"
+  },
+  {
+    "event_id": "evt_454fa59f6130",
+    "task_id": "task_adb30e60201d",
+    "stage": "generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=600s",
+    "created_at": "2026-05-19T21:35:25.668401Z"
+  },
+  {
+    "event_id": "evt_bb2422228266",
+    "task_id": "task_adb30e60201d",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=deepseek_api;model=deepseek-v4-flash;latency_ms=21627",
+    "created_at": "2026-05-19T21:35:47.302067Z"
+  },
+  {
+    "event_id": "evt_33153a93212e",
+    "task_id": "task_adb30e60201d",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-19T21:35:47.378256Z"
+  },
+  {
+    "event_id": "evt_fa5b9b4833ee",
+    "task_id": "task_adb30e60201d",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-19T21:35:47.388093Z"
+  },
+  {
+    "event_id": "evt_5a047cffdc00",
+    "task_id": "task_adb30e60201d",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-19T21:35:47.398317Z"
+  },
+  {
+    "event_id": "evt_906f5dc8a2fc",
+    "task_id": "task_adb30e60201d",
+    "stage": "exporting",
+    "message": "template_script_render_started script=render_from_template.py",
+    "created_at": "2026-05-19T21:35:47.418383Z"
+  },
+  {
+    "event_id": "evt_cbac59c6b798",
+    "task_id": "task_adb30e60201d",
+    "stage": "exporting",
+    "message": "template_script_render_succeeded script=render_from_template.py",
+    "created_at": "2026-05-19T21:35:47.678134Z"
+  },
+  {
+    "event_id": "evt_9eff39029f59",
+    "task_id": "task_adb30e60201d",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-19T21:35:47.701667Z"
+  },
+  {
+    "event_id": "evt_12989650229a",
+    "task_id": "task_c54c65eb7652",
+    "stage": "created",
+    "message": "task created template_choice=ppt1",
+    "created_at": "2026-05-19T21:47:30.428964Z"
+  },
+  {
+    "event_id": "evt_e92be4571a0f",
+    "task_id": "task_c54c65eb7652",
+    "stage": "planning",
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-19T21:47:31.015994Z"
+  },
+  {
+    "event_id": "evt_cb423e37d6f7",
+    "task_id": "task_c54c65eb7652",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-19T21:47:31.024306Z"
+  },
+  {
+    "event_id": "evt_43f5328b16ce",
+    "task_id": "task_c54c65eb7652",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-19T21:47:31.035516Z"
+  },
+  {
+    "event_id": "evt_f8552c1e0c5a",
+    "task_id": "task_c54c65eb7652",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-19T21:47:31.333172Z"
+  },
+  {
+    "event_id": "evt_854d569f6548",
+    "task_id": "task_c54c65eb7652",
+    "stage": "planning",
+    "message": "template_context_loaded style=academic_simple;template_choice=ppt1",
+    "created_at": "2026-05-19T21:47:31.352005Z"
+  },
+  {
+    "event_id": "evt_faca5ecc1abb",
+    "task_id": "task_c54c65eb7652",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-19T21:47:31.364076Z"
+  },
+  {
+    "event_id": "evt_67b4f0da138f",
+    "task_id": "task_c54c65eb7652",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做个ppt介绍苹果公司\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nTemplateChoice=ppt1\nPages=10\nStyle=academic_simple\nStyleGuide=采用学术简洁风格：结构清晰、论点明确、表达克制，优先呈现核心结论、证据和逻辑链条，避免营销化措辞。\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料",
+    "created_at": "2026-05-19T21:47:31.378346Z"
+  },
+  {
+    "event_id": "evt_fdc9ef0abd51",
+    "task_id": "task_c54c65eb7652",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-19T21:47:31.427828Z"
+  },
+  {
+    "event_id": "evt_e14174ccaa26",
+    "task_id": "task_c54c65eb7652",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-19T21:47:31.436414Z"
+  },
+  {
+    "event_id": "evt_6931db00180a",
+    "task_id": "task_c54c65eb7652",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-19T21:47:31.449630Z"
+  },
+  {
+    "event_id": "evt_250a8d3c0095",
+    "task_id": "task_c54c65eb7652",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=deepseek_api/deepseek-v4-flash;timeout=600s;require_llm=False",
+    "created_at": "2026-05-19T21:47:31.456300Z"
+  },
+  {
+    "event_id": "evt_5bf63b25d82e",
+    "task_id": "task_c54c65eb7652",
+    "stage": "generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=600s",
+    "created_at": "2026-05-19T21:47:33.563845Z"
+  },
+  {
+    "event_id": "evt_75948e5769e0",
+    "task_id": "task_c54c65eb7652",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=deepseek_api;model=deepseek-v4-flash;latency_ms=7776",
+    "created_at": "2026-05-19T21:47:41.351461Z"
+  },
+  {
+    "event_id": "evt_af9483878dfe",
+    "task_id": "task_c54c65eb7652",
+    "stage": "generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=600s",
+    "created_at": "2026-05-19T21:47:42.136642Z"
+  },
+  {
+    "event_id": "evt_22250592864f",
+    "task_id": "task_c54c65eb7652",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=deepseek_api;model=deepseek-v4-flash;latency_ms=33750",
+    "created_at": "2026-05-19T21:48:15.891520Z"
+  },
+  {
+    "event_id": "evt_e492ca13971e",
+    "task_id": "task_c54c65eb7652",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-19T21:48:15.959157Z"
+  },
+  {
+    "event_id": "evt_c2c889fd149a",
+    "task_id": "task_c54c65eb7652",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-19T21:48:15.970461Z"
+  },
+  {
+    "event_id": "evt_831dd9028865",
+    "task_id": "task_c54c65eb7652",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-19T21:48:15.976478Z"
+  },
+  {
+    "event_id": "evt_ab034f801fd5",
+    "task_id": "task_c54c65eb7652",
+    "stage": "exporting",
+    "message": "template_script_render_started script=render_from_template.py",
+    "created_at": "2026-05-19T21:48:15.993020Z"
+  },
+  {
+    "event_id": "evt_8fb1e3cfbd1a",
+    "task_id": "task_c54c65eb7652",
+    "stage": "exporting",
+    "message": "template_script_render_succeeded script=render_from_template.py",
+    "created_at": "2026-05-19T21:48:16.242042Z"
+  },
+  {
+    "event_id": "evt_00fb3ce285d7",
+    "task_id": "task_c54c65eb7652",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-19T21:48:16.259681Z"
+  },
+  {
+    "event_id": "evt_8f6bfd9a4175",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_requested",
+    "message": "page=auto",
+    "created_at": "2026-05-19T21:49:14.823010Z"
+  },
+  {
+    "event_id": "evt_d1073f576d94",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_planning",
+    "message": "page_not_provided; llm_will_identify_target_slides",
+    "created_at": "2026-05-19T21:49:14.851952Z"
+  },
+  {
+    "event_id": "evt_916e752d6af2",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_planning",
+    "message": "target_pages=1,2,3,4,5,6,7,8,9,10",
+    "created_at": "2026-05-19T21:49:17.578108Z"
+  },
+  {
+    "event_id": "evt_cb635e695274",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=90s",
+    "created_at": "2026-05-19T21:49:17.589309Z"
+  },
+  {
+    "event_id": "evt_a6e5b75b3be0",
+    "task_id": "task_c54c65eb7652",
+    "stage": "exporting",
+    "message": "template_script_render_started script=render_from_template.py",
+    "created_at": "2026-05-19T21:50:34.076078Z"
+  },
+  {
+    "event_id": "evt_2aef80b4685f",
+    "task_id": "task_c54c65eb7652",
+    "stage": "exporting",
+    "message": "template_script_render_succeeded script=render_from_template.py",
+    "created_at": "2026-05-19T21:50:34.320845Z"
+  },
+  {
+    "event_id": "evt_504968a5cf9a",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_completed",
+    "message": "pages=1,2,3,4,5,6,7,8,9,10;version=2;llm_latency_ms=74871",
+    "created_at": "2026-05-19T21:50:34.341931Z"
+  },
+  {
+    "event_id": "evt_4fbfd4dc89c1",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_requested",
+    "message": "page=auto",
+    "created_at": "2026-05-19T21:52:45.379292Z"
+  },
+  {
+    "event_id": "evt_4667d4efa5f6",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_planning",
+    "message": "page_not_provided; llm_will_identify_target_slides",
+    "created_at": "2026-05-19T21:52:45.400542Z"
+  },
+  {
+    "event_id": "evt_55c42cbee4d6",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_planning",
+    "message": "target_pages=1,2,3,4,5,6,7,8,9,10",
+    "created_at": "2026-05-19T21:52:48.450953Z"
+  },
+  {
+    "event_id": "evt_eb1623f367af",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=90s",
+    "created_at": "2026-05-19T21:52:48.460954Z"
+  },
+  {
+    "event_id": "evt_0b567f3b47d4",
+    "task_id": "task_c54c65eb7652",
+    "stage": "exporting",
+    "message": "template_script_render_started script=render_from_template.py",
+    "created_at": "2026-05-19T21:54:14.593830Z"
+  },
+  {
+    "event_id": "evt_eeab65e2824a",
+    "task_id": "task_c54c65eb7652",
+    "stage": "exporting",
+    "message": "template_script_render_succeeded script=render_from_template.py",
+    "created_at": "2026-05-19T21:54:14.809393Z"
+  },
+  {
+    "event_id": "evt_fcbf85fb039c",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_completed",
+    "message": "pages=1,2,3,4,5,6,7,8,9,10;version=3;llm_latency_ms=84720",
+    "created_at": "2026-05-19T21:54:14.823987Z"
+  },
+  {
+    "event_id": "evt_2a447f13e902",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_requested",
+    "message": "page=auto",
+    "created_at": "2026-05-19T21:58:31.453861Z"
+  },
+  {
+    "event_id": "evt_7377373dfd39",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_planning",
+    "message": "page_not_provided; llm_will_identify_target_slides",
+    "created_at": "2026-05-19T21:58:31.495768Z"
+  },
+  {
+    "event_id": "evt_ec7195c30d9c",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_planning",
+    "message": "target_pages=1,2,3,4,6,7,8,9,10",
+    "created_at": "2026-05-19T21:58:58.543772Z"
+  },
+  {
+    "event_id": "evt_1ce3fbdd08e9",
+    "task_id": "task_c54c65eb7652",
+    "stage": "revision_generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=90s",
+    "created_at": "2026-05-19T21:58:58.561304Z"
+  },
+  {
+    "event_id": "evt_75f27a585199",
+    "task_id": "task_c54c65eb7652",
+    "stage": "failed_review",
+    "message": "Slide 4 has too much text",
+    "created_at": "2026-05-19T22:01:03.984304Z"
+  },
+  {
+    "event_id": "evt_10565305efab",
+    "task_id": "task_c06afd1c427e",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-19T23:34:34.317722Z"
+  },
+  {
+    "event_id": "evt_ff2e2e3bc921",
+    "task_id": "task_c06afd1c427e",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-19T23:34:35.453986Z"
+  },
+  {
+    "event_id": "evt_91ebf64a402d",
+    "task_id": "task_c06afd1c427e",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-19T23:34:45.886810Z"
+  },
+  {
+    "event_id": "evt_1340d807dead",
+    "task_id": "task_c06afd1c427e",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_c06afd1c427e\\file_3326c7db6026.txt",
+    "created_at": "2026-05-19T23:34:48.937471Z"
+  },
+  {
+    "event_id": "evt_129d64c2154c",
+    "task_id": "task_c06afd1c427e",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-19T23:34:48.943983Z"
+  },
+  {
+    "event_id": "evt_b12d9776c7e2",
+    "task_id": "task_c06afd1c427e",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-19T23:34:49.334451Z"
+  },
+  {
+    "event_id": "evt_e62350b9a841",
+    "task_id": "task_c06afd1c427e",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-19T23:34:49.375373Z"
+  },
+  {
+    "event_id": "evt_eaeca8b555d7",
+    "task_id": "task_c06afd1c427e",
+    "stage": "failed_generation",
+    "message": "template_generation_failed=Template already exists: D:\\pycharm\\Projects\\WorkForge\\main\\backend\\app\\templates\\ppt\\ppt1. Pass overwrite=true to replace it.",
+    "created_at": "2026-05-19T23:34:52.500355Z"
+  },
+  {
+    "event_id": "evt_47088d5164ad",
+    "task_id": "task_1d59df469895",
+    "stage": "created",
+    "message": "task created template_choice=ppt1",
+    "created_at": "2026-05-19T23:39:53.176350Z"
+  },
+  {
+    "event_id": "evt_9cb75c128a14",
+    "task_id": "task_1d59df469895",
+    "stage": "planning",
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-19T23:39:53.670432Z"
+  },
+  {
+    "event_id": "evt_e5b030da4559",
+    "task_id": "task_1d59df469895",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-19T23:39:53.705024Z"
+  },
+  {
+    "event_id": "evt_da151075918c",
+    "task_id": "task_1d59df469895",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-19T23:39:53.732232Z"
+  },
+  {
+    "event_id": "evt_cdbeb245604e",
+    "task_id": "task_1d59df469895",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-19T23:39:54.477482Z"
+  },
+  {
+    "event_id": "evt_1dd485662856",
+    "task_id": "task_1d59df469895",
+    "stage": "planning",
+    "message": "template_context_loaded style=academic_simple;template_choice=ppt1",
+    "created_at": "2026-05-19T23:39:54.536252Z"
+  },
+  {
+    "event_id": "evt_f08aefae5d40",
+    "task_id": "task_1d59df469895",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-19T23:39:54.562412Z"
+  },
+  {
+    "event_id": "evt_098549f622bb",
+    "task_id": "task_1d59df469895",
+    "stage": "planning",
+    "message": "requirement_understood=帮我做一个ppt介绍一下NBA\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nTemplateChoice=ppt1\nPages=10\nStyle=academic_simple\nStyleGuide=采用学术简洁风格：结构清晰、论点明确、表达克制，优先呈现核心结论、证据和逻辑链条，避免营销化措辞。\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关",
+    "created_at": "2026-05-19T23:39:54.587856Z"
+  },
+  {
+    "event_id": "evt_242aa1b10ec5",
+    "task_id": "task_1d59df469895",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-19T23:39:54.656935Z"
+  },
+  {
+    "event_id": "evt_a62864007b42",
+    "task_id": "task_1d59df469895",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-19T23:39:54.667964Z"
+  },
+  {
+    "event_id": "evt_bb48bb8f2e12",
+    "task_id": "task_1d59df469895",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-19T23:39:54.708605Z"
+  },
+  {
+    "event_id": "evt_6c9bf1ab87ae",
+    "task_id": "task_1d59df469895",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=deepseek_api/deepseek-v4-flash;timeout=600s;require_llm=False",
+    "created_at": "2026-05-19T23:39:54.727829Z"
+  },
+  {
+    "event_id": "evt_4ccdecdaecdf",
+    "task_id": "task_1d59df469895",
+    "stage": "generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=600s",
+    "created_at": "2026-05-19T23:39:58.808953Z"
+  },
+  {
+    "event_id": "evt_edfbec8d6b58",
+    "task_id": "task_1d59df469895",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=deepseek_api;model=deepseek-v4-flash;latency_ms=6146",
+    "created_at": "2026-05-19T23:40:04.980007Z"
+  },
+  {
+    "event_id": "evt_ce058379bc09",
+    "task_id": "task_1d59df469895",
+    "stage": "generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=600s",
+    "created_at": "2026-05-19T23:40:06.770569Z"
+  },
+  {
+    "event_id": "evt_2d208168b9c1",
+    "task_id": "task_1d59df469895",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=deepseek_api;model=deepseek-v4-flash;latency_ms=31433",
+    "created_at": "2026-05-19T23:40:38.215455Z"
+  },
+  {
+    "event_id": "evt_543a7030b015",
+    "task_id": "task_1d59df469895",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-19T23:40:38.431256Z"
+  },
+  {
+    "event_id": "evt_5c563a955b5e",
+    "task_id": "task_1d59df469895",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-19T23:40:38.451040Z"
+  },
+  {
+    "event_id": "evt_6db84635e228",
+    "task_id": "task_1d59df469895",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-19T23:40:38.464188Z"
+  },
+  {
+    "event_id": "evt_e224cbdb0063",
+    "task_id": "task_1d59df469895",
+    "stage": "exporting",
+    "message": "template_script_render_started script=render_from_template.py",
+    "created_at": "2026-05-19T23:40:38.494080Z"
+  },
+  {
+    "event_id": "evt_386df9f01817",
+    "task_id": "task_1d59df469895",
+    "stage": "exporting",
+    "message": "template_script_render_succeeded script=render_from_template.py",
+    "created_at": "2026-05-19T23:40:39.127929Z"
+  },
+  {
+    "event_id": "evt_2fd8dfca65db",
+    "task_id": "task_1d59df469895",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-19T23:40:39.193130Z"
+  },
+  {
+    "event_id": "evt_416ce349959c",
+    "task_id": "task_fd92a71caa05",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-19T23:46:55.758484Z"
+  },
+  {
+    "event_id": "evt_912272031660",
+    "task_id": "task_fd92a71caa05",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-19T23:46:57.001862Z"
+  },
+  {
+    "event_id": "evt_5ec4a80e0708",
+    "task_id": "task_fd92a71caa05",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-19T23:47:03.816024Z"
+  },
+  {
+    "event_id": "evt_240520a7ff80",
+    "task_id": "task_fd92a71caa05",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_fd92a71caa05\\file_a98b8b53cbaf.txt",
+    "created_at": "2026-05-19T23:47:10.666400Z"
+  },
+  {
+    "event_id": "evt_99a3c6ca54c1",
+    "task_id": "task_fd92a71caa05",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-19T23:47:10.684700Z"
+  },
+  {
+    "event_id": "evt_108fe6506e44",
+    "task_id": "task_fd92a71caa05",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-19T23:47:11.082256Z"
+  },
+  {
+    "event_id": "evt_6bf250769283",
+    "task_id": "task_fd92a71caa05",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-19T23:47:11.143827Z"
+  },
+  {
+    "event_id": "evt_c6a5e98d4e50",
+    "task_id": "task_fd92a71caa05",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-19T23:47:20.750920Z"
+  },
+  {
+    "event_id": "evt_21efb32e4e23",
+    "task_id": "task_fd92a71caa05",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=ppt1",
+    "created_at": "2026-05-19T23:47:20.764631Z"
+  },
+  {
+    "event_id": "evt_5d6145420a68",
+    "task_id": "task_6066ba086f9d",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-19T23:58:03.443226Z"
+  },
+  {
+    "event_id": "evt_6911fb3276c9",
+    "task_id": "task_6066ba086f9d",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-19T23:58:03.694889Z"
+  },
+  {
+    "event_id": "evt_626b72194876",
+    "task_id": "task_6066ba086f9d",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-19T23:58:12.053094Z"
+  },
+  {
+    "event_id": "evt_fd33f90c785c",
+    "task_id": "task_6066ba086f9d",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_6066ba086f9d\\file_fe2aa9c42719.txt",
+    "created_at": "2026-05-19T23:58:18.802946Z"
+  },
+  {
+    "event_id": "evt_9b288372b9d0",
+    "task_id": "task_6066ba086f9d",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-19T23:58:18.811268Z"
+  },
+  {
+    "event_id": "evt_38c0a5084f72",
+    "task_id": "task_6066ba086f9d",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-19T23:58:19.312058Z"
+  },
+  {
+    "event_id": "evt_e4834eb9afb1",
+    "task_id": "task_6066ba086f9d",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-19T23:58:19.379494Z"
+  },
+  {
+    "event_id": "evt_fcb39610bc10",
+    "task_id": "task_6066ba086f9d",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-19T23:58:21.501635Z"
+  },
+  {
+    "event_id": "evt_7a865761751d",
+    "task_id": "task_6066ba086f9d",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=ppt1_20260519195821",
+    "created_at": "2026-05-19T23:58:21.535176Z"
+  },
+  {
+    "event_id": "evt_a01564038338",
+    "task_id": "task_c8d3b8e9dd8b",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T00:03:53.935586Z"
+  },
+  {
+    "event_id": "evt_b387a4b5d71e",
+    "task_id": "task_c8d3b8e9dd8b",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T00:03:54.223728Z"
+  },
+  {
+    "event_id": "evt_d48fefaadb28",
+    "task_id": "task_c8d3b8e9dd8b",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T00:04:04.132949Z"
+  },
+  {
+    "event_id": "evt_83326a97f324",
+    "task_id": "task_c8d3b8e9dd8b",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_c8d3b8e9dd8b\\file_f0129c1d6138.txt",
+    "created_at": "2026-05-20T00:04:10.600735Z"
+  },
+  {
+    "event_id": "evt_90f97037df99",
+    "task_id": "task_c8d3b8e9dd8b",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T00:04:10.606256Z"
+  },
+  {
+    "event_id": "evt_1c36b00dc93c",
+    "task_id": "task_c8d3b8e9dd8b",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T00:04:10.773200Z"
+  },
+  {
+    "event_id": "evt_1dc83b45ff21",
+    "task_id": "task_c8d3b8e9dd8b",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T00:04:10.787807Z"
+  },
+  {
+    "event_id": "evt_cebe8c59e1b4",
+    "task_id": "task_c8d3b8e9dd8b",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T00:04:13.733037Z"
+  },
+  {
+    "event_id": "evt_3c74ca02a282",
+    "task_id": "task_c8d3b8e9dd8b",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=ppt1_20260519200413",
+    "created_at": "2026-05-20T00:04:13.744061Z"
+  },
+  {
+    "event_id": "evt_48f34bd3b001",
+    "task_id": "task_59ab6fa4fe7c",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T01:45:06.219634Z"
+  },
+  {
+    "event_id": "evt_87970dc8851f",
+    "task_id": "task_59ab6fa4fe7c",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T01:45:06.695828Z"
+  },
+  {
+    "event_id": "evt_271ae49523ec",
+    "task_id": "task_59ab6fa4fe7c",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T01:45:16.615883Z"
+  },
+  {
+    "event_id": "evt_84fe4462a3a4",
+    "task_id": "task_59ab6fa4fe7c",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_59ab6fa4fe7c\\file_3a2d45e4e9a2.txt",
+    "created_at": "2026-05-20T01:45:23.394691Z"
+  },
+  {
+    "event_id": "evt_1ea1eecdfb9a",
+    "task_id": "task_59ab6fa4fe7c",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T01:45:23.411765Z"
+  },
+  {
+    "event_id": "evt_bb3b55843af1",
+    "task_id": "task_59ab6fa4fe7c",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T01:45:23.714482Z"
+  },
+  {
+    "event_id": "evt_9c6055530006",
+    "task_id": "task_59ab6fa4fe7c",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T01:45:23.748145Z"
+  },
+  {
+    "event_id": "evt_8c6d720e4a44",
+    "task_id": "task_59ab6fa4fe7c",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T01:45:26.812645Z"
+  },
+  {
+    "event_id": "evt_fd6df5c523c0",
+    "task_id": "task_59ab6fa4fe7c",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=ppt1",
+    "created_at": "2026-05-20T01:45:26.825711Z"
+  },
+  {
+    "event_id": "evt_61fe9b7d1781",
+    "task_id": "task_3ff00befe3e7",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T01:51:13.807583Z"
+  },
+  {
+    "event_id": "evt_a611dd6b23e8",
+    "task_id": "task_3ff00befe3e7",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T01:51:14.025540Z"
+  },
+  {
+    "event_id": "evt_9e38a0c667d0",
+    "task_id": "task_3ff00befe3e7",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T01:51:20.386222Z"
+  },
+  {
+    "event_id": "evt_b4b1339d9418",
+    "task_id": "task_3ff00befe3e7",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_3ff00befe3e7\\file_666885c6288f.txt",
+    "created_at": "2026-05-20T01:51:27.243623Z"
+  },
+  {
+    "event_id": "evt_f8b46481873e",
+    "task_id": "task_3ff00befe3e7",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T01:51:27.252746Z"
+  },
+  {
+    "event_id": "evt_97c69b874761",
+    "task_id": "task_3ff00befe3e7",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T01:51:27.462344Z"
+  },
+  {
+    "event_id": "evt_b7d641e15e43",
+    "task_id": "task_3ff00befe3e7",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T01:51:27.492179Z"
+  },
+  {
+    "event_id": "evt_009bfa81cc98",
+    "task_id": "task_3ff00befe3e7",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T01:51:30.118772Z"
+  },
+  {
+    "event_id": "evt_7b52d8f47a28",
+    "task_id": "task_3ff00befe3e7",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=ppt2",
+    "created_at": "2026-05-20T01:51:30.128740Z"
+  },
+  {
+    "event_id": "evt_f9fa1cf1bf01",
+    "task_id": "task_97a6362f405b",
+    "stage": "created",
+    "message": "task created template_choice=ppt2",
+    "created_at": "2026-05-20T01:52:13.962450Z"
+  },
+  {
+    "event_id": "evt_5cc123d96d8d",
+    "task_id": "task_97a6362f405b",
+    "stage": "planning",
+    "message": "router_selected_skill=ppt_generation",
+    "created_at": "2026-05-20T01:52:14.548182Z"
+  },
+  {
+    "event_id": "evt_1dad96d00880",
+    "task_id": "task_97a6362f405b",
+    "stage": "planning",
+    "message": "no_source_file_detected; agent should search and organize content",
+    "created_at": "2026-05-20T01:52:14.584137Z"
+  },
+  {
+    "event_id": "evt_342a7d7a884d",
+    "task_id": "task_97a6362f405b",
+    "stage": "planning",
+    "message": "no_source_file_system_instruction_applied",
+    "created_at": "2026-05-20T01:52:14.605861Z"
+  },
+  {
+    "event_id": "evt_88d7b72e1c1b",
+    "task_id": "task_97a6362f405b",
+    "stage": "planning",
+    "message": "no_source_file_forced_search_empty;fallback_to_requirement_context",
+    "created_at": "2026-05-20T01:52:15.329440Z"
+  },
+  {
+    "event_id": "evt_7163d3ce4fe4",
+    "task_id": "task_97a6362f405b",
+    "stage": "planning",
+    "message": "template_context_loaded style=academic_simple;template_choice=ppt2",
+    "created_at": "2026-05-20T01:52:15.361214Z"
+  },
+  {
+    "event_id": "evt_50d4cdf9db1e",
+    "task_id": "task_97a6362f405b",
+    "stage": "planning",
+    "message": "start planning",
+    "created_at": "2026-05-20T01:52:15.377332Z"
+  },
+  {
+    "event_id": "evt_3ee586af9ecc",
+    "task_id": "task_97a6362f405b",
+    "stage": "planning",
+    "message": "requirement_understood=做个ppt介绍一下NBA\n\n[Task Settings]\nTaskType=ppt\nLanguage=zh-CN\nTemplateChoice=ppt2\nPages=10\nStyle=academic_simple\nStyleGuide=采用学术简洁风格：结构清晰、论点明确、表达克制，优先呈现核心结论、证据和逻辑链条，避免营销化措辞。\n\n【系统附加指令】当前未上传参考文件。请先自行检索相关资料并",
+    "created_at": "2026-05-20T01:52:15.436958Z"
+  },
+  {
+    "event_id": "evt_030d9a53ead1",
+    "task_id": "task_97a6362f405b",
+    "stage": "skill_selecting",
+    "message": "selected_skills=base_prompt,find_skill,knowledge_search,ppt_generation,ppt_template_generation,template_preview_formatter",
+    "created_at": "2026-05-20T01:52:15.607746Z"
+  },
+  {
+    "event_id": "evt_b4ef8fb3ac6d",
+    "task_id": "task_97a6362f405b",
+    "stage": "model_selecting",
+    "message": "model decisions resolved",
+    "created_at": "2026-05-20T01:52:15.631554Z"
+  },
+  {
+    "event_id": "evt_04de71984765",
+    "task_id": "task_97a6362f405b",
+    "stage": "generating",
+    "message": "start content generation",
+    "created_at": "2026-05-20T01:52:15.664255Z"
+  },
+  {
+    "event_id": "evt_aee7eafa9aa0",
+    "task_id": "task_97a6362f405b",
+    "stage": "model_selecting",
+    "message": "llm_generation_target=deepseek_api/deepseek-v4-flash;timeout=600s;require_llm=False",
+    "created_at": "2026-05-20T01:52:15.685643Z"
+  },
+  {
+    "event_id": "evt_f8d4cf11f7a9",
+    "task_id": "task_97a6362f405b",
+    "stage": "generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=600s",
+    "created_at": "2026-05-20T01:52:20.296505Z"
+  },
+  {
+    "event_id": "evt_a6c507109d5e",
+    "task_id": "task_97a6362f405b",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=deepseek_api;model=deepseek-v4-flash;latency_ms=10436",
+    "created_at": "2026-05-20T01:52:30.753372Z"
+  },
+  {
+    "event_id": "evt_5fb284f0f2a5",
+    "task_id": "task_97a6362f405b",
+    "stage": "generating",
+    "message": "llm_call_start provider=deepseek_api;model=deepseek-v4-flash;timeout=600s",
+    "created_at": "2026-05-20T01:52:33.615470Z"
+  },
+  {
+    "event_id": "evt_6bd24bc2de3b",
+    "task_id": "task_97a6362f405b",
+    "stage": "generating",
+    "message": "llm_call_succeeded provider=deepseek_api;model=deepseek-v4-flash;latency_ms=44551",
+    "created_at": "2026-05-20T01:53:18.185358Z"
+  },
+  {
+    "event_id": "evt_e155f085cb0a",
+    "task_id": "task_97a6362f405b",
+    "stage": "reviewing",
+    "message": "quality review started",
+    "created_at": "2026-05-20T01:53:18.331398Z"
+  },
+  {
+    "event_id": "evt_511f7f9287c5",
+    "task_id": "task_97a6362f405b",
+    "stage": "reviewing",
+    "message": "quality review passed",
+    "created_at": "2026-05-20T01:53:18.368880Z"
+  },
+  {
+    "event_id": "evt_10b2314af836",
+    "task_id": "task_97a6362f405b",
+    "stage": "exporting",
+    "message": "start pptx export",
+    "created_at": "2026-05-20T01:53:18.390989Z"
+  },
+  {
+    "event_id": "evt_fc4377f3d826",
+    "task_id": "task_97a6362f405b",
+    "stage": "exporting",
+    "message": "template_script_render_started script=render_from_template.py",
+    "created_at": "2026-05-20T01:53:18.425842Z"
+  },
+  {
+    "event_id": "evt_5e3e3e08d415",
+    "task_id": "task_97a6362f405b",
+    "stage": "exporting",
+    "message": "template_script_render_succeeded script=render_from_template.py",
+    "created_at": "2026-05-20T01:53:18.968957Z"
+  },
+  {
+    "event_id": "evt_84300d322f13",
+    "task_id": "task_97a6362f405b",
+    "stage": "completed",
+    "message": "output_version=1",
+    "created_at": "2026-05-20T01:53:19.000727Z"
+  },
+  {
+    "event_id": "evt_4a371714969b",
+    "task_id": "task_fa3c2ee7282c",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T01:59:01.191762Z"
+  },
+  {
+    "event_id": "evt_e0713c35c5b1",
+    "task_id": "task_fa3c2ee7282c",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T01:59:01.683848Z"
+  },
+  {
+    "event_id": "evt_7491833d40fa",
+    "task_id": "task_fa3c2ee7282c",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T01:59:11.072288Z"
+  },
+  {
+    "event_id": "evt_d37f0fff808b",
+    "task_id": "task_fa3c2ee7282c",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_fa3c2ee7282c\\file_1420776ed959.txt",
+    "created_at": "2026-05-20T01:59:18.127273Z"
+  },
+  {
+    "event_id": "evt_82abf46a95b8",
+    "task_id": "task_fa3c2ee7282c",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T01:59:18.154564Z"
+  },
+  {
+    "event_id": "evt_77f6b5cff2d9",
+    "task_id": "task_fa3c2ee7282c",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T01:59:18.804276Z"
+  },
+  {
+    "event_id": "evt_abe612e5b593",
+    "task_id": "task_fa3c2ee7282c",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T01:59:18.875432Z"
+  },
+  {
+    "event_id": "evt_95922f88370a",
+    "task_id": "task_fa3c2ee7282c",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T01:59:22.551646Z"
+  },
+  {
+    "event_id": "evt_6e2fc178edf9",
+    "task_id": "task_fa3c2ee7282c",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=ppt1_20260519215922",
+    "created_at": "2026-05-20T01:59:22.590243Z"
+  },
+  {
+    "event_id": "evt_4f38ceb86881",
+    "task_id": "task_e11ba8b56ab5",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T02:00:42.469026Z"
+  },
+  {
+    "event_id": "evt_b9f195836ce1",
+    "task_id": "task_e11ba8b56ab5",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T02:00:43.094312Z"
+  },
+  {
+    "event_id": "evt_7df741a6478f",
+    "task_id": "task_e11ba8b56ab5",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:00:52.801112Z"
+  },
+  {
+    "event_id": "evt_af3c7bdd562f",
+    "task_id": "task_e11ba8b56ab5",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_e11ba8b56ab5\\file_ab995affe729.txt",
+    "created_at": "2026-05-20T02:00:55.596476Z"
+  },
+  {
+    "event_id": "evt_9a020dc0cf3d",
+    "task_id": "task_e11ba8b56ab5",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T02:00:55.604166Z"
+  },
+  {
+    "event_id": "evt_e1949f9f8cb4",
+    "task_id": "task_e11ba8b56ab5",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T02:00:55.845711Z"
+  },
+  {
+    "event_id": "evt_8b0af717674d",
+    "task_id": "task_e11ba8b56ab5",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T02:00:55.891579Z"
+  },
+  {
+    "event_id": "evt_e65a57832c18",
+    "task_id": "task_e11ba8b56ab5",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:00:58.168948Z"
+  },
+  {
+    "event_id": "evt_8830eca02a73",
+    "task_id": "task_e11ba8b56ab5",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=academic_presentation_template",
+    "created_at": "2026-05-20T02:00:58.182495Z"
+  },
+  {
+    "event_id": "evt_111f0ead1d24",
+    "task_id": "task_c0dd2848d78e",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T02:08:48.726637Z"
+  },
+  {
+    "event_id": "evt_22819846133e",
+    "task_id": "task_c0dd2848d78e",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T02:08:49.885094Z"
+  },
+  {
+    "event_id": "evt_911cba501d20",
+    "task_id": "task_c0dd2848d78e",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:08:57.925061Z"
+  },
+  {
+    "event_id": "evt_ac93cc746cb8",
+    "task_id": "task_c0dd2848d78e",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_c0dd2848d78e\\file_e5f1ca10fefe.txt",
+    "created_at": "2026-05-20T02:09:05.089864Z"
+  },
+  {
+    "event_id": "evt_fa27e6b53397",
+    "task_id": "task_c0dd2848d78e",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T02:09:05.106941Z"
+  },
+  {
+    "event_id": "evt_59e537ef2369",
+    "task_id": "task_c0dd2848d78e",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T02:09:05.686967Z"
+  },
+  {
+    "event_id": "evt_9070a6eba63f",
+    "task_id": "task_c0dd2848d78e",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T02:09:05.726239Z"
+  },
+  {
+    "event_id": "evt_7fc8b6312f3e",
+    "task_id": "task_c0dd2848d78e",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:09:10.026421Z"
+  },
+  {
+    "event_id": "evt_f2826970c4c5",
+    "task_id": "task_c0dd2848d78e",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=group_meeting_report_ppt",
+    "created_at": "2026-05-20T02:09:10.060160Z"
+  },
+  {
+    "event_id": "evt_a1014c3e5656",
+    "task_id": "task_77b18148ce6e",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T02:20:53.765094Z"
+  },
+  {
+    "event_id": "evt_d9a0a52e5fee",
+    "task_id": "task_77b18148ce6e",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T02:20:54.261977Z"
+  },
+  {
+    "event_id": "evt_501cd8a6277b",
+    "task_id": "task_77b18148ce6e",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:21:05.145511Z"
+  },
+  {
+    "event_id": "evt_1c8a0f31d8c8",
+    "task_id": "task_77b18148ce6e",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_77b18148ce6e\\file_7d66f9f31e94.txt",
+    "created_at": "2026-05-20T02:21:12.138349Z"
+  },
+  {
+    "event_id": "evt_5b467383517f",
+    "task_id": "task_77b18148ce6e",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T02:21:12.149981Z"
+  },
+  {
+    "event_id": "evt_3069cc6f2ea0",
+    "task_id": "task_77b18148ce6e",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T02:21:12.686230Z"
+  },
+  {
+    "event_id": "evt_ae67dac7d16e",
+    "task_id": "task_77b18148ce6e",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T02:21:12.718467Z"
+  },
+  {
+    "event_id": "evt_050fc87e8de4",
+    "task_id": "task_77b18148ce6e",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:21:17.439888Z"
+  },
+  {
+    "event_id": "evt_e7ee03e8f96e",
+    "task_id": "task_77b18148ce6e",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=college_meeting_template",
+    "created_at": "2026-05-20T02:21:17.459739Z"
+  },
+  {
+    "event_id": "evt_bb3bfc87304e",
+    "task_id": "task_c46359e2edaa",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T02:22:39.073399Z"
+  },
+  {
+    "event_id": "evt_0262d7d441aa",
+    "task_id": "task_c46359e2edaa",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T02:22:40.422834Z"
+  },
+  {
+    "event_id": "evt_58238712989e",
+    "task_id": "task_c46359e2edaa",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:22:48.764184Z"
+  },
+  {
+    "event_id": "evt_8ce6991e571a",
+    "task_id": "task_c46359e2edaa",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_c46359e2edaa\\file_c404b9111696.txt",
+    "created_at": "2026-05-20T02:22:52.030654Z"
+  },
+  {
+    "event_id": "evt_137a362faa94",
+    "task_id": "task_c46359e2edaa",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T02:22:52.052688Z"
+  },
+  {
+    "event_id": "evt_6f8e040210e5",
+    "task_id": "task_c46359e2edaa",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T02:22:52.303741Z"
+  },
+  {
+    "event_id": "evt_a8a825baeee0",
+    "task_id": "task_c46359e2edaa",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T02:22:52.316778Z"
+  },
+  {
+    "event_id": "evt_d1ca3ee794a9",
+    "task_id": "task_c46359e2edaa",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:22:55.220668Z"
+  },
+  {
+    "event_id": "evt_c13a3fd7ad96",
+    "task_id": "task_c46359e2edaa",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=group_discussion_ppt",
+    "created_at": "2026-05-20T02:22:55.230708Z"
+  },
+  {
+    "event_id": "evt_7719ead8b293",
+    "task_id": "task_e807b1176aa8",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T02:27:50.658930Z"
+  },
+  {
+    "event_id": "evt_995cf75731ea",
+    "task_id": "task_e807b1176aa8",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T02:27:52.025762Z"
+  },
+  {
+    "event_id": "evt_069ff68a0f48",
+    "task_id": "task_e807b1176aa8",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:28:02.088588Z"
+  },
+  {
+    "event_id": "evt_4b7443fc6b8e",
+    "task_id": "task_e807b1176aa8",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_e807b1176aa8\\file_92c572f7a493.txt",
+    "created_at": "2026-05-20T02:28:08.837910Z"
+  },
+  {
+    "event_id": "evt_f9d143786004",
+    "task_id": "task_e807b1176aa8",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T02:28:08.845421Z"
+  },
+  {
+    "event_id": "evt_f7de809b9278",
+    "task_id": "task_e807b1176aa8",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T02:28:09.406834Z"
+  },
+  {
+    "event_id": "evt_bd454feba480",
+    "task_id": "task_e807b1176aa8",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T02:28:09.439304Z"
+  },
+  {
+    "event_id": "evt_9c5ebb29fc55",
+    "task_id": "task_e807b1176aa8",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:28:12.227008Z"
+  },
+  {
+    "event_id": "evt_fe539041bb95",
+    "task_id": "task_e807b1176aa8",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=zu_hui_hui_bao",
+    "created_at": "2026-05-20T02:28:12.243637Z"
+  },
+  {
+    "event_id": "evt_67066eb4077f",
+    "task_id": "task_a054c3c5d087",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T02:34:54.049141Z"
+  },
+  {
+    "event_id": "evt_a605e3ed033f",
+    "task_id": "task_a054c3c5d087",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T02:34:55.154065Z"
+  },
+  {
+    "event_id": "evt_c03c4533f270",
+    "task_id": "task_a054c3c5d087",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:35:01.792996Z"
+  },
+  {
+    "event_id": "evt_df6761d572bd",
+    "task_id": "task_a054c3c5d087",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_a054c3c5d087\\file_2b0e9d4570e2.txt",
+    "created_at": "2026-05-20T02:35:08.649621Z"
+  },
+  {
+    "event_id": "evt_20481b7e78eb",
+    "task_id": "task_a054c3c5d087",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T02:35:08.656645Z"
+  },
+  {
+    "event_id": "evt_ac4dec5a77ec",
+    "task_id": "task_a054c3c5d087",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T02:35:09.172774Z"
+  },
+  {
+    "event_id": "evt_6fa9a0f10e51",
+    "task_id": "task_a054c3c5d087",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T02:35:09.217877Z"
+  },
+  {
+    "event_id": "evt_813ea7ae6642",
+    "task_id": "task_a054c3c5d087",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:35:13.969354Z"
+  },
+  {
+    "event_id": "evt_a310f94f3dec",
+    "task_id": "task_a054c3c5d087",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=group_meeting_report",
+    "created_at": "2026-05-20T02:35:13.995398Z"
+  },
+  {
+    "event_id": "evt_86c570c57552",
+    "task_id": "task_30e11d70667c",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T02:38:51.308512Z"
+  },
+  {
+    "event_id": "evt_7996704beb4e",
+    "task_id": "task_30e11d70667c",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T02:38:52.471108Z"
+  },
+  {
+    "event_id": "evt_b8e0ae57dcff",
+    "task_id": "task_30e11d70667c",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:39:02.763583Z"
+  },
+  {
+    "event_id": "evt_4c73b5e1ce73",
+    "task_id": "task_30e11d70667c",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_30e11d70667c\\file_c87dabef6613.txt",
+    "created_at": "2026-05-20T02:39:05.909694Z"
+  },
+  {
+    "event_id": "evt_decf3a3c6d5b",
+    "task_id": "task_30e11d70667c",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T02:39:05.936306Z"
+  },
+  {
+    "event_id": "evt_0b5f85631c88",
+    "task_id": "task_30e11d70667c",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T02:39:06.486283Z"
+  },
+  {
+    "event_id": "evt_df781fec4f15",
+    "task_id": "task_30e11d70667c",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T02:39:06.510006Z"
+  },
+  {
+    "event_id": "evt_f0c8ed3539b7",
+    "task_id": "task_30e11d70667c",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:39:11.134186Z"
+  },
+  {
+    "event_id": "evt_cda7544af21a",
+    "task_id": "task_30e11d70667c",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=group_meeting_report_20260519223911",
+    "created_at": "2026-05-20T02:39:11.162553Z"
+  },
+  {
+    "event_id": "evt_5689b24c4d1a",
+    "task_id": "task_edb16e914dcf",
+    "stage": "created",
+    "message": "task created",
+    "created_at": "2026-05-20T02:44:21.231723Z"
+  },
+  {
+    "event_id": "evt_1113bb2f114b",
+    "task_id": "task_edb16e914dcf",
+    "stage": "file_uploaded",
+    "message": "file uploaded: template.pptx",
+    "created_at": "2026-05-20T02:44:22.672224Z"
+  },
+  {
+    "event_id": "evt_8251ca984470",
+    "task_id": "task_edb16e914dcf",
+    "stage": "file_uploaded",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:44:28.336378Z"
+  },
+  {
+    "event_id": "evt_a3cb3128c996",
+    "task_id": "task_edb16e914dcf",
+    "stage": "file_parsed",
+    "message": "parsed_text_path=D:\\pycharm\\Projects\\WorkForge\\main\\runtime_data\\storage\\parsed\\task_edb16e914dcf\\file_11b2a9e8bea2.txt",
+    "created_at": "2026-05-20T02:44:35.198420Z"
+  },
+  {
+    "event_id": "evt_027fd7953d71",
+    "task_id": "task_edb16e914dcf",
+    "stage": "file_parsed",
+    "message": "vector_cache_ready chunks=1;type=ollama;model=qwen3-embedding:8b",
+    "created_at": "2026-05-20T02:44:35.216922Z"
+  },
+  {
+    "event_id": "evt_51a6639041e9",
+    "task_id": "task_edb16e914dcf",
+    "stage": "planning",
+    "message": "start template generation planning",
+    "created_at": "2026-05-20T02:44:35.747593Z"
+  },
+  {
+    "event_id": "evt_e0cacdd670a6",
+    "task_id": "task_edb16e914dcf",
+    "stage": "model_selecting",
+    "message": "template_generation_llm_target=deepseek_api/deepseek-v4-flash;source=user_default;timeout=180s",
+    "created_at": "2026-05-20T02:44:35.789080Z"
+  },
+  {
+    "event_id": "evt_fc2d7cc1856d",
+    "task_id": "task_edb16e914dcf",
+    "stage": "exporting",
+    "message": "uploaded_template_preview_ready images=1",
+    "created_at": "2026-05-20T02:44:39.105690Z"
+  },
+  {
+    "event_id": "evt_bdb6ffd1b047",
+    "task_id": "task_edb16e914dcf",
+    "stage": "completed",
+    "message": "template_generated type=ppt;name=group_meeting_presentation",
+    "created_at": "2026-05-20T02:44:39.135105Z"
   }
 ]

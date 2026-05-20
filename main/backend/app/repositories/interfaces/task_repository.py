@@ -19,3 +19,7 @@ class TaskRepository(ABC):
     @abstractmethod
     def list_by_user(self, user_id: str) -> list[Task]:
         raise NotImplementedError
+
+    @abstractmethod
+    def delete(self, task_id: str) -> bool:
+        raise NotImplementedError

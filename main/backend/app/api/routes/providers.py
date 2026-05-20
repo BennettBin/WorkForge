@@ -27,6 +27,13 @@ def _current_user(request: Request, authorization: Optional[str] = Header(defaul
     return AuthService(request.app.state.repositories).validate_token(token)
 
 
+def _serialize_provider(cfg) -> dict:
+    payload = cfg.model_dump(mode="json")
+    payload.pop("api_key_encrypted", None)
+    payload["has_api_key"] = bool((cfg.api_key_encrypted or "").strip())
+    return payload
+
+
 @router.post("", response_model=ApiResponse)
 def upsert_provider(
     payload: ProviderUpsertRequest,
@@ -37,7 +44,7 @@ def upsert_provider(
         raise ValueError("User mismatch for provider upsert.")
     svc = _provider_service(request)
     cfg = svc.upsert(payload)
-    return ApiResponse(success=True, data=cfg.model_dump(mode="json"))
+    return ApiResponse(success=True, data=_serialize_provider(cfg))
 
 
 @router.get("/default/me", response_model=ApiResponse)
@@ -46,7 +53,7 @@ def get_default_provider_me(request: Request, current_user: User = Depends(_curr
     cfg = svc.get_default_for_user(current_user.user_id)
     if cfg is None:
         return ApiResponse(success=True, data={"item": None})
-    return ApiResponse(success=True, data={"item": cfg.model_dump(mode="json")})
+    return ApiResponse(success=True, data={"item": _serialize_provider(cfg)})
 
 
 @router.get("/{user_id}", response_model=ApiResponse)
@@ -58,7 +65,7 @@ def list_providers(
     if user_id != current_user.user_id:
         raise ValueError("User mismatch for provider listing.")
     svc = _provider_service(request)
-    items = [x.model_dump(mode="json") for x in svc.list_by_user(user_id)]
+    items = [_serialize_provider(x) for x in svc.list_by_user(user_id)]
     return ApiResponse(success=True, data={"items": items})
 
 

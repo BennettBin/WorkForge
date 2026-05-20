@@ -32,11 +32,14 @@ dist/
 .ipynb_checkpoints/
 
 # Project outputs
-/main/storageoutputs/
+/main/logs/
 data/
 models/
 checkpoints/
-/main/storageparsed/
-/main/storageuploads/
-/main/storagevectors/
-/main/backend/app/templates/
+/main/backend/app/templates/*
+!/main/backend/app/templates/ppt/
+/main/backend/app/templates/ppt/*
+!/main/backend/app/templates/ppt/system_default/
+!/main/backend/app/templates/ppt/system_default/**
+/main/runtime_data/*
+/main/backend/runtime_data/*

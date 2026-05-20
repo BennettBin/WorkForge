@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $workspaceRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $backendDir = Join-Path $workspaceRoot "backend"
-$logDir = Join-Path $workspaceRoot "storage\logs"
+$logDir = Join-Path $workspaceRoot "logs"
 $pidFile = Join-Path $logDir "backend.pid"
 $outFile = Join-Path $logDir "backend.out.log"
 $errFile = Join-Path $logDir "backend.err.log"

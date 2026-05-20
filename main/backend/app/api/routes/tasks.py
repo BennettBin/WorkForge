@@ -7,11 +7,12 @@ from fastapi.responses import FileResponse
 
 from app.agents.coordinator import CoordinatorAgent
 from app.config import settings
-from app.models import ApiResponse, CreateTaskRequest, InferTemplateSettingsRequest, InferTaskTypeRequest, ParseTaskRequest, RunTaskRequest, TemplateRecoveryCompleteRequest, TemplateRecoveryResumeRequest
+from app.models import ApiResponse, CreateTaskRequest, InferPptStyleRequest, InferTemplateSettingsRequest, InferTaskTypeRequest, ParseTaskRequest, RunTaskRequest, TemplateRecoveryCompleteRequest, TemplateRecoveryResumeRequest
 from app.models.entities import Task, User
 from app.models.requests import CapabilityBuildRequest, ManualStatusUpdateRequest, RevisionRequest
 from app.services.auth_service import AuthService
 from app.services.model_router import ModelRouter
+from app.services.llm_runtime import LLMTextGenerator
 from app.services.skill_runtime import SkillExecutor
 from app.services.task_manager import build_task_service, TaskService
 
@@ -142,6 +143,34 @@ def infer_template_settings(payload: InferTemplateSettingsRequest, request: Requ
     return ApiResponse(success=True, data=settings_data)
 
 
+@router.post("/ppt/styles/infer", response_model=ApiResponse)
+def infer_ppt_style(payload: InferPptStyleRequest, request: Request, current_user: User = Depends(_current_user)) -> ApiResponse:
+    user_id = payload.user_id or current_user.user_id
+    if user_id != current_user.user_id:
+        raise ValueError("User mismatch for style inference.")
+    decision = ModelRouter(request.app.state.repositories).pick(user_id, "planning")
+    provider_cfg = request.app.state.repositories.providers.get_default_for_user(user_id)
+    prompt = (
+        "为一个PPT生成任务写一段简洁、可执行的风格说明。\n"
+        "要求：只输出风格说明正文，80到160字，不要标题，不要JSON。\n"
+        f"风格名称：{payload.style_name}\n"
+        f"用户任务：{payload.requirement or ''}\n"
+        "说明需要覆盖内容语气、信息密度、结构方式和表达偏好。"
+    )
+    try:
+        description = LLMTextGenerator().generate(
+            provider_type=str(decision.provider_type or "").strip(),
+            base_url=decision.base_url.strip() if isinstance(decision.base_url, str) else decision.base_url,
+            model_name=str(decision.model_name or "").strip(),
+            prompt=prompt,
+            api_key=(provider_cfg.api_key_encrypted or "").strip() if provider_cfg and provider_cfg.api_key_encrypted else None,
+            timeout_seconds=provider_cfg.timeout_seconds if provider_cfg and provider_cfg.timeout_seconds else 180,
+        )
+    except Exception:
+        description = f"采用{payload.style_name}风格：内容表达应与该风格一致，结构清晰，重点突出，语言保持专业、连贯，并服务于用户的PPT制作目标。"
+    return ApiResponse(success=True, data={"style_name": payload.style_name, "description": description.strip()})
+
+
 @router.get("/user/{user_id}", response_model=ApiResponse)
 def list_tasks_by_user(
     user_id: str,
@@ -192,6 +221,16 @@ def get_task(task_id: str, service: TaskService = Depends(_task_service), curren
             "events": events,
         },
     )
+
+
+@router.delete("/{task_id}", response_model=ApiResponse)
+def delete_task_history(
+    task_id: str,
+    service: TaskService = Depends(_task_service),
+    current_user: User = Depends(_current_user),
+) -> ApiResponse:
+    data = service.delete_task_history(task_id, current_user.user_id)
+    return ApiResponse(success=True, data=data)
 
 
 @router.post("/{task_id}/upload", response_model=ApiResponse)
@@ -446,17 +485,44 @@ def clear_task_cache(
 
 
 @router.get("/ppt/templates", response_model=ApiResponse)
-def list_ppt_templates(service: TaskService = Depends(_task_service), current_user: User = Depends(_current_user)) -> ApiResponse:
-    return ApiResponse(success=True, data={"items": service.list_ppt_templates()})
+def list_ppt_templates(
+    include_invalid: bool = False,
+    service: TaskService = Depends(_task_service),
+    current_user: User = Depends(_current_user),
+) -> ApiResponse:
+    return ApiResponse(success=True, data={"items": service.list_ppt_templates(include_invalid=include_invalid)})
+
+
+@router.get("/ppt/templates/{template_name}/preview/{page}")
+def get_ppt_template_preview_image(
+    template_name: str,
+    page: int,
+    service: TaskService = Depends(_task_service),
+    current_user: User = Depends(_current_user),
+) -> FileResponse:
+    path = service.get_ppt_template_preview_image(template_name, page)
+    return FileResponse(path=str(path), filename=path.name, media_type="image/png")
+
+
+@router.get("/ppt/templates/{template_name}/sample-preview/{page}")
+def get_ppt_template_sample_preview_image(
+    template_name: str,
+    page: int,
+    service: TaskService = Depends(_task_service),
+    current_user: User = Depends(_current_user),
+) -> FileResponse:
+    path = service.get_ppt_template_sample_preview_image(template_name, page)
+    return FileResponse(path=str(path), filename=path.name, media_type="image/png")
 
 
 @router.get("/templates/{template_type}", response_model=ApiResponse)
 def list_templates(
     template_type: str,
+    include_invalid: bool = False,
     service: TaskService = Depends(_task_service),
     current_user: User = Depends(_current_user),
 ) -> ApiResponse:
-    return ApiResponse(success=True, data={"items": service.list_templates(template_type)})
+    return ApiResponse(success=True, data={"items": service.list_templates(template_type, include_invalid=include_invalid)})
 
 
 @router.get("/{task_id}/template-preview", response_model=ApiResponse)
@@ -494,6 +560,17 @@ def get_template_preview(
                         "size_bytes": p.stat().st_size,
                     }
                 )
+    preview_image_paths = service._get_uploaded_ppt_template_preview_images(task_id)[:1]
+    if not preview_image_paths:
+        preview_image_paths = service._ensure_ppt_template_preview_images(template_dir)[:1]
+    preview_images = [
+        {
+            "page": idx + 1,
+            "url": f"/v1/tasks/{task_id}/template-preview/image/{idx + 1}",
+            "size_bytes": p.stat().st_size if p.exists() else 0,
+        }
+        for idx, p in enumerate(preview_image_paths)
+    ]
     router = ModelRouter(service.repos)
     decision = router.pick(task.user_id, "review")
     provider_cfg = service.repos.providers.get_default_for_user(task.user_id)
@@ -544,9 +621,34 @@ def get_template_preview(
                 "size_bytes": render_script.stat().st_size if render_script.exists() else 0,
             },
             "assets": assets,
+            "preview_images": preview_images,
             "preview_text": preview_text,
         },
     )
+
+
+@router.get("/{task_id}/template-preview/image/{page}")
+def get_template_preview_image(
+    task_id: str,
+    page: int,
+    service: TaskService = Depends(_task_service),
+    current_user: User = Depends(_current_user),
+) -> FileResponse:
+    task = _owned_task_or_raise(service, task_id, current_user.user_id)
+    if task.task_type != "template_generation":
+        raise ValueError("Task is not a template generation task.")
+    latest = service.repos.outputs.get_latest(task_id)
+    if latest is None:
+        raise ValueError("No template output found for task.")
+    template_file = _safe_template_file(Path(latest.file_path))
+    images = service._get_uploaded_ppt_template_preview_images(task_id)
+    if not images:
+        images = service._ensure_ppt_template_preview_images(template_file.parent)
+    index = page - 1
+    if index < 0 or index >= len(images):
+        raise ValueError("Template preview page not found.")
+    path = images[index]
+    return FileResponse(path=str(path), filename=path.name, media_type="image/png")
 
 
 @router.get("/{task_id}/template-preview/file")

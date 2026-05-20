@@ -10,3 +10,7 @@ class AgentRunRepository(ABC):
     @abstractmethod
     def list_by_task(self, task_id: str) -> list[AgentRun]:
         raise NotImplementedError
+
+    @abstractmethod
+    def delete_by_task(self, task_id: str) -> int:
+        raise NotImplementedError
