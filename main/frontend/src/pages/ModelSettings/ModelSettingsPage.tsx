@@ -5,7 +5,7 @@ import { getJson, postJson, putJson } from "../../api/http";
 import { useAppStore } from "../../store/appStore";
 import { ApiEnvelope } from "../../types/api";
 
-type ProviderType =
+type ChatProviderType =
   | "deepseek_api"
   | "openai_api"
   | "anthropic_api"
@@ -15,20 +15,29 @@ type ProviderType =
   | "huggingface"
   | "local_llm";
 
+type EmbeddingProviderType = "ollama" | "local_embedding" | "huggingface";
+
 type ProviderItem = {
   provider_id: string;
   provider_type: string;
   display_name: string;
-  base_url?: string;
+  base_url?: string | null;
   model_name: string;
-  chat_model?: string;
-  embedding_model?: string;
+  chat_model?: string | null;
   has_api_key?: boolean;
   is_default: boolean;
 };
 
-type ProviderDefaultResponse = {
-  item: ProviderItem | null;
+type EmbeddingProviderItem = {
+  provider_id: string;
+  provider_type: EmbeddingProviderType;
+  display_name: string;
+  model_name?: string | null;
+  base_url?: string | null;
+  local_path?: string | null;
+  cache_dir?: string | null;
+  dimension?: number | null;
+  is_default: boolean;
 };
 
 type ProviderTestResult = {
@@ -37,23 +46,34 @@ type ProviderTestResult = {
   error_code?: string;
   reachable?: boolean;
   model_found?: boolean;
+  dimension?: number;
 };
 
-type ProviderConfigPreset = {
+type ChatProviderPreset = {
   label: string;
-  providerType: ProviderType;
+  providerType: ChatProviderType;
   baseUrlExample: string;
   modelExample: string;
   modelOptions?: string[];
   needsApiKey: boolean;
   needsChatModel: boolean;
-  needsEmbeddingModel: boolean;
   defaultValues: {
     display_name: string;
     base_url: string;
     model_name: string;
     chat_model?: string;
-    embedding_model?: string;
+  };
+};
+
+type EmbeddingProviderPreset = {
+  label: string;
+  providerType: EmbeddingProviderType;
+  defaultValues: {
+    display_name: string;
+    model_name?: string;
+    base_url?: string;
+    local_path?: string;
+    cache_dir?: string;
   };
 };
 
@@ -68,7 +88,7 @@ const VLLM_DEFAULT = {
   base_url: "http://127.0.0.1:8000/v1",
 };
 
-const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
+const CHAT_PROVIDER_PRESETS: Record<ChatProviderType, ChatProviderPreset> = {
   deepseek_api: {
     label: "Deepseek API",
     providerType: "deepseek_api",
@@ -77,7 +97,6 @@ const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
     modelOptions: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"],
     needsApiKey: true,
     needsChatModel: false,
-    needsEmbeddingModel: false,
     defaultValues: { display_name: "Deepseek API", base_url: "https://api.deepseek.com", model_name: "deepseek-v4-flash" },
   },
   openai_api: {
@@ -88,7 +107,6 @@ const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
     modelOptions: ["gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini", "gpt-4o"],
     needsApiKey: true,
     needsChatModel: false,
-    needsEmbeddingModel: false,
     defaultValues: { display_name: "OpenAI API", base_url: "https://api.openai.com/v1", model_name: "gpt-4.1-mini" },
   },
   anthropic_api: {
@@ -99,12 +117,7 @@ const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
     modelOptions: ["claude-3-7-sonnet-latest", "claude-3-5-sonnet-latest", "claude-3-5-haiku-latest"],
     needsApiKey: true,
     needsChatModel: false,
-    needsEmbeddingModel: false,
-    defaultValues: {
-      display_name: "Anthropic API",
-      base_url: "https://api.anthropic.com/v1",
-      model_name: "claude-3-7-sonnet-latest",
-    },
+    defaultValues: { display_name: "Anthropic API", base_url: "https://api.anthropic.com/v1", model_name: "claude-3-7-sonnet-latest" },
   },
   qwen_api: {
     label: "Qwen API",
@@ -114,12 +127,7 @@ const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
     modelOptions: ["qwen-plus", "qwen-max", "qwen-turbo", "qwen-long"],
     needsApiKey: true,
     needsChatModel: false,
-    needsEmbeddingModel: false,
-    defaultValues: {
-      display_name: "Qwen API",
-      base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      model_name: "qwen-plus",
-    },
+    defaultValues: { display_name: "Qwen API", base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1", model_name: "qwen-plus" },
   },
   vllm: {
     label: "vLLM",
@@ -128,28 +136,16 @@ const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
     modelExample: VLLM_DEFAULT.model_name,
     needsApiKey: false,
     needsChatModel: false,
-    needsEmbeddingModel: false,
-    defaultValues: {
-      display_name: "vLLM Local",
-      base_url: VLLM_DEFAULT.base_url,
-      model_name: VLLM_DEFAULT.model_name,
-    },
+    defaultValues: { display_name: "vLLM Local", base_url: VLLM_DEFAULT.base_url, model_name: VLLM_DEFAULT.model_name },
   },
   ollama: {
     label: "Ollama",
     providerType: "ollama",
-    baseUrlExample: "http://localhost:11434",
-    modelExample: "qwen3:8b",
+    baseUrlExample: OLLAMA_DEFAULT.base_url,
+    modelExample: OLLAMA_DEFAULT.chat_model,
     needsApiKey: false,
     needsChatModel: true,
-    needsEmbeddingModel: true,
-    defaultValues: {
-      display_name: "Ollama Local",
-      base_url: OLLAMA_DEFAULT.base_url,
-      model_name: OLLAMA_DEFAULT.chat_model,
-      chat_model: OLLAMA_DEFAULT.chat_model,
-      embedding_model: OLLAMA_DEFAULT.embedding_model,
-    },
+    defaultValues: { display_name: "Ollama Local", base_url: OLLAMA_DEFAULT.base_url, model_name: OLLAMA_DEFAULT.chat_model, chat_model: OLLAMA_DEFAULT.chat_model },
   },
   huggingface: {
     label: "HuggingFace(vLLM)",
@@ -158,12 +154,7 @@ const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
     modelExample: "meta-llama/Meta-Llama-3.1-8B-Instruct",
     needsApiKey: false,
     needsChatModel: false,
-    needsEmbeddingModel: false,
-    defaultValues: {
-      display_name: "HuggingFace via vLLM",
-      base_url: "http://127.0.0.1:8000/v1",
-      model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct",
-    },
+    defaultValues: { display_name: "HuggingFace via vLLM", base_url: "http://127.0.0.1:8000/v1", model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct" },
   },
   local_llm: {
     label: "Local LLM",
@@ -172,11 +163,35 @@ const PROVIDER_PRESETS: Record<ProviderType, ProviderConfigPreset> = {
     modelExample: "qwen3:8b",
     needsApiKey: false,
     needsChatModel: false,
-    needsEmbeddingModel: false,
+    defaultValues: { display_name: "Local LLM", base_url: "http://127.0.0.1:8001/v1", model_name: "qwen3:8b" },
+  },
+};
+
+const EMBEDDING_PROVIDER_PRESETS: Record<EmbeddingProviderType, EmbeddingProviderPreset> = {
+  huggingface: {
+    label: "HuggingFace",
+    providerType: "huggingface",
     defaultValues: {
-      display_name: "Local LLM",
-      base_url: "http://127.0.0.1:8001/v1",
-      model_name: "qwen3:8b",
+      display_name: "Qwen Embedding",
+      model_name: "Qwen/Qwen3-Embedding-8B",
+      cache_dir: "",
+    },
+  },
+  ollama: {
+    label: "Ollama",
+    providerType: "ollama",
+    defaultValues: {
+      display_name: "Ollama Embedding",
+      model_name: OLLAMA_DEFAULT.embedding_model,
+      base_url: OLLAMA_DEFAULT.base_url,
+    },
+  },
+  local_embedding: {
+    label: "Local Folder",
+    providerType: "local_embedding",
+    defaultValues: {
+      display_name: "Local Embedding",
+      local_path: "",
     },
   },
 };
@@ -197,22 +212,30 @@ export default function ModelSettingsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderItem[]>([]);
+  const [embeddingProviders, setEmbeddingProviders] = useState<EmbeddingProviderItem[]>([]);
   const [currentProviderId, setCurrentProviderId] = useState<string | null>(null);
   const [currentProviderHasApiKey, setCurrentProviderHasApiKey] = useState<boolean>(false);
+  const [currentEmbeddingProviderId, setCurrentEmbeddingProviderId] = useState<string | null>(null);
   const [maxParallelTasks, setMaxParallelTasks] = useState<number>(10);
-  const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
-  const [form] = Form.useForm();
+  const [chatTestResult, setChatTestResult] = useState<ProviderTestResult | null>(null);
+  const [embeddingTestResult, setEmbeddingTestResult] = useState<ProviderTestResult | null>(null);
+  const [chatForm] = Form.useForm();
+  const [embeddingForm] = Form.useForm();
 
-  const providerType: ProviderType = Form.useWatch("provider_type", form) ?? "vllm";
-  const preset = useMemo(() => PROVIDER_PRESETS[providerType] ?? PROVIDER_PRESETS.vllm, [providerType]);
+  const chatProviderType: ChatProviderType = Form.useWatch("provider_type", chatForm) ?? "vllm";
+  const chatPreset = useMemo(() => CHAT_PROVIDER_PRESETS[chatProviderType] ?? CHAT_PROVIDER_PRESETS.vllm, [chatProviderType]);
+  const embeddingProviderType: EmbeddingProviderType = Form.useWatch("provider_type", embeddingForm) ?? "huggingface";
+  const embeddingPreset = useMemo(
+    () => EMBEDDING_PROVIDER_PRESETS[embeddingProviderType] ?? EMBEDDING_PROVIDER_PRESETS.huggingface,
+    [embeddingProviderType]
+  );
 
-  async function save(values: {
-    provider_type: ProviderType;
+  async function saveChatProvider(values: {
+    provider_type: ChatProviderType;
     display_name: string;
     base_url: string;
     model_name?: string;
     chat_model?: string;
-    embedding_model?: string;
     api_key?: string;
     is_default?: boolean;
   }) {
@@ -229,7 +252,7 @@ export default function ModelSettingsPage() {
       base_url: values.base_url || null,
       model_name: values.model_name || values.chat_model || null,
       chat_model: values.chat_model || null,
-      embedding_model: values.provider_type === "ollama" ? values.embedding_model || null : null,
+      embedding_model: null,
       api_key: values.api_key || null,
       is_default: !!values.is_default,
     });
@@ -237,50 +260,94 @@ export default function ModelSettingsPage() {
     await loadProviders();
   }
 
-  async function loadProviders() {
+  async function saveEmbeddingProvider(values: {
+    provider_type: EmbeddingProviderType;
+    display_name: string;
+    model_name?: string;
+    base_url?: string;
+    local_path?: string;
+    cache_dir?: string;
+    is_default?: boolean;
+  }) {
     if (!auth.userId) {
+      setError("Please login first.");
       return;
     }
+    setError(null);
+    await postJson<ApiEnvelope<EmbeddingProviderItem>>("/v1/embedding-providers", {
+      provider_id: currentEmbeddingProviderId,
+      user_id: auth.userId,
+      provider_type: values.provider_type,
+      display_name: values.display_name,
+      model_name: values.model_name || null,
+      base_url: values.base_url || null,
+      local_path: values.local_path || null,
+      cache_dir: values.cache_dir || null,
+      is_default: !!values.is_default,
+    });
+    await loadDefaultEmbeddingProvider(true);
+    await loadEmbeddingProviders();
+  }
+
+  async function loadProviders() {
+    if (!auth.userId) return;
     const res = await getJson<ApiEnvelope<{ items: ProviderItem[] }>>(`/v1/providers/${auth.userId}`);
     setProviders(res.data.items);
   }
 
+  async function loadEmbeddingProviders() {
+    if (!auth.userId) return;
+    const res = await getJson<ApiEnvelope<{ items: EmbeddingProviderItem[] }>>(`/v1/embedding-providers/${auth.userId}`);
+    setEmbeddingProviders(res.data.items);
+  }
+
   async function loadDefaultProvider(showMessage = false) {
-    if (!auth.userId) {
-      return;
-    }
+    if (!auth.userId) return;
     setError(null);
-    const res = await getJson<ApiEnvelope<ProviderDefaultResponse>>("/v1/providers/default/me");
+    const res = await getJson<ApiEnvelope<{ item: ProviderItem | null }>>("/v1/providers/default/me");
     const item = res.data.item;
     if (!item) {
       setCurrentProviderId(null);
       setCurrentProviderHasApiKey(false);
-      form.setFieldsValue({
-        provider_type: "vllm",
-        ...PROVIDER_PRESETS.vllm.defaultValues,
-        api_key: null,
-        is_default: true,
-      });
-      if (showMessage) {
-        setMessage("Saved. No user default provider found; using vLLM preset.");
-      }
+      chatForm.setFieldsValue({ provider_type: "vllm", ...CHAT_PROVIDER_PRESETS.vllm.defaultValues, api_key: null, is_default: true });
+      if (showMessage) setMessage("Saved. No user default chat provider found; using vLLM preset.");
       return;
     }
     setCurrentProviderId(item.provider_id);
     setCurrentProviderHasApiKey(!!item.has_api_key);
-    form.setFieldsValue({
+    chatForm.setFieldsValue({
       provider_type: item.provider_type,
       display_name: item.display_name,
       base_url: item.base_url ?? "",
       model_name: item.model_name,
       chat_model: item.chat_model ?? null,
-      embedding_model: item.embedding_model ?? null,
       api_key: null,
       is_default: item.is_default,
     });
-    if (showMessage) {
-      setMessage(`Saved provider ${item.display_name}`);
+    if (showMessage) setMessage(`Saved chat provider ${item.display_name}`);
+  }
+
+  async function loadDefaultEmbeddingProvider(showMessage = false) {
+    if (!auth.userId) return;
+    setError(null);
+    const res = await getJson<ApiEnvelope<{ item: EmbeddingProviderItem | null }>>("/v1/embedding-providers/default/me");
+    const item = res.data.item;
+    if (!item) {
+      setCurrentEmbeddingProviderId(null);
+      embeddingForm.setFieldsValue({ provider_type: "huggingface", ...EMBEDDING_PROVIDER_PRESETS.huggingface.defaultValues, is_default: true });
+      return;
     }
+    setCurrentEmbeddingProviderId(item.provider_id);
+    embeddingForm.setFieldsValue({
+      provider_type: item.provider_type,
+      display_name: item.display_name,
+      model_name: item.model_name ?? null,
+      base_url: item.base_url ?? "",
+      local_path: item.local_path ?? "",
+      cache_dir: item.cache_dir ?? "",
+      is_default: item.is_default,
+    });
+    if (showMessage) setMessage(`Saved embedding provider ${item.display_name}`);
   }
 
   async function loadUserSettings() {
@@ -288,8 +355,7 @@ export default function ModelSettingsPage() {
       const res = await getJson<ApiEnvelope<{ max_parallel_tasks: number }>>("/v1/users/settings/me");
       setMaxParallelTasks(Math.max(1, Math.min(10, Number(res.data.max_parallel_tasks || 10))));
     } catch (e) {
-      const msg = String(e);
-      if (msg.includes("HTTP 404")) {
+      if (String(e).includes("HTTP 404")) {
         setMaxParallelTasks(10);
         return;
       }
@@ -309,197 +375,210 @@ export default function ModelSettingsPage() {
   useEffect(() => {
     loadDefaultProvider().catch((e) => setError(String(e)));
     loadProviders().catch((e) => setError(String(e)));
+    loadDefaultEmbeddingProvider().catch((e) => setError(String(e)));
+    loadEmbeddingProviders().catch((e) => setError(String(e)));
     loadUserSettings().catch((e) => setError(String(e)));
   }, [auth.userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function testCurrentConfig() {
-    const values = await form.validateFields();
-    const res = await postJson<ApiEnvelope<{ status: string; message: string; error_code?: string; reachable?: boolean; model_found?: boolean }>>("/v1/providers/test", {
+  async function testChatConfig() {
+    const values = await chatForm.validateFields();
+    const res = await postJson<ApiEnvelope<ProviderTestResult>>("/v1/providers/test", {
       provider_type: values.provider_type,
       base_url: values.base_url || null,
       api_key: values.api_key || null,
       model_name: values.model_name || values.chat_model || null,
       chat_model: values.chat_model || null,
     });
-    setTestResult(res.data);
-    const extra = [
-      res.data.error_code ? `error_code=${res.data.error_code}` : "",
-      typeof res.data.reachable === "boolean" ? `reachable=${String(res.data.reachable)}` : "",
-      typeof res.data.model_found === "boolean" ? `model_found=${String(res.data.model_found)}` : "",
-    ].filter(Boolean).join(", ");
-    setMessage(`Test ${res.data.status}: ${res.data.message}${extra ? ` (${extra})` : ""}`);
+    setChatTestResult(res.data);
+    setMessage(`Chat test ${res.data.status}: ${res.data.message}`);
+  }
+
+  async function testEmbeddingConfig() {
+    const values = await embeddingForm.validateFields();
+    const res = await postJson<ApiEnvelope<ProviderTestResult>>("/v1/embedding-providers/test", {
+      provider_type: values.provider_type,
+      model_name: values.model_name || null,
+      base_url: values.base_url || null,
+      local_path: values.local_path || null,
+      cache_dir: values.cache_dir || null,
+    });
+    setEmbeddingTestResult(res.data);
+    setMessage(`Embedding test ${res.data.status}: ${res.data.message}`);
   }
 
   return (
-    <Card>
+    <Space direction="vertical" style={{ width: "100%" }} size={16}>
       <Typography.Title level={4}>Model Settings</Typography.Title>
+      {message && <Alert type="success" message={message} />}
+      {error && <Alert type="error" message={error} />}
 
-      <Space direction="vertical" style={{ width: "100%" }}>
-        {message && <Alert type="success" message={message} />}
-        {error && <Alert type="error" message={error} />}
-        {testResult && (
+      <Card title="Chat Model Provider">
+        {chatTestResult && (
           <Alert
-            type={testResult.status === "ok" ? "success" : "warning"}
+            type={chatTestResult.status === "ok" ? "success" : "warning"}
             showIcon
-            message={`Connection Test: ${testResult.status}`}
-            description={
-              <div>
-                <div>{testResult.message}</div>
-                <div>
-                  {typeof testResult.reachable === "boolean" ? `reachable=${String(testResult.reachable)} ` : ""}
-                  {typeof testResult.model_found === "boolean" ? `model_found=${String(testResult.model_found)} ` : ""}
-                  {testResult.error_code ? `error_code=${testResult.error_code}` : ""}
-                </div>
-              </div>
+            message={`Connection Test: ${chatTestResult.status}`}
+            description={chatTestResult.message}
+            style={{ marginBottom: 12 }}
+          />
+        )}
+        <Form
+          form={chatForm}
+          layout="vertical"
+          onFinish={saveChatProvider}
+          initialValues={{ provider_type: "vllm", ...CHAT_PROVIDER_PRESETS.vllm.defaultValues, is_default: true }}
+          onValuesChange={(changed) => {
+            if (changed.provider_type) {
+              const preset = CHAT_PROVIDER_PRESETS[changed.provider_type as ChatProviderType];
+              chatForm.setFieldsValue({ ...preset.defaultValues, api_key: null });
+              setCurrentProviderHasApiKey(false);
             }
-          />
-        )}
-        {testResult?.error_code === "CONNECTION_REFUSED" && (
-          <Alert
-            type="warning"
-            showIcon
-            message="vLLM Connection Refused"
-            description="请检查 vLLM 进程是否已启动；确认 host/port 与 Base URL 一致；确认防火墙已放行该端口。"
-          />
-        )}
-      </Space>
-
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={save}
-        initialValues={{
-          provider_type: "vllm",
-          ...PROVIDER_PRESETS.vllm.defaultValues,
-          is_default: true,
-        }}
-        onValuesChange={(changed) => {
-          if (changed.provider_type) {
-            const changedType = changed.provider_type as ProviderType;
-            const changedPreset = PROVIDER_PRESETS[changedType];
-            form.setFieldsValue({
-              display_name: changedPreset.defaultValues.display_name,
-              base_url: changedPreset.defaultValues.base_url,
-              model_name: changedPreset.defaultValues.model_name,
-              chat_model: changedPreset.defaultValues.chat_model || null,
-              embedding_model: changedPreset.defaultValues.embedding_model || null,
-              api_key: null,
-            });
-            setCurrentProviderHasApiKey(false);
-          }
-        }}
-      >
-        <Form.Item label="Provider" name="provider_type" initialValue="vllm">
-          <Select options={Object.values(PROVIDER_PRESETS).map((x) => ({ label: x.label, value: x.providerType }))} />
-        </Form.Item>
-        <Form.Item
-          label={requiredLabel("Display Name", "Required. Example: Deepseek API / Ollama Local")}
-          name="display_name"
-          rules={[{ required: true, message: "Display Name is required." }]}
+          }}
         >
-          <Input placeholder={preset.defaultValues.display_name} />
-        </Form.Item>
-        <Form.Item
-          label={requiredLabel("Base URL", `Required. Example: ${preset.baseUrlExample}`)}
-          name="base_url"
-          rules={[{ required: true, message: "Base URL is required." }]}
-        >
-          <Input placeholder={preset.baseUrlExample} />
-        </Form.Item>
-        {providerType === "vllm" && (
-          <Alert
-            type="info"
-            showIcon
-            message="vLLM"
-            description="Base URL must be like http://<host>:<port>/v1. Model Name should match one id returned by /models (or your served-model-name)."
-          />
-        )}
-        {preset.needsChatModel ? (
-          <>
-            <Form.Item
-              label={requiredLabel("Chat Model", "Required. Example: qwen3:8b")}
-              name="chat_model"
-              rules={[{ required: true, message: "Chat Model is required." }]}
-            >
+          <Form.Item label="Provider" name="provider_type" initialValue="vllm">
+            <Select options={Object.values(CHAT_PROVIDER_PRESETS).map((x) => ({ label: x.label, value: x.providerType }))} />
+          </Form.Item>
+          <Form.Item label={requiredLabel("Display Name", "Required. Example: Deepseek API / Ollama Local")} name="display_name" rules={[{ required: true }]}>
+            <Input placeholder={chatPreset.defaultValues.display_name} />
+          </Form.Item>
+          <Form.Item label={requiredLabel("Base URL", `Required. Example: ${chatPreset.baseUrlExample}`)} name="base_url" rules={[{ required: true }]}>
+            <Input placeholder={chatPreset.baseUrlExample} />
+          </Form.Item>
+          {chatPreset.needsChatModel ? (
+            <Form.Item label={requiredLabel("Chat Model", "Required. Example: qwen3:8b")} name="chat_model" rules={[{ required: true }]}>
               <Input placeholder={OLLAMA_DEFAULT.chat_model} />
             </Form.Item>
-            <Form.Item
-              label={requiredLabel("Embedding Model", "Required. Example: qwen3-embedding:8b")}
-              name="embedding_model"
-              rules={[{ required: true, message: "Embedding Model is required." }]}
-            >
-              <Input placeholder={OLLAMA_DEFAULT.embedding_model} />
+          ) : (
+            <Form.Item label={requiredLabel("Model Name", `Required. Example: ${chatPreset.modelExample}`)} name="model_name" rules={[{ required: true }]}>
+              {chatPreset.modelOptions ? (
+                <Select showSearch placeholder={chatPreset.modelExample} options={chatPreset.modelOptions.map((item) => ({ label: item, value: item }))} />
+              ) : (
+                <Input placeholder={chatPreset.modelExample} />
+              )}
             </Form.Item>
-          </>
-        ) : (
-          <Form.Item
-            label={requiredLabel("Model Name", `Required. Example: ${preset.modelExample}`)}
-            name="model_name"
-            rules={[{ required: true, message: "Model Name is required." }]}
-          >
-            {preset.modelOptions ? (
-              <Select
-                showSearch
-                placeholder={preset.modelExample}
-                options={preset.modelOptions.map((item) => ({ label: item, value: item }))}
-              />
-            ) : (
-              <Input placeholder={preset.modelExample} />
-            )}
-          </Form.Item>
-        )}
-        {preset.needsApiKey && (
-          <Form.Item
-            label={requiredLabel("API Key", "Required. Example: sk-xxxx / hf_xxxx")}
-            name="api_key"
-            rules={[
-              {
-                validator: (_, value) => {
-                  const hasValue = Boolean(String(value || "").trim());
-                  if (hasValue || currentProviderHasApiKey) {
-                    return Promise.resolve();
-                  }
-                  return Promise.reject(new Error("API Key is required."));
+          )}
+          {chatPreset.needsApiKey && (
+            <Form.Item
+              label={requiredLabel("API Key", "Required. Existing saved key is kept when left blank.")}
+              name="api_key"
+              rules={[
+                {
+                  validator: (_, value) => {
+                    if (String(value || "").trim() || currentProviderHasApiKey) return Promise.resolve();
+                    return Promise.reject(new Error("API Key is required."));
+                  },
                 },
-              },
-            ]}
-            extra={currentProviderHasApiKey ? "API Key already saved for this provider. Leave blank to keep current key." : undefined}
-          >
-            <Input.Password placeholder={currentProviderHasApiKey ? "Leave empty to keep saved key" : "Enter API Key"} />
+              ]}
+            >
+              <Input.Password placeholder={currentProviderHasApiKey ? "Leave empty to keep saved key" : "Enter API Key"} />
+            </Form.Item>
+          )}
+          <Form.Item name="is_default" valuePropName="checked">
+            <Checkbox>Default</Checkbox>
           </Form.Item>
+          <Space>
+            <Button htmlType="submit" type="primary">Save Chat Provider</Button>
+            <Button onClick={() => testChatConfig().catch((e) => setError(String(e)))}>Test Chat Provider</Button>
+            <Button onClick={() => loadDefaultProvider().catch((e) => setError(String(e)))}>Load Default</Button>
+          </Space>
+        </Form>
+        <Typography.Title level={5} style={{ marginTop: 20 }}>Saved Chat Providers</Typography.Title>
+        <List
+          dataSource={providers}
+          renderItem={(p) => (
+            <List.Item>
+              {p.display_name} ({p.provider_type}/{p.chat_model || p.model_name}) {p.is_default ? "[default]" : ""}
+            </List.Item>
+          )}
+        />
+      </Card>
+
+      <Card title="Embedding Model Provider">
+        {embeddingTestResult && (
+          <Alert
+            type={embeddingTestResult.status === "ok" ? "success" : "warning"}
+            showIcon
+            message={`Embedding Test: ${embeddingTestResult.status}`}
+            description={
+              embeddingTestResult.dimension
+                ? `${embeddingTestResult.message} dimension=${embeddingTestResult.dimension}`
+                : embeddingTestResult.message
+            }
+            style={{ marginBottom: 12 }}
+          />
         )}
-        <Form.Item name="is_default" valuePropName="checked">
-          <Checkbox>Default</Checkbox>
-        </Form.Item>
+        <Form
+          form={embeddingForm}
+          layout="vertical"
+          onFinish={saveEmbeddingProvider}
+          initialValues={{ provider_type: "huggingface", ...EMBEDDING_PROVIDER_PRESETS.huggingface.defaultValues, is_default: true }}
+          onValuesChange={(changed) => {
+            if (changed.provider_type) {
+              const preset = EMBEDDING_PROVIDER_PRESETS[changed.provider_type as EmbeddingProviderType];
+              embeddingForm.setFieldsValue({ ...preset.defaultValues });
+            }
+          }}
+        >
+          <Form.Item label="Embedding Provider" name="provider_type">
+            <Select options={Object.values(EMBEDDING_PROVIDER_PRESETS).map((x) => ({ label: x.label, value: x.providerType }))} />
+          </Form.Item>
+          <Form.Item label={requiredLabel("Display Name", "Required. Example: Qwen Embedding")} name="display_name" rules={[{ required: true }]}>
+            <Input placeholder={embeddingPreset.defaultValues.display_name} />
+          </Form.Item>
+          {embeddingProviderType === "ollama" && (
+            <>
+              <Form.Item label={requiredLabel("Embedding Model", "Ollama embedding model name.")} name="model_name" rules={[{ required: true }]}>
+                <Input placeholder={OLLAMA_DEFAULT.embedding_model} />
+              </Form.Item>
+              <Form.Item label="Base URL" name="base_url">
+                <Input placeholder={OLLAMA_DEFAULT.base_url} />
+              </Form.Item>
+            </>
+          )}
+          {embeddingProviderType === "local_embedding" && (
+            <Form.Item label={requiredLabel("Local Model Folder", "Full folder path containing the local embedding model.")} name="local_path" rules={[{ required: true }]}>
+              <Input placeholder="D:\\models\\bge-large-zh-v1.5" />
+            </Form.Item>
+          )}
+          {embeddingProviderType === "huggingface" && (
+            <>
+              <Form.Item label={requiredLabel("HuggingFace Model", "Downloaded into backend model cache on first use.")} name="model_name" rules={[{ required: true }]}>
+                <Input placeholder="Qwen/Qwen3-Embedding-8B" />
+              </Form.Item>
+              <Form.Item label="Cache Directory (optional)" name="cache_dir">
+                <Input placeholder="Leave empty to use runtime_data/storage/model_cache/embeddings" />
+              </Form.Item>
+            </>
+          )}
+          <Form.Item name="is_default" valuePropName="checked">
+            <Checkbox>Default</Checkbox>
+          </Form.Item>
+          <Space>
+            <Button htmlType="submit" type="primary">Save Embedding Provider</Button>
+            <Button onClick={() => testEmbeddingConfig().catch((e) => setError(String(e)))}>Test Embedding Provider</Button>
+            <Button onClick={() => loadDefaultEmbeddingProvider().catch((e) => setError(String(e)))}>Load Default</Button>
+          </Space>
+        </Form>
+        <Typography.Title level={5} style={{ marginTop: 20 }}>Saved Embedding Providers</Typography.Title>
+        <List
+          dataSource={embeddingProviders}
+          renderItem={(p) => (
+            <List.Item>
+              {p.display_name} ({p.provider_type}/{p.model_name || p.local_path}) {p.is_default ? "[default]" : ""}
+            </List.Item>
+          )}
+        />
+      </Card>
+
+      <Card title="Task Concurrency">
         <Space>
-          <Button htmlType="submit" type="primary">
-            Save
+          <Typography.Text>Max Parallel Tasks</Typography.Text>
+          <InputNumber min={1} max={10} value={maxParallelTasks} onChange={(v) => setMaxParallelTasks(Number(v || 1))} />
+          <Button type="primary" onClick={() => saveUserSettings().catch((e) => setError(String(e)))}>
+            Save Limit
           </Button>
-          <Button onClick={() => testCurrentConfig().catch((e) => setError(String(e)))}>Test Current Config</Button>
-          <Button onClick={() => loadDefaultProvider().catch((e) => setError(String(e)))}>Load Default</Button>
-          <Button onClick={loadProviders}>Load Providers</Button>
         </Space>
-      </Form>
-
-      <Typography.Title level={5}>Saved Providers</Typography.Title>
-      <List
-        dataSource={providers}
-        renderItem={(p) => (
-          <List.Item>
-            {p.display_name} ({p.provider_type}/{p.chat_model || p.model_name})
-            {p.embedding_model ? ` | embedding: ${p.embedding_model}` : ""} {p.is_default ? "[default]" : ""}
-          </List.Item>
-        )}
-      />
-
-      <Typography.Title level={5} style={{ marginTop: 20 }}>Task Concurrency</Typography.Title>
-      <Space>
-        <Typography.Text>Max Parallel Tasks</Typography.Text>
-        <InputNumber min={1} max={10} value={maxParallelTasks} onChange={(v) => setMaxParallelTasks(Number(v || 1))} />
-        <Button type="primary" onClick={() => saveUserSettings().catch((e) => setError(String(e)))}>
-          Save Limit
-        </Button>
-      </Space>
-    </Card>
+      </Card>
+    </Space>
   );
 }

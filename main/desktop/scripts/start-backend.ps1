@@ -1,13 +1,24 @@
 $ErrorActionPreference = "Stop"
 
 $workspaceRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$projectRoot = Split-Path -Parent $workspaceRoot
 $backendDir = Join-Path $workspaceRoot "backend"
 $logDir = Join-Path $workspaceRoot "logs"
 $pidFile = Join-Path $logDir "backend.pid"
 $outFile = Join-Path $logDir "backend.out.log"
 $errFile = Join-Path $logDir "backend.err.log"
+$venvPython = Join-Path $projectRoot ".venv\Scripts\python.exe"
 
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+
+if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
+    throw "WorkForge Python interpreter not found: $venvPython. Create .venv and install backend requirements first."
+}
+
+& $venvPython -c "import fastapi, uvicorn, pptx, docx, openpyxl" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    throw "WorkForge backend dependencies are incomplete. Run: .\.venv\Scripts\python.exe -m pip install -r main\backend\requirements.txt"
+}
 
 # Ensure target port is free; otherwise we may hit an old backend process.
 $existing = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue
@@ -39,7 +50,7 @@ if (Test-Path $pidFile) {
 }
 
 $process = Start-Process `
-  -FilePath "python" `
+  -FilePath $venvPython `
   -ArgumentList "-m", "uvicorn", "app.api.app:app", "--host", "127.0.0.1", "--port", "8080" `
   -WorkingDirectory $backendDir `
   -RedirectStandardOutput $outFile `
@@ -71,6 +82,10 @@ if (-not $started) {
     }
     if (Test-Path $pidFile) {
         Remove-Item -LiteralPath $pidFile -Force
+    }
+    if (Test-Path $errFile) {
+        Write-Output "Backend error log:"
+        Get-Content -Path $errFile -Tail 40
     }
     throw "Backend failed to become ready at $healthUrl"
 }

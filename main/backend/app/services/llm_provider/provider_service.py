@@ -26,17 +26,14 @@ class ProviderService:
         base_url = payload.base_url
         model_name = payload.model_name
         chat_model = payload.chat_model
-        embedding_model = payload.embedding_model
         api_key = (payload.api_key or "").strip() or None
 
         if payload.provider_type == "ollama":
             base_url = base_url or defaults.base_url
             chat_model = chat_model or model_name or defaults.chat_model
-            embedding_model = embedding_model or model_name or chat_model or defaults.embedding_model
             model_name = model_name or chat_model
         else:
             chat_model = chat_model or model_name or defaults.chat_model
-            embedding_model = embedding_model or model_name or chat_model
             model_name = model_name or chat_model
 
         if payload.provider_type in {"deepseek_api", "openai_api", "anthropic_api", "qwen_api"}:
@@ -54,7 +51,7 @@ class ProviderService:
             api_key_encrypted=api_key,
             model_name=model_name or "",
             chat_model=chat_model,
-            embedding_model=embedding_model,
+            embedding_model=None,
             temperature=payload.temperature,
             max_tokens=payload.max_tokens,
             timeout_seconds=payload.timeout_seconds,

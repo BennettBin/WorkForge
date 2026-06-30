@@ -4,6 +4,7 @@ from typing import Optional
 
 from app.models.entities import (
     AgentRun,
+    EmbeddingProviderConfig,
     FileRecord,
     LLMProviderConfig,
     OutputFile,
@@ -17,6 +18,7 @@ from app.models.entities import (
 )
 from app.repositories.interfaces import (
     AgentRunRepository,
+    EmbeddingProviderConfigRepository,
     FileRepository,
     OutputVersionRepository,
     ProviderConfigRepository,
@@ -144,6 +146,47 @@ class JsonProviderConfigRepository(ProviderConfigRepository):
 
     def list_by_user(self, user_id: str) -> list[LLMProviderConfig]:
         return [LLMProviderConfig.model_validate(row) for row in self.store.read_all() if row["user_id"] == user_id]
+
+
+class JsonEmbeddingProviderConfigRepository(EmbeddingProviderConfigRepository):
+    def __init__(self, data_dir: Path):
+        self.store = JsonCollectionStore(data_dir / "embedding_provider_configs.json")
+
+    def upsert(self, config: EmbeddingProviderConfig) -> EmbeddingProviderConfig:
+        rows = self.store.read_all()
+        payload = config.model_dump(mode="json")
+        upserted = False
+        for row in rows:
+            if row["provider_id"] == config.provider_id:
+                row.update(payload)
+                row["updated_at"] = _utc_now_iso()
+                upserted = True
+                break
+        if not upserted:
+            rows.append(payload)
+
+        if config.is_default:
+            for row in rows:
+                if row["user_id"] == config.user_id and row["provider_id"] != config.provider_id:
+                    row["is_default"] = False
+
+        self.store.write_all(rows)
+        return config
+
+    def get_by_id(self, provider_id: str) -> Optional[EmbeddingProviderConfig]:
+        for row in self.store.read_all():
+            if row["provider_id"] == provider_id:
+                return EmbeddingProviderConfig.model_validate(row)
+        return None
+
+    def get_default_for_user(self, user_id: str) -> Optional[EmbeddingProviderConfig]:
+        for row in self.store.read_all():
+            if row["user_id"] == user_id and row.get("is_default"):
+                return EmbeddingProviderConfig.model_validate(row)
+        return None
+
+    def list_by_user(self, user_id: str) -> list[EmbeddingProviderConfig]:
+        return [EmbeddingProviderConfig.model_validate(row) for row in self.store.read_all() if row["user_id"] == user_id]
 
 
 class JsonOutputVersionRepository(OutputVersionRepository):

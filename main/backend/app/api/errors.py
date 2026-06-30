@@ -1,10 +1,14 @@
+import logging
 import uuid
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.models.api import ApiError, ApiResponse
+
+logger = logging.getLogger(__name__)
 
 
 def _build_error(code: str, message: str, detail=None) -> ApiResponse:
@@ -42,6 +46,12 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(status_code=exc.status_code, content=payload.model_dump(mode="json"))
 
     @app.exception_handler(Exception)
-    async def unknown_exception_handler(_: Request, exc: Exception):
-        payload = _build_error("INTERNAL_ERROR", "Unexpected server error.", detail={"message": str(exc)})
+    async def unknown_exception_handler(request: Request, exc: Exception):
+        logger.exception(
+            "Unhandled API exception method=%s path=%s",
+            request.method,
+            request.url.path,
+            exc_info=exc,
+        )
+        payload = _build_error("INTERNAL_ERROR", "Unexpected server error.")
         return JSONResponse(status_code=500, content=payload.model_dump(mode="json"))

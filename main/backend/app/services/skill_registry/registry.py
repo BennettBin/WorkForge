@@ -6,13 +6,9 @@ from typing import Optional
 @dataclass
 class SkillMeta:
     name: str
-    domain: str
     path: str
     skill_dir: str
     runtime_handler: Optional[str] = None
-    trigger_keywords: Optional[list[str]] = None
-    task_types: Optional[list[str]] = None
-    stages: Optional[list[str]] = None
 
 
 class SkillRegistry:
@@ -31,21 +27,17 @@ class SkillRegistry:
             if direct_skill_file.exists() and direct_skill_file.is_file():
                 parsed = self._parse_frontmatter(direct_skill_file)
                 skill_name = str(parsed.get("name", "")).strip() or level1.name
-                domain = str(parsed.get("domain", "")).strip() or "common"
                 metas.append(
                     SkillMeta(
                         name=skill_name,
-                        domain=domain,
                         path=str(direct_skill_file.resolve()),
                         skill_dir=str(level1.resolve()),
                         runtime_handler=parsed.get("runtime_handler"),
-                        trigger_keywords=parsed.get("trigger_keywords"),
-                        task_types=parsed.get("task_types"),
-                        stages=parsed.get("stages"),
                     )
                 )
                 continue
-            # Layout B: skills/<domain>/<skill_name>/SKILL.md
+            # Legacy nested layout: skills/<group>/<skill_name>/SKILL.md.
+            # Groups are not access-control domains; all skills are public.
             for skill_dir in level1.iterdir():
                 if not skill_dir.is_dir():
                     continue
@@ -54,39 +46,18 @@ class SkillRegistry:
                     continue
                 parsed = self._parse_frontmatter(skill_file)
                 skill_name = str(parsed.get("name", "")).strip() or skill_dir.name
-                domain = str(parsed.get("domain", "")).strip() or level1.name
                 metas.append(
                     SkillMeta(
                         name=skill_name,
-                        domain=domain,
                         path=str(skill_file.resolve()),
                         skill_dir=str(skill_dir.resolve()),
                         runtime_handler=parsed.get("runtime_handler"),
-                        trigger_keywords=parsed.get("trigger_keywords"),
-                        task_types=parsed.get("task_types"),
-                        stages=parsed.get("stages"),
                     )
                 )
         return metas
 
     def resolve_for(self, task_type: str, stage: str) -> list[SkillMeta]:
-        all_skills = self.list_all()
-        # Include common skills and task-specific domain skills.
-        domains = {"common"}
-        normalized_task_type = (task_type or "").strip().lower()
-        if normalized_task_type == "ppt":
-            domains.add("ppt")
-        elif normalized_task_type in {"report", "wechat_post", "data_analysis", "code_doc", "paper_assistant"}:
-            domains.add(normalized_task_type)
-        selected: list[SkillMeta] = []
-        for skill in all_skills:
-            if skill.domain not in domains:
-                continue
-            skill_task_types = [str(x).strip().lower() for x in (skill.task_types or []) if str(x).strip()]
-            if skill_task_types and ("all" not in skill_task_types) and (normalized_task_type not in skill_task_types):
-                continue
-            selected.append(skill)
-        return selected
+        return self.list_all()
 
     def _parse_frontmatter(self, skill_file: Path) -> dict:
         # Read metadata frontmatter only. Do not load/parse full skill body.

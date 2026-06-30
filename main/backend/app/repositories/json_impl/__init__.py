@@ -1,6 +1,7 @@
 from .excel_mirror import ExcelMirrorStore
 from .repositories import (
     JsonAgentRunRepository,
+    JsonEmbeddingProviderConfigRepository,
     JsonFileRepository,
     JsonOutputVersionRepository,
     JsonProviderConfigRepository,
@@ -16,6 +17,7 @@ __all__ = [
     "JsonTaskRepository",
     "JsonFileRepository",
     "JsonProviderConfigRepository",
+    "JsonEmbeddingProviderConfigRepository",
     "JsonOutputVersionRepository",
     "JsonAgentRunRepository",
     "JsonSkillCallRepository",

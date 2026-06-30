@@ -81,3 +81,8 @@ For any future new/updated Skill documentation, authors must follow this exact t
 Enforcement:
 - Any Skill doc not matching the above template structure is considered non-compliant and must be revised before merge.
 - Runtime-chain enforcement rules in this file remain mandatory in parallel (template compliance does not replace runtime binding/testing requirements).
+
+### Requirement Clarification & Minimal Change Policy (Mandatory)
+
+- After each new user request, agents must ask necessary clarification questions based on both the request and current code context when intent, scope, or acceptance criteria are ambiguous, so implementation aligns with the user's real goal.
+- During code changes, agents must apply only necessary modifications for the requested outcome. Do not add extra fallback strategies or defensive branches unless explicitly required; if such additions seem necessary, obtain user consent first.

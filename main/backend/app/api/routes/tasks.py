@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 
 from app.agents.coordinator import CoordinatorAgent
 from app.config import settings
-from app.models import ApiResponse, CreateTaskRequest, InferPptStyleRequest, InferTemplateSettingsRequest, InferTaskTypeRequest, ParseTaskRequest, RunTaskRequest, TemplateRecoveryCompleteRequest, TemplateRecoveryResumeRequest
+from app.models import ApiResponse, CreateTaskRequest, InferPptStyleRequest, InferTemplateSettingsRequest, InferTaskTypeRequest, ParseTaskRequest, RunTaskRequest, TemplateRecoveryCompleteRequest, TemplateRecoveryResumeRequest, UpsertTaskTypeRequest
 from app.models.entities import Task, User
 from app.models.requests import CapabilityBuildRequest, ManualStatusUpdateRequest, RevisionRequest
 from app.services.auth_service import AuthService
@@ -130,6 +130,25 @@ def infer_task_type(payload: InferTaskTypeRequest, request: Request, current_use
     if user_id != current_user.user_id:
         raise ValueError("User mismatch for task inference.")
     task_type = coordinator.infer_task_type(payload.requirement, user_id=user_id)
+    return ApiResponse(success=True, data={"task_type": task_type})
+
+
+@router.get("/task-types/me", response_model=ApiResponse)
+def list_task_types_me(
+    service: TaskService = Depends(_task_service),
+    current_user: User = Depends(_current_user),
+) -> ApiResponse:
+    items = service.list_task_types(current_user.user_id)
+    return ApiResponse(success=True, data={"items": items})
+
+
+@router.post("/task-types/me", response_model=ApiResponse)
+def upsert_task_type_me(
+    payload: UpsertTaskTypeRequest,
+    service: TaskService = Depends(_task_service),
+    current_user: User = Depends(_current_user),
+) -> ApiResponse:
+    task_type = service.upsert_task_type(current_user.user_id, payload.task_type)
     return ApiResponse(success=True, data={"task_type": task_type})
 
 

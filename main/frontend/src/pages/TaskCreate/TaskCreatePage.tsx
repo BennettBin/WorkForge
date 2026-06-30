@@ -1,4 +1,4 @@
-import { Alert, AutoComplete, Button, Card, Form, Input, InputNumber, Select, Space, Tag, Typography } from "antd";
+import { Alert, Button, Card, Form, Input, InputNumber, Select, Space, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getJson, postFile, postJson } from "../../api/http";
@@ -34,6 +34,7 @@ type PptStyleItem = {
 };
 
 type SettingValues = {
+  taskType?: string;
   language: string;
   pages?: number;
   style?: string;
@@ -78,13 +79,11 @@ const taskTypeLabel: Record<string, string> = {
   template_generation: "Template Generation"
 };
 
-const taskTypeOptions = Object.entries(taskTypeLabel).map(([value, label]) => ({
-  value,
-  label: `${label} (${value})`,
-}));
-
-function getTaskTypeLabel(taskType: string): string {
-  return taskTypeLabel[taskType] || taskType;
+function taskTypeDisplayLabel(value: string): string {
+  const normalized = (value || "").trim();
+  const preset = taskTypeLabel[normalized];
+  if (preset) return `${preset} (${normalized})`;
+  return normalized;
 }
 
 function buildFinalRequirement(baseRequirement: string, taskType: TaskType, settings: SettingValues): string {
@@ -174,6 +173,7 @@ export default function TaskCreatePage() {
   const [pptTemplates, setPptTemplates] = useState<PptTemplateItem[]>([]);
   const [reportTemplates, setReportTemplates] = useState<PptTemplateItem[]>([]);
   const [wechatTemplates, setWechatTemplates] = useState<PptTemplateItem[]>([]);
+  const [taskTypes, setTaskTypes] = useState<string[]>([]);
   const [pptStyles, setPptStyles] = useState<PptStyleItem[]>(BUILTIN_PPT_STYLES);
   const [customStyleName, setCustomStyleName] = useState<string>("");
 
@@ -202,6 +202,27 @@ export default function TaskCreatePage() {
     }
   }
 
+  async function reloadTaskTypes() {
+    try {
+      const res = await getJson<ApiEnvelope<{ items: string[] }>>("/v1/tasks/task-types/me");
+      const items = (res.data.items || []).map((x) => String(x || "").trim()).filter(Boolean);
+      setTaskTypes(items);
+    } catch {
+      setTaskTypes(Object.keys(taskTypeLabel));
+    }
+  }
+
+  async function registerTaskType(taskType: string) {
+    const normalized = (taskType || "").trim().toLowerCase().replace(/[^a-z0-9_ -]/g, "").replace(/[ -]+/g, "_");
+    if (!normalized) return;
+    try {
+      await postJson<ApiEnvelope<{ task_type: string }>>("/v1/tasks/task-types/me", { task_type: normalized });
+      setTaskTypes((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]));
+    } catch {
+      // no-op; keep local value so user can still proceed
+    }
+  }
+
   const settingInitialValues = useMemo(
     () => ({
       language: "zh-CN",
@@ -226,6 +247,7 @@ export default function TaskCreatePage() {
 
   useEffect(() => {
     void reloadTemplates();
+    void reloadTaskTypes();
     try {
       const saved = JSON.parse(localStorage.getItem(PPT_STYLE_STORAGE_KEY) || "[]") as PptStyleItem[];
       if (Array.isArray(saved) && saved.length) {
@@ -264,7 +286,11 @@ export default function TaskCreatePage() {
 
   function applyTaskTypeChange(nextType: string) {
     const normalized = (nextType || "").trim();
-    setInferredTaskType(normalized || "generic_task");
+    setInferredTaskType(normalized || null);
+    settingForm.setFieldValue("taskType", normalized || undefined);
+    if (normalized && !taskTypes.includes(normalized)) {
+      void registerTaskType(normalized);
+    }
     const current = settingForm.getFieldsValue() as SettingValues;
     const nextSettings: Partial<SettingValues> = {
       ...settingInitialValues,
@@ -293,9 +319,14 @@ export default function TaskCreatePage() {
             user_id: auth.userId
           })).data.task_type;
       await reloadTemplates();
+      await reloadTaskTypes();
       setRequirement(values.requirement);
       setInferredTaskType(taskType);
       const nextSettings: Partial<SettingValues> = { ...settingInitialValues };
+      nextSettings.taskType = taskType;
+      if (taskType) {
+        await registerTaskType(taskType);
+      }
       if (taskType === "template_generation") {
         const fallbackTarget = inferTemplateTargetFromFile(selectedFile);
         nextSettings.templateTarget = fallbackTarget;
@@ -349,6 +380,9 @@ export default function TaskCreatePage() {
     }
 
     try {
+      if (inferredTaskType) {
+        await registerTaskType(inferredTaskType);
+      }
       const effectiveValues = { ...values };
       if (inferredTaskType === "ppt") {
         effectiveValues.style = (values.style || "academic_simple").trim();
@@ -631,12 +665,8 @@ export default function TaskCreatePage() {
         </Form>
       )}
 
-      {step === "setting" && inferredTaskType && (
+      {step === "setting" && (
         <>
-          <Space style={{ marginBottom: 12 }}>
-            <Typography.Text>Detected Task Type:</Typography.Text>
-            <Tag color="blue">{getTaskTypeLabel(inferredTaskType)}</Tag>
-          </Space>
           {(inferredTaskType === "data_analysis" || inferredTaskType === "code_doc" || inferredTaskType === "template_generation") && !selectedFile && (
             <Alert
               type="warning"
@@ -646,20 +676,19 @@ export default function TaskCreatePage() {
             />
           )}
           <Form form={settingForm} layout="vertical" onFinish={onStart} initialValues={settingInitialValues}>
-            <Form.Item label="Task Type" required>
-              <AutoComplete
-                value={inferredTaskType}
-                options={taskTypeOptions}
-                onChange={(value) => setInferredTaskType(value)}
-                onSelect={(value) => applyTaskTypeChange(value)}
-                onBlur={() => applyTaskTypeChange(inferredTaskType)}
-                filterOption={(input, option) => {
-                  const needle = input.toLowerCase();
-                  return (
-                    String(option?.value || "").toLowerCase().includes(needle) ||
-                    String(option?.label || "").toLowerCase().includes(needle)
-                  );
+            <Form.Item label="Task Type" name="taskType" rules={[{ required: true, message: "Please select task type." }]}>
+              <Select
+                mode="tags"
+                maxCount={1}
+                value={inferredTaskType ? [inferredTaskType] : []}
+                options={taskTypes.map((value) => ({ value, label: taskTypeDisplayLabel(value) }))}
+                onChange={(values) => {
+                  const list = Array.isArray(values) ? values : [];
+                  const latest = list.length ? String(list[list.length - 1]) : "";
+                  applyTaskTypeChange(latest);
                 }}
+                showSearch
+                optionFilterProp="label"
                 placeholder="Select or type task type"
                 style={{ maxWidth: 360 }}
               />

@@ -4,6 +4,7 @@ from pathlib import Path
 from app.repositories.json_impl import (
     ExcelMirrorStore,
     JsonAgentRunRepository,
+    JsonEmbeddingProviderConfigRepository,
     JsonFileRepository,
     JsonOutputVersionRepository,
     JsonProviderConfigRepository,
@@ -21,6 +22,7 @@ class RepositoryBundle:
     tasks: JsonTaskRepository
     files: JsonFileRepository
     providers: JsonProviderConfigRepository
+    embedding_providers: JsonEmbeddingProviderConfigRepository
     outputs: JsonOutputVersionRepository
     agent_runs: JsonAgentRunRepository
     skill_calls: JsonSkillCallRepository
@@ -40,6 +42,7 @@ def build_repository_bundle(base_dir: Path) -> RepositoryBundle:
         tasks=JsonTaskRepository(repo_dir),
         files=JsonFileRepository(repo_dir),
         providers=JsonProviderConfigRepository(repo_dir),
+        embedding_providers=JsonEmbeddingProviderConfigRepository(repo_dir),
         outputs=JsonOutputVersionRepository(repo_dir),
         agent_runs=JsonAgentRunRepository(repo_dir),
         skill_calls=JsonSkillCallRepository(repo_dir),

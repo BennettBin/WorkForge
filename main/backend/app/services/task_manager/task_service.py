@@ -30,6 +30,7 @@ from app.models.requests import CreateTaskRequest
 from app.prompts import NO_SOURCE_FILE_SYSTEM_INSTRUCTION
 from app.services.export_engine import PptxExportError, TemplateScriptRunner
 from app.services.file_parser.parser import ParseError, parse_file
+from app.services.embedding_provider import EmbeddingProviderService
 from app.services.llm_runtime import LLMInvokeError, LLMTextGenerator
 from app.services.llm_provider.provider_defaults import OllamaConfig
 from app.services.model_router import ModelRouter
@@ -39,15 +40,26 @@ from app.services.skill_registry import SkillRegistry
 from app.services.template_bundle import TEMPLATE_META_FILENAME as BUNDLE_META_FILENAME, TEMPLATE_RULES_FILENAME as BUNDLE_RULES_FILENAME, TEMPLATE_SCHEMA_VERSION, validate_template_bundle
 from app.services.text_processing import clean_text_content
 from app.services.vector_store import VectorIndexService
+from app.services.vector_store.storage_manager import RagStorageManager, utc_now_iso
 from app.utils.ids import new_id
 
 
-ALLOWED_FILE_TYPES = {"pdf", "docx", "doc", "txt", "ppt", "pptx", "xlsx", "xls"}
+ALLOWED_FILE_TYPES = {"pdf", "docx", "doc", "txt", "md", "ppt", "pptx", "xlsx", "xls"}
 TEMPLATE_META_FILENAME = "template.meta.json"
 TEMPLATE_PARAMS_FILENAME = "template.params.json"
 TEMPLATE_RENDER_SCRIPT_FILENAME = "render_from_template.py"
 TEMPLATE_PPT_FILENAME = "template.pptx"
 TEMPLATE_RULES_FILENAME = "template.rules.json"
+SYSTEM_TASK_TYPES = (
+    "ppt",
+    "report",
+    "wechat_post",
+    "data_analysis",
+    "code_doc",
+    "paper_assistant",
+    "generic_task",
+    "template_generation",
+)
 
 
 def _utc_now() -> datetime:
@@ -92,6 +104,7 @@ class TaskService:
 
     def create_task(self, req: CreateTaskRequest) -> Task:
         self._ensure_parallel_capacity(req.user_id)
+        provider_cfg = self.repos.providers.get_default_for_user(req.user_id)
         task_type = req.task_type
         if task_type == "auto":
             coordinator = CoordinatorAgent(ModelRouter(self.repos))
@@ -114,11 +127,13 @@ class TaskService:
             status="created",
             template_id=template_choice or None,
             template_choice=template_choice or None,
+            llm_provider_id=provider_cfg.provider_id if provider_cfg is not None else None,
             requested_pages=req.pages,
             style=req.style,
             language=req.language,
             expires_at=_utc_now() + timedelta(days=7),
         )
+        self.upsert_task_type(req.user_id, task_type)
         self.repos.tasks.create(task)
         event_message = "task created"
         if template_choice:
@@ -126,6 +141,33 @@ class TaskService:
         self._add_event(task.task_id, "created", event_message)
         self._snapshot_excel()
         return task
+
+    def list_task_types(self, user_id: str) -> list[str]:
+        custom = self._read_custom_task_types(user_id)
+        existing = [str(t.task_type or "").strip() for t in self.repos.tasks.list_by_user(user_id)]
+        merged: list[str] = []
+        for item in [*SYSTEM_TASK_TYPES, *custom, *existing]:
+            normalized = self._normalize_task_type(item)
+            if normalized and normalized not in merged:
+                merged.append(normalized)
+        return merged
+
+    def upsert_task_type(self, user_id: str, task_type: str) -> str:
+        normalized = self._normalize_task_type(task_type)
+        if not normalized:
+            raise ValueError("Invalid task type.")
+        rows = self._read_task_type_rows()
+        now_iso = _utc_now().isoformat()
+        found = False
+        for row in rows:
+            if row.get("user_id") == user_id and row.get("task_type") == normalized:
+                row["updated_at"] = now_iso
+                found = True
+                break
+        if not found:
+            rows.append({"user_id": user_id, "task_type": normalized, "created_at": now_iso, "updated_at": now_iso})
+        self._write_task_type_rows(rows)
+        return normalized
 
     def delete_task_history(self, task_id: str, user_id: str) -> dict[str, Any]:
         task = self.repos.tasks.get_by_id(task_id)
@@ -204,6 +246,7 @@ class TaskService:
             raise ValueError("Uploaded file is empty.")
         if len(file_bytes) > settings.max_upload_size_bytes:
             raise ValueError("Uploaded file exceeds 50MB limit.")
+        file_hash = hashlib.sha256(file_bytes).hexdigest()
 
         upload_dir = self.storage_root / "uploads" / task_id
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -223,6 +266,7 @@ class TaskService:
             expires_at=_utc_now() + timedelta(days=7),
         )
         self.repos.files.create(record)
+        self._register_rag_upload(task.user_id, record, file_hash)
         self.repos.tasks.update_status(task_id, "file_uploaded")
         self._add_event(task_id, "file_uploaded", f"file uploaded: {record.file_name}")
         if task.task_type == "template_generation" and suffix in {"ppt", "pptx"}:
@@ -246,10 +290,110 @@ class TaskService:
         source_path = Path(record.file_path)
         if not source_path.exists():
             raise ValueError("Source file path does not exist.")
+        source_metadata = self._source_metadata_for_record(record)
+        source_hash = str(source_metadata.get("file_hash") or "").strip()
+        rag_document_id = f"doc_{source_hash[:16]}" if source_hash else ""
+        if rag_document_id:
+            RagStorageManager(self.storage_root).update_document_status(rag_document_id, "PARSING")
+
+        skill_name_by_type = {
+            "pdf": "pdf_parser_skill",
+            "doc": "doc_parser_skill",
+            "docx": "doc_parser_skill",
+            "ppt": "ppt_parser_skill",
+            "pptx": "ppt_parser_skill",
+        }
+        selected_parse_skill = skill_name_by_type.get(record.file_type)
+        if selected_parse_skill:
+            parsed_dir = self.storage_root / "parsed" / task_id / selected_parse_skill
+            parsed_dir.mkdir(parents=True, exist_ok=True)
+            embedding_cfg = EmbeddingProviderService(self.repos).get_or_create_default_for_user(task.user_id)
+            payload = {
+                "input": str(source_path.resolve()),
+                "output": str(parsed_dir.resolve()),
+                "user_id": task.user_id,
+                "reuse_if_exists": True,
+                "build_vector_index": False,
+                "embedding_provider": {
+                    "provider_id": embedding_cfg.provider_id,
+                    "user_id": embedding_cfg.user_id,
+                    "provider_type": embedding_cfg.provider_type,
+                    "display_name": embedding_cfg.display_name,
+                    "model_name": embedding_cfg.model_name,
+                    "base_url": embedding_cfg.base_url,
+                    "local_path": embedding_cfg.local_path,
+                    "cache_dir": embedding_cfg.cache_dir,
+                    "dimension": embedding_cfg.dimension,
+                    "is_default": embedding_cfg.is_default,
+                },
+            }
+            try:
+                started = time.perf_counter()
+                result = SkillExecutor.create_default().execute(selected_parse_skill, payload)
+                duration_ms = max(1, int((time.perf_counter() - started) * 1000))
+                self._add_skill_call(task_id, selected_parse_skill, payload, result, duration_ms)
+            except Exception as exc:
+                if rag_document_id:
+                    RagStorageManager(self.storage_root).update_document_status(rag_document_id, "FAILED", str(exc)[:500])
+                self.repos.tasks.update_status(task_id, "failed_file_parse")
+                updated = record.model_copy(update={"parse_status": "failed", "summary": f"{selected_parse_skill} failed: {exc}"})
+                self._replace_file_record(updated)
+                self._add_event(task_id, "failed_file_parse", f"{selected_parse_skill}_failed={str(exc)[:220]}")
+                self._snapshot_excel()
+                raise ValueError(f"File parsing/vectorization failed: {exc}") from exc
+
+            parsed_text_path = Path(str(result.get("document_md") or parsed_dir / "document.md"))
+            summary_source = ""
+            if parsed_text_path.exists():
+                summary_source = clean_text_content(parsed_text_path.read_text(encoding="utf-8"))
+            vector_index_service = self._build_vector_index_service(task.user_id)
+            index_info = None
+            if summary_source:
+                try:
+                    index_info = vector_index_service.build_index(
+                        task_id,
+                        summary_source,
+                        source_metadata=source_metadata,
+                    )
+                except Exception:
+                    index_info = None
+            summary = (summary_source or str(record.file_name))[:500]
+            updated = record.model_copy(
+                update={
+                    "parsed_text_path": str(parsed_text_path.resolve()) if parsed_text_path.exists() else None,
+                    "parse_status": "success",
+                    "summary": summary,
+                }
+            )
+            self._replace_file_record(updated)
+            self.repos.tasks.update_status(task_id, "file_parsed")
+            self._add_event(task_id, "file_parsed", f"{selected_parse_skill}_output={result.get('output_dir')}")
+            self._add_event(
+                task_id,
+                "file_parsed",
+                (
+                    f"vector_ready_by_skill={selected_parse_skill};chunks={result.get('chunk_count')};"
+                    f"reused={result.get('reused_existing_index')};faiss={result.get('faiss_index')}"
+                ),
+            )
+            if index_info is not None:
+                self._add_event(
+                    task_id,
+                    "file_parsed",
+                    (
+                        f"vector_cache_ready chunks={index_info['chunk_count']};"
+                        f"type={index_info.get('vectorizer_type')};model={index_info.get('vectorizer_model')};"
+                        f"document_id={index_info.get('document_id')};reused={index_info.get('reused_existing_index')}"
+                    ),
+                )
+            self._snapshot_excel()
+            return updated
 
         try:
             parse_result = parse_file(source_path, record.file_type)
         except ParseError as exc:
+            if rag_document_id:
+                RagStorageManager(self.storage_root).update_document_status(rag_document_id, "FAILED", str(exc)[:500])
             self.repos.tasks.update_status(task_id, "failed_file_parse")
             updated = record.model_copy(update={"parse_status": "failed", "summary": str(exc)})
             self._replace_file_record(updated)
@@ -259,6 +403,8 @@ class TaskService:
 
         cleaned_text = clean_text_content(parse_result.text)
         if not cleaned_text:
+            if rag_document_id:
+                RagStorageManager(self.storage_root).update_document_status(rag_document_id, "FAILED", "Parsed text is empty after cleaning.")
             self.repos.tasks.update_status(task_id, "failed_file_parse")
             updated = record.model_copy(update={"parse_status": "failed", "summary": "Parsed text is empty after cleaning."})
             self._replace_file_record(updated)
@@ -273,8 +419,14 @@ class TaskService:
 
         vector_index_service = self._build_vector_index_service(task.user_id)
         try:
-            index_info = vector_index_service.build_index(task_id, cleaned_text)
+            index_info = vector_index_service.build_index(
+                task_id,
+                cleaned_text,
+                source_metadata=source_metadata,
+            )
         except Exception as exc:
+            if rag_document_id:
+                RagStorageManager(self.storage_root).update_document_status(rag_document_id, "FAILED", str(exc)[:500])
             self.repos.tasks.update_status(task_id, "failed_file_parse")
             updated = record.model_copy(update={"parse_status": "failed", "summary": f"Vectorization failed: {exc}"})
             self._replace_file_record(updated)
@@ -298,7 +450,8 @@ class TaskService:
             "file_parsed",
             (
                 f"vector_cache_ready chunks={index_info['chunk_count']};"
-                f"type={index_info.get('vectorizer_type')};model={index_info.get('vectorizer_model')}"
+                f"type={index_info.get('vectorizer_type')};model={index_info.get('vectorizer_model')};"
+                f"document_id={index_info.get('document_id')};reused={index_info.get('reused_existing_index')}"
             ),
         )
         self._snapshot_excel()
@@ -346,29 +499,8 @@ class TaskService:
                 raise ValueError("Template extraction requires a PPT/PPTX source file.")
             self.repos.tasks.update_status(task_id, "generating")
             skill_executor = SkillExecutor.create_default()
-            planning_decision = coordinator_for_skill.router.pick(task.user_id, "planning")
             default_cfg = self.repos.providers.get_default_for_user(task.user_id)
-            finder_result = skill_executor.execute(
-                "find_skill",
-                {
-                    "task_type": "ppt",
-                    "requirement": task.user_requirement,
-                    "preferred_skills": ["ppt_template_generation"],
-                    "provider_type": planning_decision.provider_type or "",
-                    "base_url": planning_decision.base_url or "",
-                    "model_name": planning_decision.model_name or "",
-                    "api_key": (default_cfg.api_key_encrypted if default_cfg and default_cfg.api_key_encrypted else ""),
-                },
-            )
-            self._add_skill_call(
-                task_id,
-                "find_skill",
-                {"task_type": "ppt", "preferred_skills": ["ppt_template_generation"]},
-                finder_result,
-                1,
-            )
-            matched = finder_result.get("matched_skills", []) if isinstance(finder_result, dict) else []
-            template_skill_name = matched[0] if matched else "ppt_template_generation"
+            template_skill_name = "ppt_template_generation"
             templates_root = Path(__file__).resolve().parents[2] / "templates" / "ppt"
             template_llm_generate = self._build_aux_llm_generate_fn(
                 task_id=task_id,
@@ -502,8 +634,12 @@ class TaskService:
                 effective_requirement = f"{effective_requirement}\n\n[Template Context]\n{template_ctx}"
                 self._add_event(task_id, "planning", f"template_context_loaded style={task.style};template_choice={template_choice or 'none'}")
 
-        if (not no_source_file) and (not vector_index_service.has_index(task_id)):
-            index_info = vector_index_service.build_index(task_id, parsed_text)
+        if (not no_source_file) and self._should_use_rag(task.user_requirement, parsed_text, stage_hint="ppt_generation") and (not vector_index_service.has_index(task_id)):
+            index_info = vector_index_service.build_index(
+                task_id,
+                parsed_text,
+                source_metadata=self._source_metadata_for_record(files[0]) if files else None,
+            )
             self._add_event(
                 task_id,
                 "planning",
@@ -549,9 +685,13 @@ class TaskService:
         ppt_task_agent = PPTTaskAgent()
         skill_executor = SkillExecutor.create_default()
         llm_runtime = LLMTextGenerator()
-        can_use_knowledge_search = no_source_file or (("knowledge_search" in selected_skill_names) and plan.needs_web_search)
+        can_use_knowledge_search = self._should_use_search(task.user_requirement, parsed_text, no_source_file=no_source_file, stage_hint="ppt_generation")
+        if can_use_knowledge_search:
+            self._add_event(task_id, "planning", "autonomous_search_enabled")
+        if (not no_source_file) and vector_index_service.has_index(task_id) and self._should_use_rag(task.user_requirement, parsed_text, stage_hint="ppt_generation"):
+            self._add_event(task_id, "planning", "autonomous_rag_enabled")
         generation_decision = next((d for d in plan.model_decisions if d.stage == "generation"), None)
-        default_cfg = self.repos.providers.get_default_for_user(task.user_id)
+        default_cfg = self._resolve_provider_for_task(task)
         effective_timeout_seconds = (
             llm_timeout_seconds
             if llm_timeout_seconds is not None
@@ -580,6 +720,8 @@ class TaskService:
             )
 
         def retrieve_context(query_text: str, top_k: int = 2) -> list[str]:
+            if not self._should_use_rag(query_text or task.user_requirement, parsed_text, stage_hint="ppt_generation"):
+                return []
             return vector_index_service.query(task_id, query_text, top_k=top_k)
 
         def execute_knowledge_search(query_text: str, max_results: int = 2) -> list[dict]:
@@ -611,15 +753,12 @@ class TaskService:
                 )
             return items
 
+        def emit_progress(stage: str, message: str) -> None:
+            safe_stage = str(stage or "generating").strip() or "generating"
+            self._add_event(task_id, safe_stage, str(message or "").strip()[:500])
+
         def skill_execute(skill_name: str, payload: dict[str, Any]) -> dict[str, Any]:
             effective_payload = dict(payload)
-            if skill_name == "find_skill":
-                effective_payload.setdefault("task_type", "generic_task")
-                effective_payload.setdefault("requirement", effective_requirement)
-                effective_payload.setdefault("provider_type", generation_decision.provider_type if generation_decision else "")
-                effective_payload.setdefault("base_url", generation_decision.base_url if generation_decision else "")
-                effective_payload.setdefault("model_name", generation_decision.model_name if generation_decision else "")
-                effective_payload.setdefault("api_key", (default_cfg.api_key_encrypted if default_cfg and default_cfg.api_key_encrypted else ""))
             safe_payload = {
                 k: ("<callable>" if callable(v) else v)
                 for k, v in effective_payload.items()
@@ -731,6 +870,7 @@ class TaskService:
                 retrieve_context_fn=retrieve_context,
                 knowledge_search_fn=execute_knowledge_search if can_use_knowledge_search else None,
                 llm_generate_fn=llm_generate,
+                event_emit_fn=emit_progress,
                 no_source_file=no_source_file,
                 template_constraints=template_constraints,
                 skill_execute_fn=skill_execute,
@@ -746,28 +886,56 @@ class TaskService:
                 self._add_event(task_id, "failed_generation", f"llm_required_and_failed={str(exc)[:160]}")
                 self._snapshot_excel()
                 raise ValueError(f"Generation failed (LLM required): {exc}") from exc
-            # fallback to deterministic generation when LLM runtime fails
-            self._add_event(task_id, "generating", f"llm_generation_failed_fallback={str(exc)[:160]}")
+            self._add_event(task_id, "generating", f"ppt_task_agent_failed_fallback={str(exc)[:160]}")
             try:
+                def fallback_llm_generate(prompt: str) -> str:
+                    index_match = re.search(r"Slide index:\s*(\d+)", prompt)
+                    kind_match = re.search(r"Slide kind:\s*([A-Za-z_]+)", prompt)
+                    title_match = re.search(r"Title hint:\s*(.+)", prompt)
+                    idx = int(index_match.group(1)) if index_match else 1
+                    kind = kind_match.group(1) if kind_match else "content"
+                    title = (title_match.group(1).strip() if title_match else f"Slide {idx}")[:60]
+                    bullets = [title, "Source-file aligned content"]
+                    return json.dumps(
+                        {
+                            "index": idx,
+                            "kind": kind,
+                            "title": title,
+                            "bullets": bullets,
+                            "notes": f"Slide {idx} speaking notes: {title}.",
+                            "texts": {},
+                            "image_placeholders": [],
+                        },
+                        ensure_ascii=False,
+                    )
+
+                start_outline = time.perf_counter()
                 artifacts = ppt_task_agent.execute(
                     parsed_text=parsed_text,
                     requested_pages=task.requested_pages,
                     requirement=effective_requirement,
                     retrieve_context_fn=retrieve_context,
                     knowledge_search_fn=execute_knowledge_search if can_use_knowledge_search else None,
-                    llm_generate_fn=None,
+                    llm_generate_fn=fallback_llm_generate,
+                    event_emit_fn=emit_progress,
                     no_source_file=no_source_file,
                     template_constraints=template_constraints,
                     skill_execute_fn=skill_execute,
                 )
-            except Exception:
+                duration_outline = int((time.perf_counter() - start_outline) * 1000)
+                self._add_skill_call(
+                    task_id,
+                    "ppt_generation_bundle_fallback",
+                    {"requested_pages": task.requested_pages},
+                    {"slides": len(artifacts.slides), "fallback_from": str(exc)[:300]},
+                    duration_outline,
+                )
+            except Exception as fallback_exc:
                 self.repos.tasks.update_status(task_id, "failed_generation")
-                self._add_agent_run(task_id, "PPTTaskAgent", "failed", str(exc))
-                self._add_event(task_id, "failed_generation", str(exc))
+                self._add_agent_run(task_id, "PPTTaskAgent", "failed", str(fallback_exc))
+                self._add_event(task_id, "failed_generation", str(fallback_exc))
                 self._snapshot_excel()
-                raise ValueError(f"Generation failed: {exc}") from exc
-            duration_outline = 1
-            self._add_skill_call(task_id, "ppt_generation_bundle", {"requested_pages": task.requested_pages, "fallback": True}, {"slides": len(artifacts.slides)}, duration_outline)
+                raise ValueError(f"Generation failed: {fallback_exc}") from fallback_exc
 
         self._add_agent_run(
             task_id,
@@ -986,7 +1154,7 @@ class TaskService:
 
             vector_index_service = self._build_vector_index_service(task.user_id)
             context_rows: list[str] = []
-            if vector_index_service.has_index(task_id):
+            if vector_index_service.has_index(task_id) and self._should_use_rag(instruction, parsed_text, stage_hint="revision"):
                 for query in [instruction, task.user_requirement]:
                     rows = vector_index_service.query(task_id, query, top_k=3)
                     context_rows.extend([r.strip() for r in rows if str(r).strip()])
@@ -995,18 +1163,21 @@ class TaskService:
             search_items: list[dict[str, Any]] = []
             search_query = f"{task.user_requirement}\n{instruction}".strip()
             started_search = time.perf_counter()
-            try:
-                search_result = SkillExecutor.create_default().execute("knowledge_search", {"query": search_query, "max_results": 3})
-                search_items = search_result.get("items", []) if isinstance(search_result, dict) else []
-                self._add_skill_call(
-                    task_id,
-                    "knowledge_search",
-                    {"query": search_query, "max_results": 3, "stage": "revision", "task_type": task.task_type},
-                    {"count": len(search_items)},
-                    max(1, int((time.perf_counter() - started_search) * 1000)),
-                )
-            except Exception as exc:
-                self._add_event(task_id, "revision_planning", f"knowledge_search_failed={str(exc)[:120]}")
+            if self._should_use_search(search_query, parsed_text, no_source_file=not bool(files), stage_hint="revision"):
+                try:
+                    search_result = SkillExecutor.create_default().execute("knowledge_search", {"query": search_query, "max_results": 3})
+                    search_items = search_result.get("items", []) if isinstance(search_result, dict) else []
+                    self._add_skill_call(
+                        task_id,
+                        "knowledge_search",
+                        {"query": search_query, "max_results": 3, "stage": "revision", "task_type": task.task_type},
+                        {"count": len(search_items)},
+                        max(1, int((time.perf_counter() - started_search) * 1000)),
+                    )
+                except Exception as exc:
+                    self._add_event(task_id, "revision_planning", f"knowledge_search_failed={str(exc)[:120]}")
+            else:
+                self._add_event(task_id, "revision_planning", "autonomous_search_skipped")
 
             self._add_event(task_id, "revision_planning", f"non_ppt_revision task_type={task.task_type}")
             self.repos.tasks.update_status(task_id, "revision_generating")
@@ -1214,7 +1385,7 @@ class TaskService:
         for target_idx in target_page_indexes:
             target_slide = slides[target_idx - 1]
             context_rows: list[str] = []
-            if vector_index_service.has_index(task_id):
+            if vector_index_service.has_index(task_id) and self._should_use_rag(instruction, parsed_text, stage_hint="ppt_revision"):
                 for query in [instruction, str(target_slide.get("title", "")), task.user_requirement]:
                     if not query.strip():
                         continue
@@ -1226,18 +1397,21 @@ class TaskService:
             skill_executor = SkillExecutor.create_default()
             search_query = f"{task.user_requirement}\n{instruction}\n{target_slide.get('title', '')}".strip()
             started_search = time.perf_counter()
-            try:
-                search_result = skill_executor.execute("knowledge_search", {"query": search_query, "max_results": 3})
-                search_items = search_result.get("items", []) if isinstance(search_result, dict) else []
-                self._add_skill_call(
-                    task_id,
-                    "knowledge_search",
-                    {"query": search_query, "max_results": 3, "stage": "revision", "page": target_idx},
-                    {"count": len(search_items)},
-                    max(1, int((time.perf_counter() - started_search) * 1000)),
-                )
-            except Exception as exc:
-                self._add_event(task_id, "revision_planning", f"knowledge_search_failed page={target_idx};{str(exc)[:120]}")
+            if self._should_use_search(search_query, parsed_text, no_source_file=not bool(files), stage_hint="ppt_revision"):
+                try:
+                    search_result = skill_executor.execute("knowledge_search", {"query": search_query, "max_results": 3})
+                    search_items = search_result.get("items", []) if isinstance(search_result, dict) else []
+                    self._add_skill_call(
+                        task_id,
+                        "knowledge_search",
+                        {"query": search_query, "max_results": 3, "stage": "revision", "page": target_idx},
+                        {"count": len(search_items)},
+                        max(1, int((time.perf_counter() - started_search) * 1000)),
+                    )
+                except Exception as exc:
+                    self._add_event(task_id, "revision_planning", f"knowledge_search_failed page={target_idx};{str(exc)[:120]}")
+            else:
+                self._add_event(task_id, "revision_planning", f"autonomous_search_skipped page={target_idx}")
 
             prev_bullets = target_slide.get("bullets", [])
             if not isinstance(prev_bullets, list):
@@ -2044,13 +2218,6 @@ class TaskService:
 
         def skill_execute(skill_name: str, payload: dict[str, Any]) -> dict[str, Any]:
             effective_payload = dict(payload)
-            if skill_name == "find_skill":
-                effective_payload.setdefault("task_type", task.task_type or "generic_task")
-                effective_payload.setdefault("requirement", task.user_requirement)
-                effective_payload.setdefault("provider_type", generation_decision.provider_type if generation_decision else "")
-                effective_payload.setdefault("base_url", generation_decision.base_url if generation_decision else "")
-                effective_payload.setdefault("model_name", generation_decision.model_name if generation_decision else "")
-                effective_payload.setdefault("api_key", (default_cfg.api_key_encrypted if default_cfg and default_cfg.api_key_encrypted else ""))
             safe_payload = {
                 k: ("<callable>" if callable(v) else v)
                 for k, v in effective_payload.items()
@@ -2112,6 +2279,7 @@ class TaskService:
             "paper_assistant": PaperAssistantTaskAgent,
             "generic_task": GenericTaskAgent,
         }
+        is_custom_task_type = task.task_type not in task_agent_map
         agent_cls = task_agent_map.get(task.task_type, GenericTaskAgent)
         task_agent = agent_cls()
         task_agent_name = agent_cls.__name__
@@ -2124,8 +2292,8 @@ class TaskService:
             "llm_generate_fn": llm_generate if generation_decision is not None else None,
         }
         if isinstance(task_agent, GenericTaskAgent):
-            execute_kwargs["force_direct"] = force_generic_direct
-            execute_kwargs["selected_capability_name"] = capability_name
+            execute_kwargs["force_direct"] = (force_generic_direct or is_custom_task_type)
+            execute_kwargs["selected_capability_name"] = None if is_custom_task_type else capability_name
         try:
             artifacts = task_agent.execute(**execute_kwargs)
         except Exception as exc:
@@ -2318,18 +2486,8 @@ class TaskService:
         skill_md = (
             "---\n"
             f"name: {skill_name}\n"
-            "description: Executes a user-bootstrapped generic capability.\n"
-            "domain: custom\n"
-            "version: 1.0.0\n"
-            "owner: backend\n"
-            "status: active\n"
-            "task_types:\n"
-            "  - generic_task\n"
-            "stages:\n"
-            "  - generating\n"
-            "runtime_handler: runtime.py:run\n"
-            "trigger_keywords:\n"
-            f"  - {slug}\n"
+            f"description: Use this skill when the user asks to execute the custom capability named {slug}.\n"
+            "runtime_handler: scripts/core.py:run\n"
             "---\n\n"
             f"# {skill_name}\n\n"
             "## When to Use This Skill\n"
@@ -2355,7 +2513,9 @@ class TaskService:
             "    return {'passed': True, 'markdown': markdown, 'capability': title}\n"
         )
         skill_md_path = skill_dir / "SKILL.md"
-        runtime_py_path = skill_dir / "runtime.py"
+        scripts_dir = skill_dir / "scripts"
+        scripts_dir.mkdir(parents=True, exist_ok=True)
+        runtime_py_path = scripts_dir / "core.py"
         manifest_path = skill_dir / manifest_name
         skill_md_path.write_text(skill_md, encoding="utf-8")
         runtime_py_path.write_text(runtime_py, encoding="utf-8")
@@ -2458,13 +2618,6 @@ class TaskService:
 
         def skill_execute(skill_name: str, payload: dict[str, Any]) -> dict[str, Any]:
             effective_payload = dict(payload)
-            if skill_name == "find_skill":
-                effective_payload.setdefault("task_type", "template_generation")
-                effective_payload.setdefault("requirement", task.user_requirement)
-                effective_payload.setdefault("provider_type", planning_decision.provider_type or "")
-                effective_payload.setdefault("base_url", planning_decision.base_url or "")
-                effective_payload.setdefault("model_name", planning_decision.model_name or "")
-                effective_payload.setdefault("api_key", (default_cfg.api_key_encrypted if default_cfg and default_cfg.api_key_encrypted else ""))
             if skill_name in {"ppt_template_generation", "template_generation"}:
                 effective_payload.setdefault("llm_generate_fn", template_llm_generate)
             safe_payload = {
@@ -2882,7 +3035,7 @@ class TaskService:
             return False
         skill_name = f"generic_{slug}_executor"
         skill_dir = Path(__file__).resolve().parents[2] / "skills" / "custom" / skill_name
-        runtime_path = skill_dir / "runtime.py"
+        runtime_path = skill_dir / "scripts" / "core.py"
         if not runtime_path.exists():
             return False
         safe_error = (error_message or "").replace("\n", " ").replace("\r", " ").strip()[:240]
@@ -3003,7 +3156,22 @@ class TaskService:
         skills_root = Path(__file__).resolve().parents[2] / "skills"
         registry = SkillRegistry(skills_root)
         skills = registry.resolve_for(task_type, stage)
-        selected = [s.__dict__ for s in skills]
+        skill_by_name = {str(s.name): s for s in skills}
+        fixed_skill_map: dict[str, list[str]] = {
+            "ppt": ["ppt_generation"],
+            "report": ["report"],
+            "wechat_post": ["wechat_post"],
+            "data_analysis": ["data_analysis"],
+            "code_doc": ["code_doc"],
+            "paper_assistant": ["paper_assistant"],
+            "template_generation": ["template_generation", "ppt_template_generation"],
+        }
+        expected = fixed_skill_map.get(str(task_type or "").strip(), [])
+        selected_rows = [skill_by_name[name] for name in expected if name in skill_by_name]
+        if not selected_rows:
+            selected_rows = skills
+        selected = [s.__dict__ for s in selected_rows]
+        self._add_skill_call(task_id, "find_skill", {"task_type": task_type, "stage": stage}, {"skills": [s.get("name") for s in selected]}, 1)
         self._add_skill_call(task_id, "skill_registry_resolve", {"task_type": task_type, "stage": stage}, {"count": len(selected)}, 1)
         return selected
 
@@ -3098,31 +3266,107 @@ class TaskService:
         return llm_generate
 
     def _build_vector_index_service(self, user_id: str) -> VectorIndexService:
-        cfg = self.repos.providers.get_default_for_user(user_id)
-        if cfg is not None:
-            provider_type = str(cfg.provider_type or "").strip().lower()
-            embedding_model = (cfg.embedding_model or cfg.model_name or cfg.chat_model or "").strip()
-            if embedding_model:
-                return VectorIndexService(
-                    self.storage_root,
-                    embedding_runtime_config={
-                        "provider_type": provider_type,
-                        "base_url": (cfg.base_url or "").strip(),
-                        "embedding_model": embedding_model,
-                        "api_key": (cfg.api_key_encrypted or "").strip() if cfg.api_key_encrypted else "",
-                        "timeout_seconds": cfg.timeout_seconds or 8,
-                    },
-                )
-        default_decision = ModelRouter(self.repos).pick(user_id, "planning")
+        cfg = EmbeddingProviderService(self.repos).get_or_create_default_for_user(user_id)
         return VectorIndexService(
             self.storage_root,
             embedding_runtime_config={
-                "provider_type": default_decision.provider_type,
-                "base_url": default_decision.base_url or "",
-                "embedding_model": default_decision.model_name,
+                "provider_id": cfg.provider_id,
+                "user_id": cfg.user_id,
+                "provider_type": cfg.provider_type,
+                "display_name": cfg.display_name,
+                "base_url": cfg.base_url or "",
+                "model_name": cfg.model_name or "",
+                "local_path": cfg.local_path or "",
+                "cache_dir": cfg.cache_dir or "",
+                "dimension": cfg.dimension,
                 "timeout_seconds": 8,
             },
         )
+
+    def _register_rag_upload(self, user_id: str, record: FileRecord, file_hash: str) -> None:
+        if record.file_type not in {"pdf", "docx", "doc", "txt", "md", "ppt", "pptx"}:
+            return
+        document_id = f"doc_{file_hash[:16]}"
+        storage = RagStorageManager(self.storage_root)
+        existing = storage.get_document_by_hash(file_hash)
+        if existing and existing.get("parse_status") == "INDEXED":
+            self._add_event(record.task_id, "file_uploaded", f"rag_document_reused document_id={existing.get('document_id')}")
+            return
+        storage.upsert_document(
+            {
+                "document_id": document_id,
+                "user_id": user_id,
+                "project_id": "default_project",
+                "file_name": record.file_name,
+                "file_hash": file_hash,
+                "file_path": record.file_path,
+                "file_type": record.file_type,
+                "parse_status": "UPLOADED",
+                "created_at": utc_now_iso(),
+                "updated_at": utc_now_iso(),
+                "error_message": None,
+            }
+        )
+
+    def _source_metadata_for_record(self, record: FileRecord) -> dict[str, Any]:
+        file_hash = ""
+        path = Path(record.file_path)
+        if path.exists():
+            h = hashlib.sha256()
+            with path.open("rb") as f:
+                while True:
+                    chunk = f.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    h.update(chunk)
+            file_hash = h.hexdigest()
+        return {
+            "file_hash": file_hash,
+            "file_name": record.file_name,
+            "file_path": record.file_path,
+            "file_type": record.file_type,
+        }
+
+    def _should_use_rag(self, query_or_instruction: str, parsed_text: str, stage_hint: str = "") -> bool:
+        if not (parsed_text or "").strip():
+            return False
+        text = f"{query_or_instruction}\n{stage_hint}".lower()
+        if any(k in text for k in ["source", "uploaded", "file", "pdf", "document", "chapter", "section", "table", "figure"]):
+            return True
+        if any(k in query_or_instruction for k in ["原文", "文件", "上传", "资料", "文档", "章节", "第", "表", "图"]):
+            return True
+        return stage_hint in {"ppt_generation", "revision", "ppt_revision"}
+
+    def _should_use_search(self, query_or_instruction: str, parsed_text: str = "", no_source_file: bool = False, stage_hint: str = "") -> bool:
+        text = f"{query_or_instruction}\n{stage_hint}".lower()
+        if no_source_file and not (parsed_text or "").strip():
+            return True
+        search_keywords = [
+            "搜索",
+            "检索",
+            "联网",
+            "最新",
+            "新闻",
+            "实时",
+            "补充资料",
+            "外部资料",
+            "reference",
+            "citation",
+            "latest",
+            "recent",
+            "web",
+            "search",
+            "online",
+        ]
+        return any(keyword in text for keyword in search_keywords)
+
+    def _resolve_provider_for_task(self, task: Task) -> Optional[Any]:
+        provider_id = (task.llm_provider_id or "").strip()
+        if provider_id:
+            cfg = self.repos.providers.get_by_id(provider_id)
+            if cfg is not None and cfg.user_id == task.user_id:
+                return cfg
+        return self.repos.providers.get_default_for_user(task.user_id)
 
     def _replace_file_record(self, updated: FileRecord) -> None:
         rows = self.repos.files.store.read_all()  # direct store access for MVP replacement
@@ -3135,6 +3379,43 @@ class TaskService:
         if not replaced:
             rows.append(updated.model_dump(mode="json"))
         self.repos.files.store.write_all(rows)
+
+    def _task_types_store_path(self) -> Path:
+        return self.storage_root / "repo_data" / "task_types.json"
+
+    def _read_task_type_rows(self) -> list[dict[str, Any]]:
+        path = self._task_types_store_path()
+        if not path.exists():
+            return []
+        try:
+            rows = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+        return rows if isinstance(rows, list) else []
+
+    def _write_task_type_rows(self, rows: list[dict[str, Any]]) -> None:
+        path = self._task_types_store_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _read_custom_task_types(self, user_id: str) -> list[str]:
+        rows = self._read_task_type_rows()
+        values: list[str] = []
+        for row in rows:
+            if row.get("user_id") != user_id:
+                continue
+            normalized = self._normalize_task_type(str(row.get("task_type", "")))
+            if normalized and normalized not in values and normalized not in SYSTEM_TASK_TYPES:
+                values.append(normalized)
+        return values
+
+    def _normalize_task_type(self, value: str) -> str:
+        raw = (value or "").strip().lower().replace("-", "_").replace(" ", "_")
+        raw = re.sub(r"[^a-z0-9_]+", "_", raw)
+        raw = re.sub(r"_+", "_", raw).strip("_")
+        if len(raw) < 2 or len(raw) > 64:
+            return ""
+        return raw
 
     def _snapshot_excel(self) -> None:
         self.repos.excel_mirror.write_snapshot(

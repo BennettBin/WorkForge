@@ -23,6 +23,13 @@ def _parse_txt(path: Path) -> ParseResult:
     return ParseResult(text=text, parser_name="txt")
 
 
+def _parse_md(path: Path) -> ParseResult:
+    text = path.read_text(encoding="utf-8", errors="ignore").strip()
+    if not text:
+        raise ParseError("Markdown file contains no readable text.")
+    return ParseResult(text=text, parser_name="md")
+
+
 def _parse_docx(path: Path) -> ParseResult:
     try:
         from docx import Document
@@ -139,6 +146,7 @@ def _parse_xlsx(path: Path) -> ParseResult:
 
 _PARSERS: dict[str, Callable[[Path], ParseResult]] = {
     "txt": _parse_txt,
+    "md": _parse_md,
     "docx": _parse_docx,
     "doc": _parse_doc,
     "pptx": _parse_pptx,

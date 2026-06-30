@@ -1,4 +1,5 @@
 from .auth import router as auth_router
+from .embedding_providers import router as embedding_providers_router
 from .health import router as health_router
 from .providers import router as providers_router
 from .skills import router as skills_router
@@ -12,6 +13,7 @@ __all__ = [
     "tasks_router",
     "users_router",
     "auth_router",
+    "embedding_providers_router",
     "providers_router",
     "skills_router",
     "system_router",

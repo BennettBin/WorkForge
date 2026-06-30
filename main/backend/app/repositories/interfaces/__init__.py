@@ -1,4 +1,5 @@
 from .agent_run_repository import AgentRunRepository
+from .embedding_provider_config_repository import EmbeddingProviderConfigRepository
 from .file_repository import FileRepository
 from .output_version_repository import OutputVersionRepository
 from .provider_config_repository import ProviderConfigRepository
@@ -11,6 +12,7 @@ from .user_settings_repository import UserSettingsRepository
 
 __all__ = [
     "TaskRepository",
+    "EmbeddingProviderConfigRepository",
     "FileRepository",
     "ProviderConfigRepository",
     "OutputVersionRepository",

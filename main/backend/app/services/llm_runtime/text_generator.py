@@ -18,8 +18,34 @@ class LLMTextGenerator:
         prompt: str,
         api_key: Optional[str] = None,
         timeout_seconds: int = 60,
+        use_agent: bool = True,
     ) -> str:
         ptype = self._normalize_provider_type(provider_type)
+        # STEP8 migration: route OpenAI-compatible providers through LangGraph create_agent.
+        if use_agent and ptype in {
+            "openai_compatible",
+            "openai_api",
+            "deepseek_api",
+            "qwen_api",
+            "local_llm",
+            "custom_http",
+            "vllm",
+            "local_transformers",
+            "huggingface",
+        }:
+            try:
+                from app.agents.assistant_agents.llm_text_agent import LLMTextAgent
+                return LLMTextAgent().generate(
+                    provider_type=ptype,
+                    base_url=base_url,
+                    model_name=model_name,
+                    prompt=prompt,
+                    api_key=api_key,
+                    timeout_seconds=timeout_seconds,
+                )
+            except Exception:
+                # fallback to legacy transport path
+                pass
         if ptype == "ollama":
             return self._ollama_chat(base_url or "http://localhost:11434", model_name, prompt, timeout_seconds)
         if ptype == "anthropic_api":

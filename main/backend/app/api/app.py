@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.errors import register_exception_handlers
 from app.api.routes import (
     auth_router,
+    embedding_providers_router,
     health_router,
     providers_router,
     skills_router,
@@ -18,6 +19,7 @@ from app.api.routes import (
     ws_tasks_router,
 )
 from app.config import settings
+from app.logging_config import configure_logging
 from app.services.active_users import ActiveUserTracker
 from app.services.auth_service import AuthService
 from app.services.repository_factory import build_repository_bundle
@@ -30,10 +32,17 @@ FRONTEND_INDEX_FILE = FRONTEND_DIST_DIR / "index.html"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_logging(settings.log_level)
     app.state.repositories = build_repository_bundle(settings.data_dir)
     recover_interrupted_running_tasks(app.state.repositories)
-    app.state.active_user_tracker = ActiveUserTracker(window_seconds=600)
-    AuthService(app.state.repositories).ensure_admin_account(email="admin", username="admin", password="123456")
+    app.state.active_user_tracker = ActiveUserTracker(
+        window_seconds=settings.active_user_window_seconds
+    )
+    AuthService(app.state.repositories).ensure_admin_account(
+        email=settings.admin_email,
+        username=settings.admin_username,
+        password=settings.admin_password,
+    )
     yield
 
 
@@ -46,7 +55,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(application)
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://127.0.0.1:8080", "http://localhost:8080"],
+        allow_origins=list(settings.cors_origins),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -54,6 +63,7 @@ def create_app() -> FastAPI:
     application.include_router(health_router)
     application.include_router(tasks_router)
     application.include_router(auth_router)
+    application.include_router(embedding_providers_router)
     application.include_router(providers_router)
     application.include_router(skills_router)
     application.include_router(system_router)
