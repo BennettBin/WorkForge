@@ -43,3 +43,4 @@ checkpoints/
 !/main/backend/app/templates/ppt/system_default/**
 /main/runtime_data/*
 /main/backend/runtime_data/*
+/develop_guide/
